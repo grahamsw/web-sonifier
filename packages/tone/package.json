@@ -1,0 +1,12 @@
+{
+  "name": "@web-sonify/tone",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/ToneSonifier.js",
+  "exports": {
+    ".": "./src/ToneSonifier.js"
+  },
+  "peerDependencies": {
+    "@web-sonify/core": "*"
+  }
+}

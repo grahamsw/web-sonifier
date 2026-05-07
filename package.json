@@ -1,0 +1,8 @@
+{
+  "name": "web-sonify-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "demo"
+  ]
+}

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>web-sonify demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    h1 { font-size: 1.4rem; font-weight: 500; color: #fff; letter-spacing: 0.05em; }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .price-display {
+      text-align: center;
+      padding: 1rem 0;
+    }
+
+    .price-display .label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .price-display .value {
+      font-size: 3rem;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .price-display .change {
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .change.up   { color: #4caf82; }
+    .change.down { color: #e05c5c; }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-play    { background: #4caf82; color: #000; font-weight: 600; }
+    .btn-stop    { background: #444; color: #fff; }
+    .btn-settings { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
+
+    .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .volume-row label { font-size: 0.85rem; color: #888; white-space: nowrap; }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: #4caf82;
+    }
+
+    .volume-row .vol-value {
+      font-size: 0.85rem;
+      color: #ccc;
+      width: 2.5rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Settings dialog */
+    dialog {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      color: #e0e0e0;
+      padding: 1.5rem 2rem;
+      width: min(480px, 90vw);
+    }
+
+    dialog::backdrop { background: rgba(0,0,0,0.7); }
+
+    dialog h2 { font-size: 1rem; font-weight: 500; margin-bottom: 1.25rem; color: #fff; }
+
+    .setting-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .setting-group h3 {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #666;
+      margin-bottom: 0.75rem;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .setting-row label {
+      font-size: 0.85rem;
+      color: #aaa;
+      width: 9rem;
+      flex-shrink: 0;
+    }
+
+    .setting-row input[type=number] {
+      width: 5rem;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      color: #fff;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .setting-row select {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      color: #fff;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .dialog-range-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .dialog-range-row span { font-size: 0.8rem; color: #666; }
+
+    .dialog-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-save   { background: #4caf82; color: #000; font-weight: 600; }
+    .btn-cancel { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
+
+    .status {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>web-sonify / demo</h1>
+
+  <div class="card">
+    <div class="price-display">
+      <div class="label">Crude Oil (mock feed)</div>
+      <div class="value" id="price-value">—</div>
+      <div class="change" id="price-change">&nbsp;</div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-play"     id="btn-play">▶ Play</button>
+      <button class="btn-stop"     id="btn-stop"     disabled>■ Stop</button>
+      <button class="btn-settings" id="btn-settings" disabled>⚙ Settings</button>
+    </div>
+
+    <div class="volume-row">
+      <label for="master-volume">Master volume</label>
+      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8" disabled>
+      <span class="vol-value" id="master-volume-display">0.80</span>
+    </div>
+  </div>
+
+  <div class="status" id="status">Press Play to start (requires user gesture for audio)</div>
+
+  <!-- Settings dialog -->
+  <dialog id="settings-dialog">
+    <h2>Sonifier settings</h2>
+
+    <div class="setting-group">
+      <h3>Frequency mapping</h3>
+      <div class="setting-row">
+        <label>Input range (data)</label>
+        <div class="dialog-range-row">
+          <input type="number" id="input-min" step="0.1">
+          <span>to</span>
+          <input type="number" id="input-max" step="0.1">
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>Output range (Hz)</label>
+        <div class="dialog-range-row">
+          <input type="number" id="output-min" step="1">
+          <span>to</span>
+          <input type="number" id="output-max" step="1">
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>Curve</label>
+        <select id="curve-select">
+          <option value="linear">Linear</option>
+          <option value="exponential">Exponential</option>
+          <option value="logarithmic">Logarithmic</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <h3>Tone</h3>
+      <div class="setting-row">
+        <label>Waveform</label>
+        <select id="waveform-select">
+          <option value="sine">Sine</option>
+          <option value="square">Square</option>
+          <option value="sawtooth">Sawtooth</option>
+          <option value="triangle">Triangle</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>Sonifier volume</label>
+        <input type="number" id="sonifier-volume" min="0" max="1" step="0.05">
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn-save"   id="btn-save">Save</button>
+      <button class="btn-cancel" id="btn-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
