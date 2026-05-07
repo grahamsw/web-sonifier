@@ -11,7 +11,7 @@ Sonification is underused as a monitoring and data-presentation tool. This libra
 Three concerns are kept strictly separate:
 
 1. **Data plumbing** — the site author's responsibility. They decide when and how to push data values into the system.
-2. **Mapping** — the `Adapter` class translates raw data values (e.g. an oil price) into a value the sonifier understands (e.g. a frequency in Hz).
+2. **Mapping** — the `Adapter` class translates raw data values (e.g. a price) into a value the sonifier understands (e.g. a frequency in Hz).
 3. **Sound synthesis** — the sonifier plugin. Receives clean, ready-to-use parameter values and produces sound. Knows nothing about data sources or mapping.
 
 The site author wires these together. The sonifier plugin is a black box that just responds to `setParam()`.
@@ -59,7 +59,7 @@ const pitchAdapter = new Adapter({
   curve:       'exponential'  // 'linear' | 'exponential' | 'logarithmic'
 })
 
-tone.setParam('frequency', pitchAdapter.map(currentOilPrice))
+tone.setParam('frequency', pitchAdapter.map(currentPrice))
 ```
 
 The adapter can also auto-range — deriving the input range dynamically from a rolling window of recent values:
@@ -72,6 +72,8 @@ const pitchAdapter = new Adapter({
   autoRange:   { windowSize: 50, padding: 0.05 }
 })
 ```
+
+(Auto range adjustment is needed when the range of data values varies over time and sticking to the same mapping would result in out of range values. For example, traffic may vary between 0 and 100 at 1AM on Sunday, but between 5000 and 10000 at noon on Monday. If the useful parameter range is between 50 and 500 one mapping may not cover both ranges.)
 
 `adapter.seed(values[])` primes the window with historical data before the live feed starts.
 
@@ -98,7 +100,7 @@ Each entry in `getParamSchema()` is an object:
 }
 ```
 
-`volume` is a conventional parameter name that all sonifiers should include as a `number` in `[0, 1]`. It controls the gain of that individual sonifier, independent of master volume. There is no special treatment of `volume` in the core — it is just another param.
+`volume` is a conventional parameter name that all sonifiers should include as a `number` in `[0, 1]`. It controls the gain of that individual sonifier, independent of master volume. There is no special treatment of `volume` in the core — it is just another param. Not strictly necessary, but it allows site authors to use more than one sonifier.
 
 ---
 
@@ -209,7 +211,7 @@ await runtime.destroyAll()      // destroy everything, close AudioContext
 ### Multiple sonifiers simultaneously
 
 ```js
-const tone1 = runtime.create('tone', 'oil-price')
+const tone1 = runtime.create('tone', 'price')
 const tone2 = runtime.create('tone', 'volatility')
 // instanceId (second arg) distinguishes them in the runtime's registry
 ```
@@ -252,7 +254,7 @@ web-sonify/
 │
 ├── demo/
 │   ├── index.html               # Vanilla HTML, no bundler
-│   └── main.js                  # Mocked oil price feed + settings dialog
+│   └── main.js                  # Mocked price feed + settings dialog
 │
 └── package.json                 # npm workspaces root
 ```
