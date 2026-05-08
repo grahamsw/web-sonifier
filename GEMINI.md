@@ -12,3 +12,9 @@ This file contains foundational mandates for all agents and developers working o
 ## Workspace Guidelines
 -   Use Conductor tracks for all non-trivial features and refactors.
 -   Maintain the `conductor/` directory as the single source of truth for planning.
+
+## Sonifier Best Practices
+
+1.  **Parameter Smoothing**: To avoid "zipper noise" or clicks when parameters change abruptly, sonifiers should use Web Audio's automation methods (e.g., `setTargetAtTime` or `linearRampToValueAtTime`).
+    -   **Temporal Integrity**: Keep ramp times short (e.g., 10-50ms) to ensure the sound remains responsive to critical data spikes. 
+    -   **Data vs. Audio**: The `Adapter` handles data mapping; the `Sonifier` handles audio-rate transitions. Do not implement time-based smoothing in the `Adapter` as data arrival rates are unpredictable.

@@ -64,6 +64,9 @@ The base class owns `setParam(name, value)` — plugin authors must **not** over
 
 `applyDefaults()` is called automatically by `Runtime.create()` after `init()`, so the audio graph is always fully initialised before any values flow through it.
 
+**Smoothing and Clicks:**
+To avoid "zipper noise" or audio clicks when parameters change, sonifier authors should use Web Audio automation (like `setTargetAtTime`) inside `onParam()`. Keeping the ramp time short (e.g., 20ms) provides a clean sound without introducing noticeable lag for critical events.
+
 ### `Adapter` (`@web-sonify/core`)
 
 A stateful mapping function. Knows nothing about sonifiers. The site author creates one per data stream → parameter mapping.
