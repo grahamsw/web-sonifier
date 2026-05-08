@@ -18,6 +18,20 @@ The site author wires these together. The sonifier plugin is a black box that ju
 
 ---
 
+## Demo
+
+The repository includes a simple vanilla JS demo in the `demo/` folder.
+
+You can serve this locally using any static web server (e.g. `npx serve demo`).
+
+**Deploying to Firebase:**
+This repository is pre-configured for Firebase Hosting. To deploy the demo:
+1. Make sure you have the Firebase CLI installed (`npm install -g firebase-tools`).
+2. Log in using `firebase login`.
+3. Run `firebase deploy --only hosting`.
+
+---
+
 ## Architecture
 
 ### `Runtime` (`@web-sonify/core`)
