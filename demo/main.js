@@ -132,7 +132,7 @@ btnPlay.addEventListener('click', () => {
   feedInterval = startFeed((price, prev) => {
     updatePriceDisplay(price, prev)
     const mappedValue = activeAdapter.map(price)
-    activeSonifier.setParam(activeAdapter.config.param, mappedValue)
+    activeSonifier.setParam(activeAdapter.param, mappedValue)
   })
 
   statusEl.textContent = 'Sonifying…'

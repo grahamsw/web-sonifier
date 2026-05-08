@@ -86,6 +86,7 @@ export class Adapter {
    * @param {Partial<Object>} config
    */
   setConfig(config) {
+    if (config.param)       this.param = config.param
     if (config.outputRange) this.outputRange = config.outputRange
     if (config.inputRange)  this._fixedInputRange = config.inputRange
     if (config.curve)       this.curve = config.curve
