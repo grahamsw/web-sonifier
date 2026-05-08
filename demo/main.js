@@ -44,6 +44,11 @@ const curveSelectEl     = document.getElementById('curve-select')
 const waveformSelectEl  = document.getElementById('waveform-select')
 const sonifierVolumeEl  = document.getElementById('sonifier-volume')
 
+// Dialog elements for dynamic updates
+const outputRangeLabelEl = document.getElementById('output-range-label')
+const groupLabelEl       = document.getElementById('group-label')
+const rowWaveformEl      = document.getElementById('row-waveform')
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -60,20 +65,34 @@ const STORAGE_KEY = 'web-sonify-demo-settings'
 
 const defaultSettings = {
   sonifierType:    'tone',
-  inputRange:      [85, 115],
-  outputRange:     [110, 440],
-  curve:           'exponential',
-  waveform:        'sine',
-  sonifierVolume:  0.5,
-  masterVolume:    0.8
+  masterVolume:    0.8,
+  tone: {
+    inputRange:      [85, 115],
+    outputRange:     [110, 440],
+    curve:           'exponential',
+    waveform:        'sine',
+    sonifierVolume:  0.5
+  },
+  geiger: {
+    inputRange:      [85, 115],
+    outputRange:     [1, 50],
+    curve:           'linear',
+    sonifierVolume:  0.7
+  }
 }
 
 function loadSettings() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : { ...defaultSettings }
+    if (!saved) return JSON.parse(JSON.stringify(defaultSettings))
+    
+    // Deep merge or manual repair for migrations
+    const settings = JSON.parse(saved)
+    if (!settings.tone) settings.tone = { ...defaultSettings.tone }
+    if (!settings.geiger) settings.geiger = { ...defaultSettings.geiger }
+    return settings
   } catch {
-    return { ...defaultSettings }
+    return JSON.parse(JSON.stringify(defaultSettings))
   }
 }
 
@@ -90,20 +109,21 @@ sonifierSelectEl.value = settings.sonifierType
 
 function applySettings() {
   const type = sonifierSelectEl.value
+  const s = settings[type]
   
   if (activeAdapter) {
     activeAdapter.setConfig({
       param:       type === 'tone' ? 'frequency' : 'rate',
-      inputRange:  settings.inputRange,
-      outputRange: settings.outputRange,
-      curve:       settings.curve
+      inputRange:  s.inputRange,
+      outputRange: s.outputRange,
+      curve:       s.curve
     })
   }
   if (activeSonifier) {
     if (type === 'tone') {
-      activeSonifier.setParam('waveform', settings.waveform)
+      activeSonifier.setParam('waveform', s.waveform)
     }
-    activeSonifier.setParam('volume', settings.sonifierVolume)
+    activeSonifier.setParam('volume', s.sonifierVolume)
   }
   runtime.setMasterVolume(settings.masterVolume)
   masterVolumeEl.value = settings.masterVolume
@@ -118,13 +138,15 @@ btnPlay.addEventListener('click', () => {
   runtime.start()
 
   const type = sonifierSelectEl.value
+  const s = settings[type]
+  
   activeSonifier = runtime.create(type)
 
   activeAdapter = new Adapter({
     param:        type === 'tone' ? 'frequency' : 'rate',
-    inputRange:   settings.inputRange,
-    outputRange:  settings.outputRange,
-    curve:        settings.curve
+    inputRange:   s.inputRange,
+    outputRange:  s.outputRange,
+    curve:        s.curve
   })
 
   applySettings()
@@ -192,25 +214,46 @@ function updatePriceDisplay(price, prev) {
 // ---------------------------------------------------------------------------
 
 btnSettings.addEventListener('click', () => {
+  const type = sonifierSelectEl.value
+  const s = settings[type]
+
+  // Dynamic UI updates
+  if (type === 'geiger') {
+    outputRangeLabelEl.textContent = 'Output range (Clicks/sec)'
+    groupLabelEl.textContent = 'Geiger'
+    rowWaveformEl.style.display = 'none'
+  } else {
+    outputRangeLabelEl.textContent = 'Output range (Hz)'
+    groupLabelEl.textContent = 'Tone'
+    rowWaveformEl.style.display = 'flex'
+  }
+
   // Populate dialog from current settings
-  inputMinEl.value       = settings.inputRange[0]
-  inputMaxEl.value       = settings.inputRange[1]
-  outputMinEl.value      = settings.outputRange[0]
-  outputMaxEl.value      = settings.outputRange[1]
-  curveSelectEl.value    = settings.curve
-  waveformSelectEl.value = settings.waveform
-  sonifierVolumeEl.value = settings.sonifierVolume
+  inputMinEl.value       = s.inputRange[0]
+  inputMaxEl.value       = s.inputRange[1]
+  outputMinEl.value      = s.outputRange[0]
+  outputMaxEl.value      = s.outputRange[1]
+  curveSelectEl.value    = s.curve
+  waveformSelectEl.value = s.waveform || 'sine'
+  sonifierVolumeEl.value = s.sonifierVolume
 
   dialog.showModal()
 })
 
 document.getElementById('btn-save').addEventListener('click', () => {
-  settings.inputRange     = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
-  settings.outputRange    = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
-  settings.curve          = curveSelectEl.value
-  settings.waveform       = waveformSelectEl.value
-  settings.sonifierVolume = parseFloat(sonifierVolumeEl.value)
-  settings.sonifierType   = sonifierSelectEl.value
+  const type = sonifierSelectEl.value
+  const s = settings[type]
+
+  s.inputRange     = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
+  s.outputRange    = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
+  s.curve          = curveSelectEl.value
+  s.sonifierVolume = parseFloat(sonifierVolumeEl.value)
+  
+  if (type === 'tone') {
+    s.waveform = waveformSelectEl.value
+  }
+
+  settings.sonifierType = type
 
   saveSettings(settings)
   applySettings()

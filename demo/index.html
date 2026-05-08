@@ -231,10 +231,10 @@
 
   <!-- Settings dialog -->
   <dialog id="settings-dialog">
-    <h2>Sonifier settings</h2>
+    <h2 id="settings-title">Sonifier settings</h2>
 
     <div class="setting-group">
-      <h3>Frequency mapping</h3>
+      <h3>Mapping</h3>
       <div class="setting-row">
         <label>Input range (data)</label>
         <div class="dialog-range-row">
@@ -244,7 +244,7 @@
         </div>
       </div>
       <div class="setting-row">
-        <label>Output range (Hz)</label>
+        <label id="output-range-label">Output range (Hz)</label>
         <div class="dialog-range-row">
           <input type="number" id="output-min" step="1">
           <span>to</span>
@@ -261,9 +261,9 @@
       </div>
     </div>
 
-    <div class="setting-group">
-      <h3>Tone</h3>
-      <div class="setting-row">
+    <div class="setting-group" id="group-tone">
+      <h3 id="group-label">Tone</h3>
+      <div class="setting-row" id="row-waveform">
         <label>Waveform</label>
         <select id="waveform-select">
           <option value="sine">Sine</option>
