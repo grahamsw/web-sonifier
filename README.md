@@ -1,6 +1,8 @@
 # web-sonify
 
-A browser-native sonification framework. Makes it easy to turn a stream of data into sound on a web page, without requiring the site author to understand Web Audio. [Listen to the demo here.](https://web-sonifier.com) 
+[Listen to the demo here.](https://web-sonifier.com) 
+
+This is a browser-native sonification framework that makes it easy for a site author to turn a stream of data into sound on a web page.
 
 Sonification is underused as a monitoring and data-presentation tool. This library aims to lower the barrier for site authors and make it possible for sonifier authors to contribute high-quality plugins.
 
@@ -22,7 +24,8 @@ The site author wires these together. The sonifier plugin is a black box that ju
 
 The repository includes a simple vanilla JS demo in the `demo/` folder.
 
-You can serve this locally using any static web server (e.g. `npx serve demo`).
+You can serve this locally using any static web server (e.g. `npx serve demo`). ([Or listen to it here.](https://web-sonifier.com) )
+)
 
 **Deploying to Firebase:**
 This repository is pre-configured for Firebase Hosting. To deploy the demo:
@@ -44,7 +47,7 @@ The top-level object. One per page. Manages:
 
 `runtime.start()` must be called from a user gesture (browser autoplay policy). It is safe to call multiple times.
 
-All sonifiers connect their output to the master gain node, which connects to `audioContext.destination`. This gives master volume control over everything for free.
+All sonifiers connect their output to the master gain node, which connects to `audioContext.destination`. This gives master volume control over everything for free. (And is as much as you need to know about WebAudio unless you're writing sonifiers.)
 
 ### `SonifierBase` (`@web-sonify/core`)
 
@@ -95,6 +98,9 @@ const pitchAdapter = new Adapter({
 
 The mapping pipeline inside `map()` is: normalise to 0..1 → apply curve → scale to outputRange. Out-of-range input values are clamped, not extrapolated.
 
+You can use  any mapping you like between your data and the sonifier, what makes sense will depend on both. The auto-ranging mapper is provided because it's a common and slightly tricky requirement.
+
+Sonifiers do NOT need to be continuous. The whole point of this library is to make it easy to experiment with different types of sonification.
 ---
 
 ## Parameter schema
@@ -114,7 +120,7 @@ Each entry in `getParamSchema()` is an object:
 }
 ```
 
-`volume` is a conventional parameter name that all sonifiers should include as a `number` in `[0, 1]`. It controls the gain of that individual sonifier, independent of master volume. There is no special treatment of `volume` in the core — it is just another param. Not strictly necessary, but it allows site authors to use more than one sonifier.
+`volume` is a conventional parameter name that all sonifiers should include as a `number` in `[0, 1]`. It controls the gain of that individual sonifier, independent of master volume. There is no special treatment of `volume` in the core — it is just another param. Not strictly necessary, but it allows site authors to control relative volume if more than one sonifier is used on the page.
 
 ---
 
@@ -292,6 +298,7 @@ No build step. No npm install. The demo is plain ES modules served statically.
 - `SonifierBase` — plugin interface, validation, clamping, defaults
 - `Adapter` — fixed range, auto-range (rolling window), curves (linear/exponential/logarithmic)
 - `ToneSonifier` — oscillator with frequency, volume, waveform params
+- `GeigerSonifier` - Geiger counter like sonifier (a classic)
 - Demo page — mocked feed, adapter, settings dialog, localStorage persistence
 
 ### Not yet done (roughly in priority order)
@@ -303,7 +310,6 @@ No build step. No npm install. The demo is plain ES modules served statically.
 - Settings serialisation helpers — utilities for save/restore of full sonifier + adapter config to localStorage or a server
 
 **Plugins**
-- `PulseSonifier` — geiger-counter style discrete pulses whose rate changes with data. Complements `ToneSonifier` for discrete/alarm-style sonification.
 - Plugin metadata — a `getMeta()` method returning name, description, author, version for display in a plugin picker UI
 
 **UI helpers**
