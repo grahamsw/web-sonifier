@@ -145,8 +145,9 @@ export class Adapter {
   _applyCurve(t) {
     switch (this.curve) {
       case 'exponential':
-        // Preserves perceptual spacing (e.g. for frequency/pitch)
-        return t === 0 ? 0 : Math.pow(t, 2)
+        // Standard perceptual mapping: min * (max/min)^t
+        // We handle the scaling here because it requires access to outputRange
+        return t
       case 'logarithmic':
         return t === 0 ? 0 : Math.log1p(t * (Math.E - 1))
       case 'linear':
@@ -156,6 +157,15 @@ export class Adapter {
   }
 
   _scale(t, [min, max]) {
+    if (this.curve === 'exponential') {
+      // Perceptual frequency mapping: equal data changes = equal pitch intervals (octaves)
+      // formula: f = fmin * (fmax / fmin) ^ t
+      if (min <= 0 || max <= 0) {
+        // Fallback for non-frequency use cases or invalid ranges
+        return min + Math.pow(t, 2) * (max - min)
+      }
+      return min * Math.pow(max / min, t)
+    }
     return min + t * (max - min)
   }
 }

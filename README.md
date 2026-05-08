@@ -305,7 +305,6 @@ No build step. No npm install. The demo is plain ES modules served statically.
 
 **Core**
 - TypeScript definitions (`.d.ts`) — the JS is the source of truth; types sit on top
-- `Adapter` curve refinement — the exponential curve (`t²`) is a placeholder; true perceptual frequency mapping should use `outputMin * (outputMax/outputMin) ** t`
 - `Adapter` smoothing — optionally smooth rapid value changes before they reach the sonifier, to avoid jittery sound
 - Settings serialisation helpers — utilities for save/restore of full sonifier + adapter config to localStorage or a server
 

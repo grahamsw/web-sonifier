@@ -41,13 +41,22 @@ describe('Adapter', () => {
       const adapter = new Adapter({
         param: 'freq',
         inputRange: [0, 100],
-        outputRange: [100, 1000],
+        outputRange: [100, 1600], // 4 octaves (100 -> 200 -> 400 -> 800 -> 1600)
         curve: 'exponential'
       })
-      // Exponential curve: t^2
-      // At input 50, normalized t=0.5, t^2=0.25
-      // Output: 100 + 0.25 * (1000 - 100) = 100 + 225 = 325
-      expect(adapter.map(50)).toBe(325)
+      
+      // With perceptual mapping:
+      // at 0.0 -> 100
+      // at 0.25 -> 200 (1 octave up)
+      // at 0.5 -> 400 (2 octaves up)
+      // at 0.75 -> 800 (3 octaves up)
+      // at 1.0 -> 1600 (4 octaves up)
+      
+      expect(adapter.map(0)).toBe(100)
+      expect(adapter.map(25)).toBe(200)
+      expect(adapter.map(50)).toBe(400)
+      expect(adapter.map(75)).toBe(800)
+      expect(adapter.map(100)).toBe(1600)
     })
 
     it('applies logarithmic curve correctly', () => {
