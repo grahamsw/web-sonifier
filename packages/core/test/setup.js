@@ -65,6 +65,7 @@ export class AudioContextMock {
   }
   suspend() { return Promise.resolve() }
   resume() { return Promise.resolve() }
+  close() { return Promise.resolve() }
 }
 
 globalThis.AudioContext = AudioContextMock

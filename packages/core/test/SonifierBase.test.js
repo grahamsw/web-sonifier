@@ -72,4 +72,24 @@ describe('SonifierBase', () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown param "unknown"'))
     warnSpy.mockRestore()
   })
+
+  it('calls destroy()', () => {
+    sonifier.destroy()
+    expect(sonifier.destroyed).toBe(true)
+  })
+
+  it('warns when clamping numbers', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    sonifier.setParam('num', 200)
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('clamped to [0, 100]'))
+    warnSpy.mockRestore()
+  })
+
+  it('warns on invalid type and uses default', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    sonifier.setParam('num', 'not-a-number')
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('expected a number'))
+    expect(sonifier.getParam('num')).toBe(50) // default
+    warnSpy.mockRestore()
+  })
 })

@@ -49,6 +49,21 @@ describe('Adapter', () => {
       // Output: 100 + 0.25 * (1000 - 100) = 100 + 225 = 325
       expect(adapter.map(50)).toBe(325)
     })
+
+    it('applies logarithmic curve correctly', () => {
+      const adapter = new Adapter({
+        param: 'vol',
+        inputRange: [0, 100],
+        outputRange: [0, 1],
+        curve: 'logarithmic'
+      })
+      // Logarithmic curve: log1p(t * (E - 1))
+      // At input 50, normalized t=0.5
+      // Expected: log1p(0.5 * (E - 1)) = log(1 + 0.5 * 1.718...) = log(1.859...) approx 0.62
+      expect(adapter.map(50)).toBeCloseTo(0.62, 2)
+      expect(adapter.map(0)).toBe(0)
+      expect(adapter.map(100)).toBe(1)
+    })
   })
 
   describe('Auto-ranging', () => {
@@ -63,6 +78,8 @@ describe('Adapter', () => {
       expect(adapter.map(10)).toBe(0)
 
       adapter.map(10) // window: [10, 10] -> still min=max
+      expect(adapter.map(10)).toBe(0) // Still returns min output
+
       adapter.map(20) // window: [10, 10, 20] -> range [10, 20]
 
       // Now it maps. Input 15 in range [10, 20] -> 0.5
@@ -100,6 +117,19 @@ describe('Adapter', () => {
       // Range is [60, 80]. Input 80 is at the top (1).
       expect(adapter.map(80)).toBe(1)
     })
+
+    it('returns null for getInputRange if window too small', () => {
+      const adapter = new Adapter({
+        param: 'a',
+        outputRange: [0, 1],
+        autoRange: { windowSize: 5 }
+      })
+      expect(adapter.getInputRange()).toBeNull()
+      adapter.seed([10])
+      expect(adapter.getInputRange()).toBeNull()
+      adapter.seed([20])
+      expect(adapter.getInputRange()).toEqual([9.5, 20.5]) // Default 5% padding
+    })
   })
 
   describe('Configuration', () => {
@@ -111,6 +141,18 @@ describe('Adapter', () => {
       adapter.setConfig({ param: 'b', outputRange: [10, 20] })
       expect(adapter.param).toBe('b')
       expect(adapter.outputRange).toEqual([10, 20])
+    })
+
+    it('returns full config via getConfig', () => {
+      const config = {
+        param: 'freq',
+        outputRange: [100, 1000],
+        inputRange: [0, 100],
+        curve: 'exponential',
+        autoRange: null
+      }
+      const adapter = new Adapter(config)
+      expect(adapter.getConfig()).toEqual(config)
     })
   })
 })

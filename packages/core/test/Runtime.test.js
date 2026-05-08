@@ -56,4 +56,31 @@ describe('Runtime', () => {
     runtime.setMasterVolume(0.5)
     expect(runtime.getMasterVolume()).toBe(0.5)
   })
+
+  it('suspends and resumes', async () => {
+    runtime.start()
+    const suspendSpy = vi.spyOn(runtime._audioContext, 'suspend')
+    const resumeSpy = vi.spyOn(runtime._audioContext, 'resume')
+    
+    await runtime.suspend()
+    expect(suspendSpy).toHaveBeenCalled()
+    
+    await runtime.resume()
+    expect(resumeSpy).toHaveBeenCalled()
+  })
+
+  it('destroys all instances and closes context', async () => {
+    runtime.register('mock', MockSonifier)
+    runtime.start()
+    const s1 = runtime.create('mock', 's1')
+    const s2 = runtime.create('mock', 's2')
+    const closeSpy = vi.spyOn(runtime._audioContext, 'close')
+    
+    await runtime.destroyAll()
+    
+    expect(s1.destroyed).toBe(true)
+    expect(s2.destroyed).toBe(true)
+    expect(closeSpy).toHaveBeenCalled()
+    expect(runtime.getMasterVolume()).toBe(1.0) // fallback when no gain node
+  })
 })
