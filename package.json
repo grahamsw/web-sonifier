@@ -6,9 +6,11 @@
     "demo"
   ],
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "vitest": "^4.1.5"
   }
 }
