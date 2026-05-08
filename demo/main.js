@@ -1,6 +1,6 @@
 import { Runtime, Adapter } from '@web-sonify/core'
-import { ToneSonifier } from '../packages/tone/src/ToneSonifier.js'
-import { GeigerSonifier } from '../packages/geiger/src/GeigerSonifier.js'
+import { ToneSonifier } from '@web-sonify/tone'
+import { GeigerSonifier } from '@web-sonify/geiger'
 
 // ---------------------------------------------------------------------------
 // Mocked oil price feed — random walk, updates every 3 seconds

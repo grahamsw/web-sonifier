@@ -1,6 +1,6 @@
 # web-sonify
 
-A browser-native sonification framework. Makes it easy to turn a stream of data into sound on a web page, without requiring the site author to understand Web Audio.
+A browser-native sonification framework. Makes it easy to turn a stream of data into sound on a web page, without requiring the site author to understand Web Audio. [View the live demo here.](https://web-sonifier.web.app) (It's a proof of concept at this stage. Later versions will sound better, but the challenge is not doing this - it's making it bearable.)
 
 Sonification is underused as a monitoring and data-presentation tool. This library aims to lower the barrier for site authors and make it possible for sonifier authors to contribute high-quality plugins.
 
