@@ -104,6 +104,7 @@ The mapping pipeline inside `map()` is: normalise to 0..1 → apply curve → sc
 You can use  any mapping you like between your data and the sonifier, what makes sense will depend on both. The auto-ranging mapper is provided because it's a common and slightly tricky requirement.
 
 Sonifiers do NOT need to be continuous. The whole point of this library is to make it easy to experiment with different types of sonification.
+
 ---
 
 ## Parameter schema
