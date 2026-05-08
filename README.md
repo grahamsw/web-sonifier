@@ -1,6 +1,6 @@
 # web-sonify
 
-[Listen to the demo here.](https://web-sonifier.com) 
+[Listen to the demo here.](https://web-sonifier.web.app) 
 
 This is a browser-native sonification framework that makes it easy for a site author to turn a stream of data into sound on a web page.
 
@@ -24,7 +24,7 @@ The site author wires these together. The sonifier plugin is a black box that ju
 
 The repository includes a simple vanilla JS demo in the `demo/` folder.
 
-You can serve this locally using any static web server (e.g. `npx serve demo`). ([Or listen to it here.](https://web-sonifier.com) )
+You can serve this locally using any static web server (e.g. `npx serve demo`). ([Or listen to it here.](https://web-sonifier.web.app) )
 )
 
 **Deploying to Firebase:**
