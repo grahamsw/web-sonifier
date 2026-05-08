@@ -1,5 +1,6 @@
 import { Runtime, Adapter } from '../packages/core/src/index.js'
 import { ToneSonifier } from '../packages/tone/src/ToneSonifier.js'
+import { GeigerSonifier } from '../packages/geiger/src/GeigerSonifier.js'
 
 // ---------------------------------------------------------------------------
 // Mocked oil price feed — random walk, updates every 3 seconds
@@ -25,6 +26,7 @@ function startFeed(onUpdate) {
 
 const priceValueEl    = document.getElementById('price-value')
 const priceChangeEl   = document.getElementById('price-change')
+const sonifierSelectEl = document.getElementById('sonifier-select')
 const btnPlay         = document.getElementById('btn-play')
 const btnStop         = document.getElementById('btn-stop')
 const btnSettings     = document.getElementById('btn-settings')
@@ -48,14 +50,16 @@ const sonifierVolumeEl  = document.getElementById('sonifier-volume')
 
 const runtime = new Runtime()
 runtime.register('tone', ToneSonifier)
+runtime.register('geiger', GeigerSonifier)
 
-let tone = null
-let pitchAdapter = null
+let activeSonifier = null
+let activeAdapter = null
 let feedInterval = null
 
 const STORAGE_KEY = 'web-sonify-demo-settings'
 
 const defaultSettings = {
+  sonifierType:    'tone',
   inputRange:      [85, 115],
   outputRange:     [110, 440],
   curve:           'exponential',
@@ -78,22 +82,28 @@ function saveSettings(settings) {
 }
 
 let settings = loadSettings()
+sonifierSelectEl.value = settings.sonifierType
 
 // ---------------------------------------------------------------------------
 // Apply settings to live objects
 // ---------------------------------------------------------------------------
 
 function applySettings() {
-  if (pitchAdapter) {
-    pitchAdapter.setConfig({
+  const type = sonifierSelectEl.value
+  
+  if (activeAdapter) {
+    activeAdapter.setConfig({
+      param:       type === 'tone' ? 'frequency' : 'rate',
       inputRange:  settings.inputRange,
       outputRange: settings.outputRange,
       curve:       settings.curve
     })
   }
-  if (tone) {
-    tone.setParam('waveform', settings.waveform)
-    tone.setParam('volume',   settings.sonifierVolume)
+  if (activeSonifier) {
+    if (type === 'tone') {
+      activeSonifier.setParam('waveform', settings.waveform)
+    }
+    activeSonifier.setParam('volume', settings.sonifierVolume)
   }
   runtime.setMasterVolume(settings.masterVolume)
   masterVolumeEl.value = settings.masterVolume
@@ -107,10 +117,11 @@ function applySettings() {
 btnPlay.addEventListener('click', () => {
   runtime.start()
 
-  tone = runtime.create('tone')
+  const type = sonifierSelectEl.value
+  activeSonifier = runtime.create(type)
 
-  pitchAdapter = new Adapter({
-    param:        'frequency',
+  activeAdapter = new Adapter({
+    param:        type === 'tone' ? 'frequency' : 'rate',
     inputRange:   settings.inputRange,
     outputRange:  settings.outputRange,
     curve:        settings.curve
@@ -120,27 +131,30 @@ btnPlay.addEventListener('click', () => {
 
   feedInterval = startFeed((price, prev) => {
     updatePriceDisplay(price, prev)
-    const freq = pitchAdapter.map(price)
-    tone.setParam('frequency', freq)
+    const mappedValue = activeAdapter.map(price)
+    activeSonifier.setParam(activeAdapter.config.param, mappedValue)
   })
 
   statusEl.textContent = 'Sonifying…'
   btnPlay.disabled      = true
   btnStop.disabled      = false
   btnSettings.disabled  = false
+  sonifierSelectEl.disabled = true
   masterVolumeEl.disabled = false
 })
 
 btnStop.addEventListener('click', () => {
   clearInterval(feedInterval)
-  runtime.destroy('tone')
-  tone = null
-  pitchAdapter = null
+  const type = sonifierSelectEl.value
+  runtime.destroy(type)
+  activeSonifier = null
+  activeAdapter = null
 
   statusEl.textContent    = 'Stopped.'
   btnPlay.disabled        = false
   btnStop.disabled        = true
   btnSettings.disabled    = true
+  sonifierSelectEl.disabled = false
   masterVolumeEl.disabled = true
 })
 
@@ -196,6 +210,7 @@ document.getElementById('btn-save').addEventListener('click', () => {
   settings.curve          = curveSelectEl.value
   settings.waveform       = waveformSelectEl.value
   settings.sonifierVolume = parseFloat(sonifierVolumeEl.value)
+  settings.sonifierType   = sonifierSelectEl.value
 
   saveSettings(settings)
   applySettings()
