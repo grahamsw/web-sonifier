@@ -1,4 +1,4 @@
-import { Runtime, Adapter } from '../packages/core/src/index.js'
+import { Runtime, Adapter } from '@web-sonify/core'
 import { ToneSonifier } from '../packages/tone/src/ToneSonifier.js'
 import { GeigerSonifier } from '../packages/geiger/src/GeigerSonifier.js'
 

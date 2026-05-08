@@ -186,6 +186,14 @@
       text-align: center;
     }
   </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "@web-sonify/core": "../packages/core/src/index.js"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -193,7 +201,7 @@
 
   <div class="card">
     <div class="price-display">
-      <div class="label">Crude Oil (mock feed)</div>
+      <div class="label">Price (mock feed)</div>
       <div class="value" id="price-value">—</div>
       <div class="change" id="price-change">&nbsp;</div>
     </div>
