@@ -22,13 +22,13 @@
     - [x] Verify coverage and documentation [3b9fb25]
 - [x] Task: Conductor - User Manual Verification 'Implementation - LiquidSonifier' (Protocol in workflow.md) [dbb31cc]
 
-## Phase 4: Implementation - MalletSonifier
-- [ ] Task: Define MalletSonifier parameter schema and class structure
-- [ ] Task: Implement MalletSonifier
-    - [ ] Write Tests (Red Phase)
-    - [ ] Implement audio logic (Green Phase)
-    - [ ] Verify coverage and documentation
-- [ ] Task: Conductor - User Manual Verification 'Implementation - MalletSonifier' (Protocol in workflow.md)
+## Phase 4: Implementation - MalletSonifier [checkpoint: d4119e0]
+- [x] Task: Define MalletSonifier parameter schema and class structure [3b9fb25]
+- [x] Task: Implement MalletSonifier [e9b5d8d]
+    - [x] Write Tests (Red Phase) [dbb31cc]
+    - [x] Implement audio logic (Green Phase) [e9b5d8d]
+    - [x] Verify coverage and documentation [e9b5d8d]
+- [x] Task: Conductor - User Manual Verification 'Implementation - MalletSonifier' (Protocol in workflow.md) [d4119e0]
 
 ## Phase 5: Integration and Demo
 - [ ] Task: Update the demo application to include the three new sonifiers
