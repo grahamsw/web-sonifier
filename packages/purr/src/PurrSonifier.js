@@ -68,16 +68,16 @@ export class PurrSonifier extends SonifierBase {
 
     // Breath path
     this._breathGain = this._ctx.createGain()
-    this._breathGain.gain.value = 0
+    this._breathGain.gain.value = 1.0 // pass-through
     this._breathGain.connect(this._gainNode)
 
     this._breathLFO = this._ctx.createOscillator()
     this._breathLFOGain = this._ctx.createGain()
-    this._breathLFOGain.gain.value = 0
+    this._breathLFOGain.gain.value = 0 // will be updated
     this._breathLFO.connect(this._breathLFOGain)
     
     this._breathMod = this._ctx.createGain()
-    this._breathMod.gain.value = 0
+    this._breathMod.gain.value = 1.0 // base gain for modulation
     this._breathLFOGain.connect(this._breathMod.gain)
     this._breathMod.connect(this._breathGain)
 
