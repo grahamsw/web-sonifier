@@ -78,4 +78,4 @@ The repository includes a vanilla JS demo in the `demo/` folder.
 We use TDD and a monorepo structure. Ensure you run `npm test` before submitting changes.
 
 - **Core Mandates:** See [GEMINI.md](./GEMINI.md) for architectural constraints and best practices.
-- **License:** MIT
+- **License:** ISC
