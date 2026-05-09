@@ -66,6 +66,8 @@ export class LiquidSonifier extends SonifierBase {
       this._workletNode = new AudioWorkletNode(this._ctx, 'liquid-resonator-processor')
       this._workletNode.connect(this._gainNode)
       
+      // Apply defaults to ensure finite values for immediate update
+      this.applyDefaults()
       this._updateNodes(true)
     } catch (e) {
       console.error('LiquidSonifier init failed:', e)

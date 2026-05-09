@@ -126,6 +126,8 @@ export class PurrSonifier extends SonifierBase {
     this._rumbleOsc.start(now)
     this._breathLFO.start(now)
 
+    // Apply defaults to ensure finite values for immediate update
+    this.applyDefaults()
     this._updateNodes(true)
   }
 

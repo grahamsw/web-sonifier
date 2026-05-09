@@ -55,12 +55,20 @@ describe('PurrSonifier', () => {
     expect(schema.find(p => p.name === 'volume')).toBeDefined()
   })
 
-  it('initializes correctly', () => {
+  it('initializes correctly with finite values', () => {
     sonifier.init(mockContext, mockOutput)
     expect(mockContext.createGain).toHaveBeenCalled()
     // At least the master gain and the formant gains
     expect(mockContext.createOscillator).toHaveBeenCalled()
     expect(mockContext.createBiquadFilter).toHaveBeenCalled()
+
+    // Check that master gain was set to a finite default value
+    expect(sonifier._gainNode.gain.setValueAtTime).toHaveBeenCalledWith(
+      expect.any(Number), 
+      expect.any(Number)
+    )
+    const call = sonifier._gainNode.gain.setValueAtTime.mock.calls[0]
+    expect(Number.isFinite(call[0])).toBe(true)
   })
 
   it('updates parameters', () => {
