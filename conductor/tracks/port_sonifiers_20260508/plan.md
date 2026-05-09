@@ -30,7 +30,7 @@
     - [x] Verify coverage and documentation [e9b5d8d]
 - [x] Task: Conductor - User Manual Verification 'Implementation - MalletSonifier' (Protocol in workflow.md) [d4119e0]
 
-## Phase 5: Integration and Demo
-- [ ] Task: Update the demo application to include the three new sonifiers
-- [ ] Task: Verify real-time parameter mapping in the demo site
-- [ ] Task: Conductor - User Manual Verification 'Integration and Demo' (Protocol in workflow.md)
+## Phase 5: Integration and Demo [checkpoint: 3907d15]
+- [x] Task: Update the demo application to include the three new sonifiers [a62298c]
+- [x] Task: Verify real-time parameter mapping in the demo site [a62298c]
+- [x] Task: Conductor - User Manual Verification 'Integration and Demo' (Protocol in workflow.md) [3907d15]
