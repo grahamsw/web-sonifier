@@ -11,3 +11,4 @@ This file registers all active and completed tracks for the project.
 | `port-sonifiers` | Port 'purr', 'liquid', and 'mallet' sonifiers from grahamsw/purr | Completed | [Folder](./tracks/port_sonifiers_20260508) |
 | `fix-purr-init` | Fix non-finite value error in PurrSonifier during init | Completed | [Folder](./tracks/fix_purr_non_finite_20260508) |
 | `fix-purr-startup` | Fix loud startup noise in PurrSonifier | Completed | [Folder](./tracks/fix_purr_startup_noise_20260508) |
+| `fix-mallet-silent` | Fix silent MalletSonifier due to missing start() call | Completed | [Folder](./tracks/fix_mallet_silent_20260508) |

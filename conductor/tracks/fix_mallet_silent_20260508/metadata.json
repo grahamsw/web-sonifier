@@ -1,0 +1,8 @@
+{
+  "track_id": "fix_mallet_silent_20260508",
+  "type": "bug",
+  "status": "in_progress",
+  "created_at": "2026-05-08T01:47:00Z",
+  "updated_at": "2026-05-08T01:47:00Z",
+  "description": "Fix silent MalletSonifier due to missing start() call"
+}

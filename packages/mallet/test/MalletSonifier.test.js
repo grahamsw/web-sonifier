@@ -56,9 +56,16 @@ describe('MalletSonifier', () => {
     expect(schema.find(p => p.name === 'volume')).toBeDefined()
   })
 
-  it('initializes correctly', () => {
+  it('initializes and starts automatically', () => {
+    vi.useFakeTimers()
+    const startSpy = vi.spyOn(sonifier, 'start')
     sonifier.init(mockContext, mockOutput)
+    
     expect(mockContext.createGain).toHaveBeenCalled()
+    expect(startSpy).toHaveBeenCalled()
+    expect(sonifier._isStarted).toBe(true)
+    
+    vi.useRealTimers()
   })
 
   it('updates parameters', () => {

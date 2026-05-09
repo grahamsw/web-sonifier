@@ -81,10 +81,13 @@ export class MalletSonifier extends SonifierBase {
     
     // Apply initial defaults
     this.applyDefaults()
+
+    this._initialized = true
+    this.start()
   }
 
   onParam(name, value) {
-    if (name === 'volume' && this._gainNode && this._ctx) {
+    if (this._initialized && name === 'volume' && this._gainNode && this._ctx) {
       this._gainNode.gain.setTargetAtTime(value, this._ctx.currentTime, 0.05)
     }
   }
