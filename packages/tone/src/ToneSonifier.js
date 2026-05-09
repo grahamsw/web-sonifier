@@ -85,6 +85,9 @@ export class ToneSonifier extends SonifierBase {
 
   destroy() {
     if (this._oscillator) {
+      // NOTE: To avoid clicks, we should ideally ramp gain to zero before 
+      // stopping/disconnecting. However, SonifierBase.destroy() is synchronous.
+      // We stop the oscillator at the current time to at least terminate the source.
       this._oscillator.stop()
       this._oscillator.disconnect()
       this._oscillator = null
