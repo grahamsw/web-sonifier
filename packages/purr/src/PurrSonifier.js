@@ -66,20 +66,16 @@ export class PurrSonifier extends SonifierBase {
     this._gainNode.gain.value = 0
     this._gainNode.connect(outputNode)
 
-    // Breath path
-    this._breathGain = this._ctx.createGain()
-    this._breathGain.gain.value = 1.0 // pass-through
-    this._breathGain.connect(this._gainNode)
+    // Breath path (Signal flows through this)
+    this._breathMod = this._ctx.createGain()
+    this._breathMod.gain.value = 1.0
+    this._breathMod.connect(this._gainNode)
 
     this._breathLFO = this._ctx.createOscillator()
     this._breathLFOGain = this._ctx.createGain()
-    this._breathLFOGain.gain.value = 0 // will be updated
+    this._breathLFOGain.gain.value = 0
     this._breathLFO.connect(this._breathLFOGain)
-    
-    this._breathMod = this._ctx.createGain()
-    this._breathMod.gain.value = 1.0 // base gain for modulation
     this._breathLFOGain.connect(this._breathMod.gain)
-    this._breathMod.connect(this._breathGain)
 
     // Exciter
     this._exciter = this._ctx.createOscillator()
@@ -101,7 +97,7 @@ export class PurrSonifier extends SonifierBase {
     this._f1Gain.gain.value = 0
     this._exciterLPF.connect(this._f1Res)
     this._f1Res.connect(this._f1Gain)
-    this._f1Gain.connect(this._breathGain)
+    this._f1Gain.connect(this._breathMod)
 
     this._f2Res = this._ctx.createBiquadFilter()
     this._f2Res.type = 'bandpass'
@@ -109,7 +105,7 @@ export class PurrSonifier extends SonifierBase {
     this._f2Gain.gain.value = 0
     this._exciterLPF.connect(this._f2Res)
     this._f2Res.connect(this._f2Gain)
-    this._f2Gain.connect(this._breathGain)
+    this._f2Gain.connect(this._breathMod)
 
     // Rumble
     this._rumbleOsc = this._ctx.createOscillator()
@@ -120,13 +116,11 @@ export class PurrSonifier extends SonifierBase {
     this._rumbleGain.gain.value = 0
     this._rumbleOsc.connect(this._rumbleLPF)
     this._rumbleLPF.connect(this._rumbleGain)
-    this._rumbleGain.connect(this._breathGain)
+    this._rumbleGain.connect(this._breathMod)
     this._jitterGain.connect(this._rumbleOsc.frequency)
 
     // Pulse wave periodic wave
     this._exciter.setPeriodicWave(this._createPulseWave())
-
-    console.log('[PurrSonifier] Initialized graph. Starting oscillators...')
 
     const now = this._ctx.currentTime
     this._exciter.start(now)
@@ -135,11 +129,9 @@ export class PurrSonifier extends SonifierBase {
     this._breathLFO.start(now)
 
     this._initialized = true
-    console.log('[PurrSonifier] Flagging as initialized.')
   }
 
   onParam(name, value) {
-    console.log(`[PurrSonifier] onParam: ${name} = ${value}`)
     if (this._initialized) {
       this._updateNodes()
     }
@@ -160,29 +152,29 @@ export class PurrSonifier extends SonifierBase {
 
   _cleanup() {
     if (this._exciter) {
-      this._exciter.stop()
+      try { this._exciter.stop() } catch (e) {}
       this._exciter.disconnect()
       this._exciter = null
     }
     if (this._rumbleOsc) {
-      this._rumbleOsc.stop()
+      try { this._rumbleOsc.stop() } catch (e) {}
       this._rumbleOsc.disconnect()
       this._rumbleOsc = null
     }
     if (this._jitterOsc) {
-      this._jitterOsc.stop()
+      try { this._jitterOsc.stop() } catch (e) {}
       this._jitterOsc.disconnect()
       this._jitterOsc = null
     }
     if (this._breathLFO) {
-      this._breathLFO.stop()
+      try { this._breathLFO.stop() } catch (e) {}
       this._breathLFO.disconnect()
       this._breathLFO = null
     }
     
     // Disconnect all other nodes
     [
-      this._breathGain, this._breathLFOGain, this._breathMod,
+      this._breathLFOGain, this._breathMod,
       this._exciterLPF, this._jitterGain,
       this._f1Res, this._f1Gain, this._f2Res, this._f2Gain,
       this._rumbleLPF, this._rumbleGain, this._gainNode
@@ -217,7 +209,7 @@ export class PurrSonifier extends SonifierBase {
     const volume = this.getParam('volume') ?? 0
 
     const setParam = (param, val) => {
-      if (!param) return
+      if (!param || !Number.isFinite(val)) return
       if (immediate) param.setValueAtTime(val, now)
       else param.setTargetAtTime(val, now, ramp)
     }
