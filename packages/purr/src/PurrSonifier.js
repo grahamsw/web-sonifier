@@ -126,13 +126,13 @@ export class PurrSonifier extends SonifierBase {
     this._rumbleOsc.start(now)
     this._breathLFO.start(now)
 
-    // Apply defaults to ensure finite values for immediate update
-    this.applyDefaults()
-    this._updateNodes(true)
+    this._initialized = true
   }
 
   onParam(name, value) {
-    this._updateNodes()
+    if (this._initialized) {
+      this._updateNodes()
+    }
   }
 
   destroy() {
@@ -200,11 +200,11 @@ export class PurrSonifier extends SonifierBase {
     const now = this._ctx.currentTime
     const ramp = immediate ? 0 : 0.05
 
-    const freq = this.getParam('frequency')
-    const rate = this.getParam('rate')
-    const intensity = this.getParam('intensity')
-    const arousal = this.getParam('arousal')
-    const volume = this.getParam('volume')
+    const freq = this.getParam('frequency') ?? 40
+    const rate = this.getParam('rate') ?? 28
+    const intensity = this.getParam('intensity') ?? 0.5
+    const arousal = this.getParam('arousal') ?? 0.2
+    const volume = this.getParam('volume') ?? 0.5
 
     const setParam = (param, val) => {
       if (!param) return

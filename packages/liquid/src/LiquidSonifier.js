@@ -66,9 +66,7 @@ export class LiquidSonifier extends SonifierBase {
       this._workletNode = new AudioWorkletNode(this._ctx, 'liquid-resonator-processor')
       this._workletNode.connect(this._gainNode)
       
-      // Apply defaults to ensure finite values for immediate update
-      this.applyDefaults()
-      this._updateNodes(true)
+      this._initialized = true
     } catch (e) {
       console.error('LiquidSonifier init failed:', e)
       throw e
@@ -76,7 +74,9 @@ export class LiquidSonifier extends SonifierBase {
   }
 
   onParam(name, value) {
-    this._updateNodes()
+    if (this._initialized) {
+      this._updateNodes()
+    }
   }
 
   destroy() {
@@ -97,9 +97,9 @@ export class LiquidSonifier extends SonifierBase {
     const now = this._ctx.currentTime
     const ramp = immediate ? 0 : 0.05
 
-    const freq = this.getParam('frequency')
-    const visc = this.getParam('viscosity')
-    const volume = this.getParam('volume')
+    const freq = this.getParam('frequency') ?? 40
+    const visc = this.getParam('viscosity') ?? 0.5
+    const volume = this.getParam('volume') ?? 0.5
 
     const setParam = (param, val) => {
       if (!param) return
