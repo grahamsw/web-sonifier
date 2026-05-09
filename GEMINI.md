@@ -11,6 +11,10 @@ This file contains foundational mandates for all agents and developers working o
 
 ## Workspace Guidelines
 -   Use Conductor tracks for all non-trivial features and refactors.
+-   **Track Lifecycle**: 
+    -   **Branching**: Always create a new feature branch when starting a new track.
+    -   **Merging**: Merge the branch back into the main line once the track is completed and verified.
+    -   **Cleanup**: Delete the feature branch after a successful merge to keep the repository clean.
 -   Maintain the `conductor/` directory as the single source of truth for planning.
 
 ## Sonifier Best Practices
