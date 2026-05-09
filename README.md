@@ -50,11 +50,11 @@ graph LR
 
 ## Documentation
 
-- 🧠 [**Core Concepts**](./docs/core-concepts.md) — The mental model and architectural overview.
-- 🚀 [**Site Author Guide**](./docs/site-author-guide.md) — How to use the library in your project.
-- 🔌 [**Plugin Author Guide**](./docs/plugin-author-guide.md) — How to build your own sonifiers.
-- 📖 [**API Reference**](./docs/api-reference.md) — Detailed class and method documentation.
-- 🏗️ [**Project Meta**](./docs/project-meta.md) — Design decisions, roadmap, and structure.
+-  [**Core Concepts**](./docs/core-concepts.md) — The mental model and architectural overview.
+-  [**Site Author Guide**](./docs/site-author-guide.md) — How to use the library in your project.
+-  [**Plugin Author Guide**](./docs/plugin-author-guide.md) — How to build your own sonifiers.
+-  [**API Reference**](./docs/api-reference.md) — Detailed class and method documentation.
+-  [**Project Meta**](./docs/project-meta.md) — Design decisions, roadmap, and structure.
 
 ---
 
