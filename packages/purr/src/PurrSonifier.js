@@ -126,6 +126,8 @@ export class PurrSonifier extends SonifierBase {
     // Pulse wave periodic wave
     this._exciter.setPeriodicWave(this._createPulseWave())
 
+    console.log('[PurrSonifier] Initialized graph. Starting oscillators...')
+
     const now = this._ctx.currentTime
     this._exciter.start(now)
     this._jitterOsc.start(now)
@@ -133,9 +135,11 @@ export class PurrSonifier extends SonifierBase {
     this._breathLFO.start(now)
 
     this._initialized = true
+    console.log('[PurrSonifier] Flagging as initialized.')
   }
 
   onParam(name, value) {
+    console.log(`[PurrSonifier] onParam: ${name} = ${value}`)
     if (this._initialized) {
       this._updateNodes()
     }
