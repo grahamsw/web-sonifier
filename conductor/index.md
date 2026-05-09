@@ -6,5 +6,9 @@ This directory contains the specification, planning, and tracking documents for 
 - [Product Definition](./product.md)
 - [Tech Stack](./tech-stack.md)
 
-## Track Management
+## Workflow
+- [Workflow](./workflow.md)
+- [Code Style Guides](./code_styleguides/)
+
+## Management
 - [Tracks Registry](./tracks.md)
