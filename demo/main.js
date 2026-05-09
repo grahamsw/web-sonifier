@@ -1,6 +1,9 @@
 import { Runtime, Adapter } from '@web-sonify/core'
 import { ToneSonifier } from '@web-sonify/tone'
 import { GeigerSonifier } from '@web-sonify/geiger'
+import { PurrSonifier } from '@web-sonify/purr'
+import { LiquidSonifier } from '@web-sonify/liquid'
+import { MalletSonifier } from '@web-sonify/mallet'
 
 // ---------------------------------------------------------------------------
 // Mocked oil price feed — random walk, updates every 3 seconds
@@ -56,6 +59,9 @@ const rowWaveformEl      = document.getElementById('row-waveform')
 const runtime = new Runtime()
 runtime.register('tone', ToneSonifier)
 runtime.register('geiger', GeigerSonifier)
+runtime.register('purr', PurrSonifier)
+runtime.register('liquid', LiquidSonifier)
+runtime.register('mallet', MalletSonifier)
 
 let activeSonifier = null
 let activeAdapter = null
@@ -78,6 +84,24 @@ const defaultSettings = {
     outputRange:     [1, 50],
     curve:           'linear',
     sonifierVolume:  0.7
+  },
+  purr: {
+    inputRange:      [85, 115],
+    outputRange:     [20, 150],
+    curve:           'exponential',
+    sonifierVolume:  0.6
+  },
+  liquid: {
+    inputRange:      [85, 115],
+    outputRange:     [20, 80],
+    curve:           'linear',
+    sonifierVolume:  0.5
+  },
+  mallet: {
+    inputRange:      [85, 115],
+    outputRange:     [0.5, 10],
+    curve:           'linear',
+    sonifierVolume:  0.7
   }
 }
 
@@ -90,6 +114,9 @@ function loadSettings() {
     const settings = JSON.parse(saved)
     if (!settings.tone) settings.tone = { ...defaultSettings.tone }
     if (!settings.geiger) settings.geiger = { ...defaultSettings.geiger }
+    if (!settings.purr) settings.purr = { ...defaultSettings.purr }
+    if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid }
+    if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet }
     return settings
   } catch {
     return JSON.parse(JSON.stringify(defaultSettings))
@@ -104,6 +131,21 @@ let settings = loadSettings()
 sonifierSelectEl.value = settings.sonifierType
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getMappedParam(type) {
+  switch (type) {
+    case 'tone':   return 'frequency'
+    case 'geiger': return 'rate'
+    case 'purr':   return 'frequency'
+    case 'liquid': return 'frequency'
+    case 'mallet': return 'strikeRate'
+    default:       return 'frequency'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Apply settings to live objects
 // ---------------------------------------------------------------------------
 
@@ -113,7 +155,7 @@ function applySettings() {
   
   if (activeAdapter) {
     activeAdapter.setConfig({
-      param:       type === 'tone' ? 'frequency' : 'rate',
+      param:       getMappedParam(type),
       inputRange:  s.inputRange,
       outputRange: s.outputRange,
       curve:       s.curve
@@ -134,8 +176,8 @@ function applySettings() {
 // Play / Stop
 // ---------------------------------------------------------------------------
 
-btnPlay.addEventListener('click', () => {
-  runtime.start()
+btnPlay.addEventListener('click', async () => {
+  await runtime.start()
 
   const type = sonifierSelectEl.value
   const s = settings[type]
@@ -143,7 +185,7 @@ btnPlay.addEventListener('click', () => {
   activeSonifier = runtime.create(type)
 
   activeAdapter = new Adapter({
-    param:        type === 'tone' ? 'frequency' : 'rate',
+    param:        getMappedParam(type),
     inputRange:   s.inputRange,
     outputRange:  s.outputRange,
     curve:        s.curve
@@ -221,6 +263,18 @@ btnSettings.addEventListener('click', () => {
   if (type === 'geiger') {
     outputRangeLabelEl.textContent = 'Output range (Clicks/sec)'
     groupLabelEl.textContent = 'Geiger'
+    rowWaveformEl.style.display = 'none'
+  } else if (type === 'mallet') {
+    outputRangeLabelEl.textContent = 'Output range (Strikes/sec)'
+    groupLabelEl.textContent = 'Mallet'
+    rowWaveformEl.style.display = 'none'
+  } else if (type === 'purr') {
+    outputRangeLabelEl.textContent = 'Output range (Hz)'
+    groupLabelEl.textContent = 'Purr'
+    rowWaveformEl.style.display = 'none'
+  } else if (type === 'liquid') {
+    outputRangeLabelEl.textContent = 'Output range (Hz)'
+    groupLabelEl.textContent = 'Liquid'
     rowWaveformEl.style.display = 'none'
   } else {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
