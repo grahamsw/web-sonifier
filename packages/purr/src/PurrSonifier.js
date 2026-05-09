@@ -68,14 +68,16 @@ export class PurrSonifier extends SonifierBase {
 
     // Breath path
     this._breathGain = this._ctx.createGain()
+    this._breathGain.gain.value = 0
     this._breathGain.connect(this._gainNode)
 
     this._breathLFO = this._ctx.createOscillator()
     this._breathLFOGain = this._ctx.createGain()
+    this._breathLFOGain.gain.value = 0
     this._breathLFO.connect(this._breathLFOGain)
     
     this._breathMod = this._ctx.createGain()
-    this._breathMod.gain.value = 1.0
+    this._breathMod.gain.value = 0
     this._breathLFOGain.connect(this._breathMod.gain)
     this._breathMod.connect(this._breathGain)
 
@@ -88,6 +90,7 @@ export class PurrSonifier extends SonifierBase {
     // Jitter
     this._jitterOsc = this._ctx.createOscillator()
     this._jitterGain = this._ctx.createGain()
+    this._jitterGain.gain.value = 0
     this._jitterOsc.connect(this._jitterGain)
     this._jitterGain.connect(this._exciter.frequency)
 
@@ -95,6 +98,7 @@ export class PurrSonifier extends SonifierBase {
     this._f1Res = this._ctx.createBiquadFilter()
     this._f1Res.type = 'bandpass'
     this._f1Gain = this._ctx.createGain()
+    this._f1Gain.gain.value = 0
     this._exciterLPF.connect(this._f1Res)
     this._f1Res.connect(this._f1Gain)
     this._f1Gain.connect(this._breathGain)
@@ -102,6 +106,7 @@ export class PurrSonifier extends SonifierBase {
     this._f2Res = this._ctx.createBiquadFilter()
     this._f2Res.type = 'bandpass'
     this._f2Gain = this._ctx.createGain()
+    this._f2Gain.gain.value = 0
     this._exciterLPF.connect(this._f2Res)
     this._f2Res.connect(this._f2Gain)
     this._f2Gain.connect(this._breathGain)
@@ -112,6 +117,7 @@ export class PurrSonifier extends SonifierBase {
     this._rumbleLPF = this._ctx.createBiquadFilter()
     this._rumbleLPF.type = 'lowpass'
     this._rumbleGain = this._ctx.createGain()
+    this._rumbleGain.gain.value = 0
     this._rumbleOsc.connect(this._rumbleLPF)
     this._rumbleLPF.connect(this._rumbleGain)
     this._rumbleGain.connect(this._breathGain)
@@ -202,9 +208,9 @@ export class PurrSonifier extends SonifierBase {
 
     const freq = this.getParam('frequency') ?? 40
     const rate = this.getParam('rate') ?? 28
-    const intensity = this.getParam('intensity') ?? 0.5
+    const intensity = this.getParam('intensity') ?? 0
     const arousal = this.getParam('arousal') ?? 0.2
-    const volume = this.getParam('volume') ?? 0.5
+    const volume = this.getParam('volume') ?? 0
 
     const setParam = (param, val) => {
       if (!param) return

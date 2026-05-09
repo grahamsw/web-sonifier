@@ -99,7 +99,7 @@ export class LiquidSonifier extends SonifierBase {
 
     const freq = this.getParam('frequency') ?? 40
     const visc = this.getParam('viscosity') ?? 0.5
-    const volume = this.getParam('volume') ?? 0.5
+    const volume = this.getParam('volume') ?? 0
 
     const setParam = (param, val) => {
       if (!param) return
