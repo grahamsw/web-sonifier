@@ -10,6 +10,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.5",
     "husky": "^9.1.7",
     "vitest": "^4.1.5"
   }
