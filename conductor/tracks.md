@@ -13,4 +13,5 @@ This file registers all active and completed tracks for the project.
 | `fix-purr-startup` | Fix loud startup noise in PurrSonifier | Completed | [Archive](./archive/fix_purr_startup_noise_20260508) |
 | `expose-params` | Expose additional sonifier parameters in UI | Completed | [Archive](./archive/expose_sonifier_params_20260510) |
 | `fix-mallet-silent` | Fix silent MalletSonifier due to missing start() call | Completed | [Archive](./archive/fix_mallet_silent_20260508) |
-`n---`n`n- [ ] **Track: UI and Sonifier Configuration Improvements**`n*Link: [./tracks/ui_configuration_improvements_20260510/](./tracks/ui_configuration_improvements_20260510/)*
+| `ui-config` | UI and Sonifier Configuration Improvements | Completed | [Archive](./archive/ui_configuration_improvements_20260510) |
+`n---`n
