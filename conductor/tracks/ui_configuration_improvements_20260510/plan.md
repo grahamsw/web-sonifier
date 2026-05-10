@@ -1,13 +1,13 @@
 # Implementation Plan - UI and Sonifier Configuration Improvements
 
 ## Phase 1: Real-time Settings Updates
-- [ ] Task: Update the Settings dialog to apply parameter changes immediately to the active sonifier
-    - [ ] Write Tests (Red Phase)
-    - [ ] Implement live update logic in `demo/main.js` (Green Phase)
-    - [ ] Verify smooth parameter transitions
-- [ ] Task: Ensure all changes are persisted to `localStorage` on every change
-    - [ ] Write Tests (Red Phase)
-    - [ ] Update `saveSettings` logic in `demo/main.js` (Green Phase)
+- [x] Task: Update the Settings dialog to apply parameter changes immediately to the active sonifier [be1bf1a]
+    - [x] Write Tests (Red Phase) [be1bf1a]
+    - [x] Implement live update logic in `demo/main.js` (Green Phase) [be1bf1a]
+    - [x] Verify smooth parameter transitions [be1bf1a]
+- [x] Task: Ensure all changes are persisted to `localStorage` on every change [be1bf1a]
+    - [x] Write Tests (Red Phase) [be1bf1a]
+    - [x] Update `saveSettings` logic in `demo/main.js` (Green Phase) [be1bf1a]
 - [ ] Task: Conductor - User Manual Verification 'Real-time Settings Updates' (Protocol in workflow.md)
 
 ## Phase 2: Independent Sonifier Settings & Hot-Switching
