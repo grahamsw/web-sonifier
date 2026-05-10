@@ -51,6 +51,24 @@ const sonifierVolumeEl  = document.getElementById('sonifier-volume')
 const outputRangeLabelEl = document.getElementById('output-range-label')
 const groupLabelEl       = document.getElementById('group-label')
 const rowWaveformEl      = document.getElementById('row-waveform')
+const rowViscosityEl     = document.getElementById('row-viscosity')
+const rowJitterEl        = document.getElementById('row-jitter')
+const rowRumbleEl        = document.getElementById('row-rumble')
+const rowBreathEl        = document.getElementById('row-breath')
+const rowHardnessEl      = document.getElementById('row-hardness')
+const rowBoxSizeEl       = document.getElementById('row-box-size')
+const rowResonanceEl     = document.getElementById('row-resonance')
+const rowForceEl         = document.getElementById('row-force')
+
+// Dialog Inputs (continued)
+const inputViscosityEl   = document.getElementById('input-viscosity')
+const inputJitterEl      = document.getElementById('input-jitter')
+const inputRumbleEl      = document.getElementById('input-rumble')
+const inputBreathEl      = document.getElementById('input-breath')
+const inputHardnessEl    = document.getElementById('input-hardness')
+const inputBoxSizeEl     = document.getElementById('input-box-size')
+const inputResonanceEl   = document.getElementById('input-resonance')
+const inputForceEl       = document.getElementById('input-force')
 
 // ---------------------------------------------------------------------------
 // State
@@ -89,19 +107,27 @@ const defaultSettings = {
     inputRange:      [85, 115],
     outputRange:     [20, 150],
     curve:           'exponential',
-    sonifierVolume:  0.6
+    sonifierVolume:  0.6,
+    jitter:          0.5,
+    rumble:          0.5,
+    breath:          0.5
   },
   liquid: {
     inputRange:      [85, 115],
     outputRange:     [20, 80],
     curve:           'linear',
-    sonifierVolume:  0.5
+    sonifierVolume:  0.5,
+    viscosity:       0.5
   },
   mallet: {
     inputRange:      [85, 115],
     outputRange:     [0.5, 10],
     curve:           'linear',
-    sonifierVolume:  0.7
+    sonifierVolume:  0.7,
+    hardness:        0.5,
+    boxSize:         1.0,
+    resonance:       0.4,
+    force:           0.7
   }
 }
 
@@ -114,9 +140,9 @@ function loadSettings() {
     const settings = JSON.parse(saved)
     if (!settings.tone) settings.tone = { ...defaultSettings.tone }
     if (!settings.geiger) settings.geiger = { ...defaultSettings.geiger }
-    if (!settings.purr) settings.purr = { ...defaultSettings.purr }
-    if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid }
-    if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet }
+    if (!settings.purr) settings.purr = { ...defaultSettings.purr, ...settings.purr }
+    if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid, ...settings.liquid }
+    if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet, ...settings.mallet }
     return settings
   } catch {
     return JSON.parse(JSON.stringify(defaultSettings))
@@ -164,6 +190,20 @@ function applySettings() {
   if (activeSonifier) {
     if (type === 'tone') {
       activeSonifier.setParam('waveform', s.waveform)
+    }
+    if (type === 'purr') {
+      activeSonifier.setParam('jitter', s.jitter)
+      activeSonifier.setParam('rumble', s.rumble)
+      activeSonifier.setParam('breath', s.breath)
+    }
+    if (type === 'liquid') {
+      activeSonifier.setParam('viscosity', s.viscosity)
+    }
+    if (type === 'mallet') {
+      activeSonifier.setParam('hardness', s.hardness)
+      activeSonifier.setParam('boxSize', s.boxSize)
+      activeSonifier.setParam('resonance', s.resonance)
+      activeSonifier.setParam('force', s.force)
     }
     activeSonifier.setParam('volume', s.sonifierVolume)
   }
@@ -260,35 +300,55 @@ btnSettings.addEventListener('click', () => {
   const s = settings[type]
 
   // Dynamic UI updates
+  const rows = [
+    rowWaveformEl, rowViscosityEl, rowJitterEl, rowRumbleEl, rowBreathEl,
+    rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl
+  ]
+  rows.forEach(r => r.style.display = 'none')
+
   if (type === 'geiger') {
     outputRangeLabelEl.textContent = 'Output range (Clicks/sec)'
     groupLabelEl.textContent = 'Geiger'
-    rowWaveformEl.style.display = 'none'
   } else if (type === 'mallet') {
     outputRangeLabelEl.textContent = 'Output range (Strikes/sec)'
     groupLabelEl.textContent = 'Mallet'
-    rowWaveformEl.style.display = 'none'
+    rowHardnessEl.style.display = 'flex'
+    rowBoxSizeEl.style.display = 'flex'
+    rowResonanceEl.style.display = 'flex'
+    rowForceEl.style.display = 'flex'
+    
+    inputHardnessEl.value = s.hardness
+    inputBoxSizeEl.value = s.boxSize
+    inputResonanceEl.value = s.resonance
+    inputForceEl.value = s.force
   } else if (type === 'purr') {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Purr'
-    rowWaveformEl.style.display = 'none'
+    rowJitterEl.style.display = 'flex'
+    rowRumbleEl.style.display = 'flex'
+    rowBreathEl.style.display = 'flex'
+
+    inputJitterEl.value = s.jitter
+    inputRumbleEl.value = s.rumble
+    inputBreathEl.value = s.breath
   } else if (type === 'liquid') {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Liquid'
-    rowWaveformEl.style.display = 'none'
+    rowViscosityEl.style.display = 'flex'
+    inputViscosityEl.value = s.viscosity
   } else {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Tone'
     rowWaveformEl.style.display = 'flex'
+    waveformSelectEl.value = s.waveform || 'sine'
   }
 
-  // Populate dialog from current settings
+  // Populate common fields
   inputMinEl.value       = s.inputRange[0]
   inputMaxEl.value       = s.inputRange[1]
   outputMinEl.value      = s.outputRange[0]
   outputMaxEl.value      = s.outputRange[1]
   curveSelectEl.value    = s.curve
-  waveformSelectEl.value = s.waveform || 'sine'
   sonifierVolumeEl.value = s.sonifierVolume
 
   dialog.showModal()
@@ -305,6 +365,17 @@ document.getElementById('btn-save').addEventListener('click', () => {
   
   if (type === 'tone') {
     s.waveform = waveformSelectEl.value
+  } else if (type === 'purr') {
+    s.jitter = parseFloat(inputJitterEl.value)
+    s.rumble = parseFloat(inputRumbleEl.value)
+    s.breath = parseFloat(inputBreathEl.value)
+  } else if (type === 'liquid') {
+    s.viscosity = parseFloat(inputViscosityEl.value)
+  } else if (type === 'mallet') {
+    s.hardness = parseFloat(inputHardnessEl.value)
+    s.boxSize = parseFloat(inputBoxSizeEl.value)
+    s.resonance = parseFloat(inputResonanceEl.value)
+    s.force = parseFloat(inputForceEl.value)
   }
 
   settings.sonifierType = type

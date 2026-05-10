@@ -46,6 +46,33 @@ export class PurrSonifier extends SonifierBase {
         description: 'Temporal character and breathing modulation'
       },
       {
+        name: 'jitter',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        group: 'purr',
+        label: 'Jitter',
+        description: 'Frequency instability (purr "rasp")'
+      },
+      {
+        name: 'rumble',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        group: 'purr',
+        label: 'Rumble',
+        description: 'Low-end body resonance'
+      },
+      {
+        name: 'breath',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        group: 'purr',
+        label: 'Breath',
+        description: 'Breathing modulation depth'
+      },
+      {
         name: 'volume',
         type: 'number',
         range: [0, 1],
@@ -206,6 +233,9 @@ export class PurrSonifier extends SonifierBase {
     const rate = this.getParam('rate') ?? 28
     const intensity = this.getParam('intensity') ?? 0
     const arousal = this.getParam('arousal') ?? 0.2
+    const jitter = this.getParam('jitter') ?? arousal
+    const rumble = this.getParam('rumble') ?? intensity
+    const breath = this.getParam('breath') ?? arousal
     const volume = this.getParam('volume') ?? 0
 
     const setParam = (param, val) => {
@@ -221,17 +251,17 @@ export class PurrSonifier extends SonifierBase {
     setParam(this._exciter.frequency, rate)
     setParam(this._exciterLPF.frequency, Math.min(20000, freq * 1.5))
     
-    // Jitter (Arousal mapping from original source)
+    // Jitter (Using new jitter parameter)
     setParam(this._jitterOsc.frequency, 4)
     // jitterDepth original range: 0.02 - 0.22
-    const jitterDepth = 0.02 + arousal * 0.20
+    const jitterDepth = 0.02 + jitter * 0.20
     setParam(this._jitterGain.gain, rate * jitterDepth * 0.5)
 
-    // Rumble (Intensity mapping)
+    // Rumble (Using new rumble parameter)
     setParam(this._rumbleOsc.frequency, rate * 0.5)
     setParam(this._rumbleLPF.frequency, Math.min(1000, freq * 0.8))
     // rumbleAmp original range: 0.08 - 0.38
-    const rumbleAmp = 0.08 + intensity * 0.30
+    const rumbleAmp = 0.08 + rumble * 0.30
     setParam(this._rumbleGain.gain, rumbleAmp * 0.6)
 
     // Formants (Intensity & Frequency)
@@ -247,11 +277,11 @@ export class PurrSonifier extends SonifierBase {
     setParam(this._f2Res.Q, 3 + 8 * 0.06) 
     setParam(this._f2Gain.gain, f2Amp * 0.3)
 
-    // Breath (Arousal mapping)
+    // Breath (Using new breath parameter)
     // breathRate original range: 0.15 - 1.35 Hz
-    setParam(this._breathLFO.frequency, 0.15 + arousal * 1.20)
+    setParam(this._breathLFO.frequency, 0.15 + breath * 1.20)
     // breathDepth original range: 0.10 - 0.45
-    const breathDepth = 0.10 + arousal * 0.35
+    const breathDepth = 0.10 + breath * 0.35
     setParam(this._breathLFOGain.gain, breathDepth * 0.4)
   }
 }

@@ -52,6 +52,9 @@ describe('PurrSonifier', () => {
     expect(schema.find(p => p.name === 'rate')).toBeDefined()
     expect(schema.find(p => p.name === 'intensity')).toBeDefined()
     expect(schema.find(p => p.name === 'arousal')).toBeDefined()
+    expect(schema.find(p => p.name === 'jitter')).toBeDefined()
+    expect(schema.find(p => p.name === 'rumble')).toBeDefined()
+    expect(schema.find(p => p.name === 'breath')).toBeDefined()
     expect(schema.find(p => p.name === 'volume')).toBeDefined()
   })
 
