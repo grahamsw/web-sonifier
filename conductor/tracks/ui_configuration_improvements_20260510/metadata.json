@@ -1,0 +1,8 @@
+{
+  "track_id": "ui_configuration_improvements_20260510",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-05-10T16:55:00Z",
+  "updated_at": "2026-05-10T16:55:00Z",
+  "description": "Improve UI for sonifier configuration, supporting view settings while stopped, seamless hot-switching, and real-time updates."
+}
