@@ -295,6 +295,49 @@ function updatePriceDisplay(price, prev) {
 // Settings dialog
 // ---------------------------------------------------------------------------
 
+function updateSettingsFromUI() {
+  const type = sonifierSelectEl.value
+  const s = settings[type]
+
+  s.inputRange     = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
+  s.outputRange    = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
+  s.curve          = curveSelectEl.value
+  s.sonifierVolume = parseFloat(sonifierVolumeEl.value)
+  
+  if (type === 'tone') {
+    s.waveform = waveformSelectEl.value
+  } else if (type === 'purr') {
+    s.jitter = parseFloat(inputJitterEl.value)
+    s.rumble = parseFloat(inputRumbleEl.value)
+    s.breath = parseFloat(inputBreathEl.value)
+  } else if (type === 'liquid') {
+    s.viscosity = parseFloat(inputViscosityEl.value)
+  } else if (type === 'mallet') {
+    s.hardness = parseFloat(inputHardnessEl.value)
+    s.boxSize = parseFloat(inputBoxSizeEl.value)
+    s.resonance = parseFloat(inputResonanceEl.value)
+    s.force = parseFloat(inputForceEl.value)
+  }
+
+  settings.sonifierType = type
+}
+
+// Add 'input' listeners for live updates
+const liveInputs = [
+  inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, 
+  curveSelectEl, waveformSelectEl, sonifierVolumeEl,
+  inputViscosityEl, inputJitterEl, inputRumbleEl, inputBreathEl,
+  inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl
+]
+
+liveInputs.forEach(el => {
+  el.addEventListener('input', () => {
+    updateSettingsFromUI()
+    applySettings()
+    saveSettings(settings)
+  })
+})
+
 btnSettings.addEventListener('click', () => {
   const type = sonifierSelectEl.value
   const s = settings[type]
@@ -355,31 +398,7 @@ btnSettings.addEventListener('click', () => {
 })
 
 document.getElementById('btn-save').addEventListener('click', () => {
-  const type = sonifierSelectEl.value
-  const s = settings[type]
-
-  s.inputRange     = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
-  s.outputRange    = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
-  s.curve          = curveSelectEl.value
-  s.sonifierVolume = parseFloat(sonifierVolumeEl.value)
-  
-  if (type === 'tone') {
-    s.waveform = waveformSelectEl.value
-  } else if (type === 'purr') {
-    s.jitter = parseFloat(inputJitterEl.value)
-    s.rumble = parseFloat(inputRumbleEl.value)
-    s.breath = parseFloat(inputBreathEl.value)
-  } else if (type === 'liquid') {
-    s.viscosity = parseFloat(inputViscosityEl.value)
-  } else if (type === 'mallet') {
-    s.hardness = parseFloat(inputHardnessEl.value)
-    s.boxSize = parseFloat(inputBoxSizeEl.value)
-    s.resonance = parseFloat(inputResonanceEl.value)
-    s.force = parseFloat(inputForceEl.value)
-  }
-
-  settings.sonifierType = type
-
+  updateSettingsFromUI()
   saveSettings(settings)
   applySettings()
   dialog.close()
