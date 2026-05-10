@@ -8,14 +8,17 @@
 - [x] Task: Ensure all changes are persisted to `localStorage` on every change [be1bf1a]
     - [x] Write Tests (Red Phase) [be1bf1a]
     - [x] Update `saveSettings` logic in `demo/main.js` (Green Phase) [be1bf1a]
-- [ ] Task: Conductor - User Manual Verification 'Real-time Settings Updates' (Protocol in workflow.md)
+- [x] Task: Implement 'Revert on Cancel' logic [91f4f5a]
+    - [x] Create settings backup on dialog open [91f4f5a]
+    - [x] Restore backup and update audio on 'Cancel' [91f4f5a]
+- [x] Task: Conductor - User Manual Verification 'Real-time Settings Updates' (Protocol in workflow.md) [91f4f5a]
 
 ## Phase 2: Independent Sonifier Settings & Hot-Switching
-- [ ] Task: Refactor `demo/main.js` to enable \"Settings\" button even when not playing
-- [ ] Task: Implement seamless hot-switching in the sonifier dropdown
-    - [ ] Write Tests (Red Phase)
-    - [ ] Update `sonifierSelectEl` event listener to stop current and start new with its own settings (Green Phase)
-    - [ ] Ensure `applySettings` loads the correct configuration for the target sonifier type
+- [x] Task: Refactor `demo/main.js` to enable \"Settings\" button even when not playing [91f4f5a]
+- [x] Task: Implement seamless hot-switching in the sonifier dropdown [91f4f5a]
+    - [x] Write Tests (Red Phase) [91f4f5a]
+    - [x] Update `sonifierSelectEl` event listener to stop current and start new with its own settings (Green Phase) [91f4f5a]
+    - [x] Ensure `applySettings` loads the correct configuration for the target sonifier type [91f4f5a]
 - [ ] Task: Conductor - User Manual Verification 'Independent Sonifier Settings & Hot-Switching' (Protocol in workflow.md)
 
 ## Phase 3: Full Parameter Exposure

@@ -82,8 +82,10 @@ runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
 
 let activeSonifier = null
+let activeSonifierType = null
 let activeAdapter = null
 let feedInterval = null
+let settingsBackup = null
 
 const STORAGE_KEY = 'web-sonify-demo-settings'
 
@@ -155,6 +157,7 @@ function saveSettings(settings) {
 
 let settings = loadSettings()
 sonifierSelectEl.value = settings.sonifierType
+btnSettings.disabled = false
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -213,16 +216,15 @@ function applySettings() {
 }
 
 // ---------------------------------------------------------------------------
-// Play / Stop
+// Play / Stop / Switch
 // ---------------------------------------------------------------------------
 
-btnPlay.addEventListener('click', async () => {
-  await runtime.start()
-
+async function startSonifier() {
   const type = sonifierSelectEl.value
   const s = settings[type]
   
   activeSonifier = runtime.create(type)
+  activeSonifierType = type
 
   activeAdapter = new Adapter({
     param:        getMappedParam(type),
@@ -235,31 +237,50 @@ btnPlay.addEventListener('click', async () => {
 
   feedInterval = startFeed((price, prev) => {
     updatePriceDisplay(price, prev)
-    const mappedValue = activeAdapter.map(price)
-    activeSonifier.setParam(activeAdapter.param, mappedValue)
+    if (activeAdapter && activeSonifier) {
+      const mappedValue = activeAdapter.map(price)
+      activeSonifier.setParam(activeAdapter.param, mappedValue)
+    }
   })
 
   statusEl.textContent = 'Sonifying…'
   btnPlay.disabled      = true
   btnStop.disabled      = false
-  btnSettings.disabled  = false
-  sonifierSelectEl.disabled = true
-  masterVolumeEl.disabled = false
-})
+}
 
-btnStop.addEventListener('click', () => {
-  clearInterval(feedInterval)
-  const type = sonifierSelectEl.value
-  runtime.destroy(type)
+function stopSonifier() {
+  if (feedInterval) clearInterval(feedInterval)
+  feedInterval = null
+  
+  if (activeSonifierType) {
+    runtime.destroy(activeSonifierType)
+  }
   activeSonifier = null
+  activeSonifierType = null
   activeAdapter = null
 
   statusEl.textContent    = 'Stopped.'
   btnPlay.disabled        = false
   btnStop.disabled        = true
-  btnSettings.disabled    = true
-  sonifierSelectEl.disabled = false
-  masterVolumeEl.disabled = true
+}
+
+btnPlay.addEventListener('click', async () => {
+  await runtime.start()
+  startSonifier()
+})
+
+btnStop.addEventListener('click', () => {
+  stopSonifier()
+})
+
+sonifierSelectEl.addEventListener('change', async () => {
+  const isPlaying = !!feedInterval
+  if (isPlaying) {
+    stopSonifier()
+    startSonifier()
+  }
+  settings.sonifierType = sonifierSelectEl.value
+  saveSettings(settings)
 })
 
 // ---------------------------------------------------------------------------
@@ -337,10 +358,12 @@ liveInputs.forEach(el => {
     saveSettings(settings)
   })
 })
-
 btnSettings.addEventListener('click', () => {
   const type = sonifierSelectEl.value
   const s = settings[type]
+
+  // Backup current settings for revert on cancel
+  settingsBackup = JSON.parse(JSON.stringify(settings))
 
   // Dynamic UI updates
   const rows = [
@@ -405,5 +428,10 @@ document.getElementById('btn-save').addEventListener('click', () => {
 })
 
 document.getElementById('btn-cancel').addEventListener('click', () => {
+  if (settingsBackup) {
+    settings = settingsBackup
+    saveSettings(settings)
+    applySettings()
+  }
   dialog.close()
 })

@@ -13,7 +13,8 @@ This track aims to enhance the user experience and flexibility of the Web Sonifi
     - Changes made to any parameter within the Settings dialog shall be applied to the active sonifier immediately.
     - The audio response shall be smooth and responsive.
 - **Full Parameter Exposure**: The Settings dialog shall expose all parameters defined in the sonifier's schema.
-- **Persistence**: All changes made in the Settings dialog shall be persisted to `localStorage` immediately.
+- **Persistence**: All changes made in the Settings dialog shall be persisted to `localStorage` immediately upon change.
+- **Revert on Cancel**: If the user clicks \"Cancel\" (or closes the dialog without saving), the settings shall revert to the state they were in when the dialog was opened. Any immediate audio changes made during the session must be undone.
 
 ## Acceptance Criteria
 - [ ] Settings button is enabled on page load.
@@ -21,6 +22,7 @@ This track aims to enhance the user experience and flexibility of the Web Sonifi
 - [ ] Changing the sonifier dropdown while playing stops the old sound and starts the new one seamlessly using its own settings.
 - [ ] All parameters from the sonifier schema are visible and editable in the dialog.
 - [ ] Refreshing the page retains all modified settings for each sonifier type.
+- [ ] Clicking 'Cancel' reverts audio and saved settings to the state before the dialog was opened.
 
 ## Out of Scope
 - Adding new sonifier types.
