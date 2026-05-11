@@ -36,14 +36,17 @@ graph LR
     subgraph "Plugins"
         Tone[ToneSonifier]
         Geiger[GeigerSonifier]
+        Engine[EngineSonifier]
     end
 
     Data[Data Feed] -->|Raw Value| Adapter
     Adapter -->|Mapped Value| Runtime
     Runtime -->|setParam| Tone
     Runtime -->|setParam| Geiger
+    Runtime -->|setParam| Engine
     Tone -.->|Extends| Base
     Geiger -.->|Extends| Base
+    Engine -.->|Extends| Base
 ```
 
 ---

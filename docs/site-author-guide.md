@@ -11,7 +11,8 @@ The library uses plain ES modules. You can use an import map to resolve package 
 {
   "imports": {
     "@web-sonify/core": "./packages/core/src/index.js",
-    "@web-sonify/tone": "./packages/tone/src/ToneSonifier.js"
+    "@web-sonify/tone": "./packages/tone/src/ToneSonifier.js",
+    "@web-sonify/engine": "./packages/engine/src/EngineSonifier.js"
   }
 }
 </script>

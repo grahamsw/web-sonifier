@@ -245,6 +245,17 @@ function applySettings() {
   masterVolDispEl.textContent = settings.masterVolume.toFixed(2)
 }
 
+function initFeed() {
+  if (feedInterval) clearInterval(feedInterval)
+  feedInterval = startFeed((price, prev) => {
+    updatePriceDisplay(price, prev)
+    if (activeAdapter && activeSonifier) {
+      const mappedValue = activeAdapter.map(price)
+      activeSonifier.setParam(activeAdapter.param, mappedValue)
+    }
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Play / Stop / Switch
 // ---------------------------------------------------------------------------
@@ -265,23 +276,12 @@ async function startSonifier() {
 
   applySettings()
 
-  feedInterval = startFeed((price, prev) => {
-    updatePriceDisplay(price, prev)
-    if (activeAdapter && activeSonifier) {
-      const mappedValue = activeAdapter.map(price)
-      activeSonifier.setParam(activeAdapter.param, mappedValue)
-    }
-  })
-
   statusEl.textContent = 'Sonifying…'
   btnPlay.disabled      = true
   btnStop.disabled      = false
 }
 
 function stopSonifier() {
-  if (feedInterval) clearInterval(feedInterval)
-  feedInterval = null
-  
   if (activeSonifierType) {
     runtime.destroy(activeSonifierType)
   }
@@ -304,7 +304,7 @@ btnStop.addEventListener('click', () => {
 })
 
 sonifierSelectEl.addEventListener('change', async () => {
-  const isPlaying = !!feedInterval
+  const isPlaying = !!activeSonifier
   if (isPlaying) {
     stopSonifier()
     startSonifier()
@@ -316,13 +316,11 @@ sonifierSelectEl.addEventListener('change', async () => {
 feedRateSelectEl.addEventListener('change', () => {
   settings.feedIntervalMs = parseInt(feedRateSelectEl.value, 10)
   saveSettings(settings)
-  
-  const isPlaying = !!feedInterval
-  if (isPlaying) {
-    stopSonifier()
-    startSonifier()
-  }
+  initFeed()
 })
+
+// Start the visual feed immediately on load
+initFeed()
 
 // ---------------------------------------------------------------------------
 // Master volume
