@@ -195,6 +195,7 @@
         "@web-sonify/tone": "/packages/tone/src/ToneSonifier.js",
         "@web-sonify/geiger": "/packages/geiger/src/GeigerSonifier.js",
         "@web-sonify/purr": "/packages/purr/src/PurrSonifier.js",
+        "@web-sonify/engine": "/packages/engine/src/EngineSonifier.js",
         "@web-sonify/liquid": "/packages/liquid/src/LiquidSonifier.js",
         "@web-sonify/mallet": "/packages/mallet/src/MalletSonifier.js"
       }
@@ -212,15 +213,27 @@
       <div class="change" id="price-change">&nbsp;</div>
     </div>
 
-    <div class="setting-row" style="margin-bottom: 1rem; justify-content: center;">
-      <label style="width: auto; margin-right: 0.5rem;">Sonifier:</label>
-      <select id="sonifier-select" style="background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.3rem 0.5rem;">
-        <option value="tone">Continuous Tone</option>
-        <option value="geiger">Geiger Counter</option>
-        <option value="purr">Cat Purr</option>
-        <option value="liquid">Liquid Resonator</option>
-        <option value="mallet">Mallet Instrument</option>
-      </select>
+    <div class="setting-row" style="margin-bottom: 1rem; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <div>
+        <label style="margin-right: 0.5rem;">Sonifier:</label>
+        <select id="sonifier-select" style="background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.3rem 0.5rem;">
+          <option value="tone">Continuous Tone</option>
+          <option value="geiger">Geiger Counter</option>
+          <option value="purr">Cat Purr</option>
+          <option value="engine">Engine</option>
+          <option value="liquid">Liquid Resonator</option>
+          <option value="mallet">Mallet Instrument</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-right: 0.5rem;">Feed Rate:</label>
+        <select id="feed-rate-select" style="background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.3rem 0.5rem;">
+          <option value="1000">1 / sec</option>
+          <option value="10000">1 / 10s</option>
+          <option value="60000">1 / min</option>
+          <option value="300000">1 / 5m</option>
+        </select>
+      </div>
     </div>
 
     <div class="controls">
@@ -231,7 +244,7 @@
 
     <div class="volume-row">
       <label for="master-volume">Master volume</label>
-      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8" disabled>
+      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8">
       <span class="vol-value" id="master-volume-display">0.80</span>
     </div>
   </div>
@@ -313,6 +326,23 @@
       <div class="setting-row" id="row-force">
         <label>Force (Impact)</label>
         <input type="number" id="input-force" min="0" max="1" step="0.05">
+      </div>
+      <div class="setting-row" id="row-engine-rate">
+        <label>Engine Rate</label>
+        <input type="number" id="input-engine-rate" min="0.1" max="60" step="0.1">
+      </div>
+      <div class="setting-row" id="row-engine-vol-var">
+        <label>Throttle Depth</label>
+        <input type="number" id="input-engine-vol-var" min="0" max="0.5" step="0.01">
+      </div>
+      <div class="setting-row" id="row-engine-rolloff">
+        <label>Rolloff</label>
+        <select id="input-engine-rolloff">
+          <option value="-12">-12 dB/oct</option>
+          <option value="-24">-24 dB/oct</option>
+          <option value="-48">-48 dB/oct</option>
+          <option value="-96">-96 dB/oct</option>
+        </select>
       </div>
       <div class="setting-row">
         <label>Sonifier volume</label>

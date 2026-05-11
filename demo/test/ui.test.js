@@ -56,6 +56,7 @@ vi.mock('@web-sonify/geiger', () => ({ GeigerSonifier: vi.fn() }))
 vi.mock('@web-sonify/purr', () => ({ PurrSonifier: vi.fn() }))
 vi.mock('@web-sonify/liquid', () => ({ LiquidSonifier: vi.fn() }))
 vi.mock('@web-sonify/mallet', () => ({ MalletSonifier: vi.fn() }))
+vi.mock('@web-sonify/engine', () => ({ EngineSonifier: vi.fn() }))
 
 describe('Demo UI Live Updates', () => {
   it('should apply settings immediately when an input changes', async () => {
@@ -112,6 +113,24 @@ describe('Demo UI Live Updates', () => {
 
     // Verify localStorage was called to save the original settings back
     // (Actual verification of object equality is harder with mocks here, but we check if saveSettings was called)
+    expect(global.localStorage.setItem).toHaveBeenCalled()
+  })
+
+  it('should enable master volume slider and update runtime on input', async () => {
+    vi.clearAllMocks()
+    await import('../main.js?t=' + Date.now())
+
+    const masterVolumeEl = mockElements['master-volume']
+    
+    // It should be enabled by JS on load
+    expect(masterVolumeEl.disabled).toBe(false)
+
+    // Simulate input
+    masterVolumeEl.value = '0.5'
+    const inputHandler = masterVolumeEl.addEventListener.mock.calls.find(call => call[0] === 'input')[1]
+    inputHandler({ target: masterVolumeEl })
+
+    expect(mockRuntimeInstance.setMasterVolume).toHaveBeenCalledWith(0.5)
     expect(global.localStorage.setItem).toHaveBeenCalled()
   })
 })

@@ -4,6 +4,8 @@ import { GeigerSonifier } from '@web-sonify/geiger'
 import { PurrSonifier } from '@web-sonify/purr'
 import { LiquidSonifier } from '@web-sonify/liquid'
 import { MalletSonifier } from '@web-sonify/mallet'
+import { EngineSonifier } from '@web-sonify/engine'
+
 
 // ---------------------------------------------------------------------------
 // Mocked oil price feed — random walk, updates every 3 seconds
@@ -11,7 +13,6 @@ import { MalletSonifier } from '@web-sonify/mallet'
 
 let currentPrice = 100
 let previousPrice = 100
-const FEED_INTERVAL_MS = 3000
 
 function startFeed(onUpdate) {
   onUpdate(currentPrice)
@@ -20,7 +21,7 @@ function startFeed(onUpdate) {
     currentPrice += (Math.random() - 0.5) * 4
     currentPrice = Math.max(70, Math.min(130, currentPrice)) // keep in bounds
     onUpdate(currentPrice, previousPrice)
-  }, FEED_INTERVAL_MS)
+  }, settings.feedIntervalMs || 1000)
 }
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,7 @@ function startFeed(onUpdate) {
 const priceValueEl    = document.getElementById('price-value')
 const priceChangeEl   = document.getElementById('price-change')
 const sonifierSelectEl = document.getElementById('sonifier-select')
+const feedRateSelectEl = document.getElementById('feed-rate-select')
 const btnPlay         = document.getElementById('btn-play')
 const btnStop         = document.getElementById('btn-stop')
 const btnSettings     = document.getElementById('btn-settings')
@@ -59,6 +61,9 @@ const rowHardnessEl      = document.getElementById('row-hardness')
 const rowBoxSizeEl       = document.getElementById('row-box-size')
 const rowResonanceEl     = document.getElementById('row-resonance')
 const rowForceEl         = document.getElementById('row-force')
+const rowEngineRateEl    = document.getElementById('row-engine-rate')
+const rowEngineVolVarEl  = document.getElementById('row-engine-vol-var')
+const rowEngineRolloffEl = document.getElementById('row-engine-rolloff')
 
 // Dialog Inputs (continued)
 const inputViscosityEl   = document.getElementById('input-viscosity')
@@ -69,6 +74,9 @@ const inputHardnessEl    = document.getElementById('input-hardness')
 const inputBoxSizeEl     = document.getElementById('input-box-size')
 const inputResonanceEl   = document.getElementById('input-resonance')
 const inputForceEl       = document.getElementById('input-force')
+const inputEngineRateEl    = document.getElementById('input-engine-rate')
+const inputEngineVolVarEl  = document.getElementById('input-engine-vol-var')
+const inputEngineRolloffEl = document.getElementById('input-engine-rolloff')
 
 // ---------------------------------------------------------------------------
 // State
@@ -78,8 +86,10 @@ const runtime = new Runtime()
 runtime.register('tone', ToneSonifier)
 runtime.register('geiger', GeigerSonifier)
 runtime.register('purr', PurrSonifier)
+runtime.register('engine', EngineSonifier)
 runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
+
 
 let activeSonifier = null
 let activeSonifierType = null
@@ -91,6 +101,7 @@ const STORAGE_KEY = 'web-sonify-demo-settings'
 
 const defaultSettings = {
   sonifierType:    'tone',
+  feedIntervalMs:  1000,
   masterVolume:    0.8,
   tone: {
     inputRange:      [85, 115],
@@ -113,6 +124,15 @@ const defaultSettings = {
     jitter:          0.5,
     rumble:          0.5,
     breath:          0.5
+  },
+  engine: {
+    inputRange:      [85, 115],
+    outputRange:     [20, 2000],
+    curve:           'exponential',
+    sonifierVolume:  0.25,
+    rate:            25,
+    volumeVariance:  0.1,
+    rolloff:         -96
   },
   liquid: {
     inputRange:      [85, 115],
@@ -140,9 +160,11 @@ function loadSettings() {
     
     // Deep merge or manual repair for migrations
     const settings = JSON.parse(saved)
+    if (!settings.feedIntervalMs) settings.feedIntervalMs = 1000
     if (!settings.tone) settings.tone = { ...defaultSettings.tone }
     if (!settings.geiger) settings.geiger = { ...defaultSettings.geiger }
     if (!settings.purr) settings.purr = { ...defaultSettings.purr, ...settings.purr }
+    if (!settings.engine) settings.engine = { ...defaultSettings.engine, ...settings.engine }
     if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid, ...settings.liquid }
     if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet, ...settings.mallet }
     return settings
@@ -157,7 +179,9 @@ function saveSettings(settings) {
 
 let settings = loadSettings()
 sonifierSelectEl.value = settings.sonifierType
+feedRateSelectEl.value = settings.feedIntervalMs
 btnSettings.disabled = false
+masterVolumeEl.disabled = false
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -168,6 +192,7 @@ function getMappedParam(type) {
     case 'tone':   return 'frequency'
     case 'geiger': return 'rate'
     case 'purr':   return 'frequency'
+    case 'engine': return 'pitch'
     case 'liquid': return 'frequency'
     case 'mallet': return 'strikeRate'
     default:       return 'frequency'
@@ -193,6 +218,11 @@ function applySettings() {
   if (activeSonifier) {
     if (type === 'tone') {
       activeSonifier.setParam('waveform', s.waveform)
+    }
+    if (type === 'engine') {
+      activeSonifier.setParam('rate', s.rate)
+      activeSonifier.setParam('volumeVariance', s.volumeVariance)
+      activeSonifier.setParam('rolloff', s.rolloff)
     }
     if (type === 'purr') {
       activeSonifier.setParam('jitter', s.jitter)
@@ -283,6 +313,17 @@ sonifierSelectEl.addEventListener('change', async () => {
   saveSettings(settings)
 })
 
+feedRateSelectEl.addEventListener('change', () => {
+  settings.feedIntervalMs = parseInt(feedRateSelectEl.value, 10)
+  saveSettings(settings)
+  
+  const isPlaying = !!feedInterval
+  if (isPlaying) {
+    stopSonifier()
+    startSonifier()
+  }
+})
+
 // ---------------------------------------------------------------------------
 // Master volume
 // ---------------------------------------------------------------------------
@@ -333,6 +374,10 @@ function updateSettingsFromUI() {
     s.breath = parseFloat(inputBreathEl.value)
   } else if (type === 'liquid') {
     s.viscosity = parseFloat(inputViscosityEl.value)
+  } else if (type === 'engine') {
+    s.rate = parseFloat(inputEngineRateEl.value)
+    s.volumeVariance = parseFloat(inputEngineVolVarEl.value)
+    s.rolloff = parseInt(inputEngineRolloffEl.value, 10)
   } else if (type === 'mallet') {
     s.hardness = parseFloat(inputHardnessEl.value)
     s.boxSize = parseFloat(inputBoxSizeEl.value)
@@ -348,7 +393,8 @@ const liveInputs = [
   inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, 
   curveSelectEl, waveformSelectEl, sonifierVolumeEl,
   inputViscosityEl, inputJitterEl, inputRumbleEl, inputBreathEl,
-  inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl
+  inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl,
+  inputEngineRateEl, inputEngineVolVarEl, inputEngineRolloffEl
 ]
 
 liveInputs.forEach(el => {
@@ -368,13 +414,24 @@ btnSettings.addEventListener('click', () => {
   // Dynamic UI updates
   const rows = [
     rowWaveformEl, rowViscosityEl, rowJitterEl, rowRumbleEl, rowBreathEl,
-    rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl
+    rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl,
+    rowEngineRateEl, rowEngineVolVarEl, rowEngineRolloffEl
   ]
   rows.forEach(r => r.style.display = 'none')
 
   if (type === 'geiger') {
     outputRangeLabelEl.textContent = 'Output range (Clicks/sec)'
     groupLabelEl.textContent = 'Geiger'
+  } else if (type === 'engine') {
+    outputRangeLabelEl.textContent = 'Output range (Hz)'
+    groupLabelEl.textContent = 'Engine'
+    rowEngineRateEl.style.display = 'flex'
+    rowEngineVolVarEl.style.display = 'flex'
+    rowEngineRolloffEl.style.display = 'flex'
+
+    inputEngineRateEl.value = s.rate
+    inputEngineVolVarEl.value = s.volumeVariance
+    inputEngineRolloffEl.value = s.rolloff
   } else if (type === 'mallet') {
     outputRangeLabelEl.textContent = 'Output range (Strikes/sec)'
     groupLabelEl.textContent = 'Mallet'
