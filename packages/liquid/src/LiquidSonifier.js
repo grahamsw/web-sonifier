@@ -28,6 +28,15 @@ export class LiquidSonifier extends SonifierBase {
         description: 'Thickness of the liquid'
       },
       {
+        name: 'resonatorVolume',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        group: 'liquid',
+        label: 'Resonator Volume',
+        description: 'Physical size of the liquid container'
+      },
+      {
         name: 'volume',
         type: 'number',
         range: [0, 1],
@@ -99,6 +108,7 @@ export class LiquidSonifier extends SonifierBase {
 
     const freq = this.getParam('frequency') ?? 40
     const visc = this.getParam('viscosity') ?? 0.5
+    const resVol = this.getParam('resonatorVolume') ?? 0.5
     const volume = this.getParam('volume') ?? 0
 
     const setParam = (param, val) => {
@@ -114,7 +124,6 @@ export class LiquidSonifier extends SonifierBase {
     const params = this._workletNode.parameters
     if (params.has('frequency')) setParam(params.get('frequency'), freq)
     if (params.has('viscosity')) setParam(params.get('viscosity'), visc)
-    // We keep the worklet's internal volume high and use our gain node for master control
-    if (params.has('volume')) setParam(params.get('volume'), 1.0)
+    if (params.has('volume')) setParam(params.get('volume'), resVol)
   }
 }
