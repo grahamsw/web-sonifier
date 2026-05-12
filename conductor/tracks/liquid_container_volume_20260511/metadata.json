@@ -1,8 +1,0 @@
-{
-  "track_id": "liquid_container_volume_20260511",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-05-11T22:39:00Z",
-  "updated_at": "2026-05-11T22:39:00Z",
-  "description": "Add resonatorVolume parameter to LiquidSonifier to control the physical size of the liquid container, distinct from output gain."
-}
