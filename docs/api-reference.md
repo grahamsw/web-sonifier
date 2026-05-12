@@ -23,6 +23,16 @@
 - `setParam(name, value)`: Validates and stores the value, then calls `onParam`.
 - `getParam(name)`: Retrieves the current stored value.
 
+## Included Sonifiers
+
+### `LiquidSonifier` (`@web-sonify/liquid`)
+A physical modeling liquid resonator.
+- **Parameters**:
+  - `frequency`: Excitation frequency (10-100).
+  - `viscosity`: Thickness of the liquid (0-1).
+  - `resonatorVolume`: Physical size of the container (0-1).
+  - `volume`: Output amplitude/gain (0-1).
+
 ## Parameter Schema Object
 ```js
 {
