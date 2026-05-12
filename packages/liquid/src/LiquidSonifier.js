@@ -82,12 +82,20 @@ export class LiquidSonifier extends SonifierBase {
     }
   }
 
+  /**
+   * Called when a parameter changes.
+   * @param {string} name 
+   * @param {number|string} value 
+   */
   onParam(name, value) {
     if (this._initialized) {
       this._updateNodes()
     }
   }
 
+  /**
+   * Cleans up resources.
+   */
   destroy() {
     if (this._gainNode) {
       this._gainNode.disconnect()
@@ -100,6 +108,11 @@ export class LiquidSonifier extends SonifierBase {
     this._ctx = null
   }
 
+  /**
+   * Updates the internal audio nodes based on current parameters.
+   * @param {boolean} [immediate=false] Whether to skip the ramp.
+   * @private
+   */
   _updateNodes(immediate = false) {
     if (!this._workletNode || !this._ctx) return
 
