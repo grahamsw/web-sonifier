@@ -54,6 +54,7 @@ const outputRangeLabelEl = document.getElementById('output-range-label')
 const groupLabelEl       = document.getElementById('group-label')
 const rowWaveformEl      = document.getElementById('row-waveform')
 const rowViscosityEl     = document.getElementById('row-viscosity')
+const rowResonatorVolumeEl = document.getElementById('row-resonator-volume')
 const rowJitterEl        = document.getElementById('row-jitter')
 const rowRumbleEl        = document.getElementById('row-rumble')
 const rowBreathEl        = document.getElementById('row-breath')
@@ -67,6 +68,7 @@ const rowEngineRolloffEl = document.getElementById('row-engine-rolloff')
 
 // Dialog Inputs (continued)
 const inputViscosityEl   = document.getElementById('input-viscosity')
+const inputResonatorVolumeEl = document.getElementById('input-resonator-volume')
 const inputJitterEl      = document.getElementById('input-jitter')
 const inputRumbleEl      = document.getElementById('input-rumble')
 const inputBreathEl      = document.getElementById('input-breath')
@@ -139,7 +141,8 @@ const defaultSettings = {
     outputRange:     [20, 80],
     curve:           'linear',
     sonifierVolume:  0.5,
-    viscosity:       0.5
+    viscosity:       0.5,
+    resonatorVolume: 0.5
   },
   mallet: {
     inputRange:      [85, 115],
@@ -231,6 +234,7 @@ function applySettings() {
     }
     if (type === 'liquid') {
       activeSonifier.setParam('viscosity', s.viscosity)
+      activeSonifier.setParam('resonatorVolume', s.resonatorVolume)
     }
     if (type === 'mallet') {
       activeSonifier.setParam('hardness', s.hardness)
@@ -372,6 +376,7 @@ function updateSettingsFromUI() {
     s.breath = parseFloat(inputBreathEl.value)
   } else if (type === 'liquid') {
     s.viscosity = parseFloat(inputViscosityEl.value)
+    s.resonatorVolume = parseFloat(inputResonatorVolumeEl.value)
   } else if (type === 'engine') {
     s.rate = parseFloat(inputEngineRateEl.value)
     s.volumeVariance = parseFloat(inputEngineVolVarEl.value)
@@ -390,7 +395,7 @@ function updateSettingsFromUI() {
 const liveInputs = [
   inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, 
   curveSelectEl, waveformSelectEl, sonifierVolumeEl,
-  inputViscosityEl, inputJitterEl, inputRumbleEl, inputBreathEl,
+  inputViscosityEl, inputResonatorVolumeEl, inputJitterEl, inputRumbleEl, inputBreathEl,
   inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl,
   inputEngineRateEl, inputEngineVolVarEl, inputEngineRolloffEl
 ]
@@ -410,8 +415,8 @@ btnSettings.addEventListener('click', () => {
   settingsBackup = JSON.parse(JSON.stringify(settings))
 
   // Dynamic UI updates
-  const rows = [
-    rowWaveformEl, rowViscosityEl, rowJitterEl, rowRumbleEl, rowBreathEl,
+    const rows = [
+    rowWaveformEl, rowViscosityEl, rowResonatorVolumeEl, rowJitterEl, rowRumbleEl, rowBreathEl,
     rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl,
     rowEngineRateEl, rowEngineVolVarEl, rowEngineRolloffEl
   ]
@@ -456,7 +461,9 @@ btnSettings.addEventListener('click', () => {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Liquid'
     rowViscosityEl.style.display = 'flex'
+    rowResonatorVolumeEl.style.display = 'flex'
     inputViscosityEl.value = s.viscosity
+    inputResonatorVolumeEl.value = s.resonatorVolume || 0.5
   } else {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Tone'
