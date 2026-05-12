@@ -1,21 +1,22 @@
 # Implementation Plan: LiquidSonifier Physical Volume Parameter
 
 ## Phase 1: Verification & Testing
-- [ ] Task: Create reproduction/baseline test for `LiquidSonifier`
-    - [ ] Create `packages/liquid/test/LiquidSonifier.params.test.js`
-    - [ ] Verify `volume` controls gain.
-    - [ ] Verify `resonatorVolume` is currently missing from schema.
-- [ ] Task: Write failing test for `resonatorVolume`
-    - [ ] Add test case to check for `resonatorVolume` in `getParamSchema()`.
-    - [ ] Add test case to verify `resonatorVolume` updates the AudioWorklet node.
+- [x] Task: Create reproduction/baseline test for `LiquidSonifier`
+    - [x] Create `packages/liquid/test/LiquidSonifier.params.test.js`
+    - [x] Verify `volume` controls gain.
+    - [x] Verify `resonatorVolume` is currently missing from schema.
+- [x] Task: Write failing test for `resonatorVolume`
+    - [x] Add test case to check for `resonatorVolume` in `getParamSchema()`.
+    - [x] Add test case to verify `resonatorVolume` updates the AudioWorklet node.
 
 ## Phase 2: Implementation
-- [ ] Task: Update `LiquidSonifier` Schema
-    - [ ] Add `resonatorVolume` to `getParamSchema()` in `packages/liquid/src/LiquidSonifier.js`.
-- [ ] Task: Update `LiquidSonifier` Parameter Mapping
-    - [ ] Update `_updateNodes()` to pass the `resonatorVolume` value to the worklet's `volume` parameter instead of a hardcoded `1.0`.
-- [ ] Task: Verify TDD Cycle
-    - [ ] Run tests and ensure they pass.
+- [x] Task: Update `LiquidSonifier` Schema [412f8cb]
+    - [x] Add `resonatorVolume` to `getParamSchema()` in `packages/liquid/src/LiquidSonifier.js`.
+- [x] Task: Update `LiquidSonifier` Parameter Mapping [412f8cb]
+    - [x] Update `_updateNodes()` to pass the `resonatorVolume` value to the worklet's `volume` parameter instead of a hardcoded `1.0`.
+- [x] Task: Verify TDD Cycle [412f8cb]
+    - [x] Run tests and ensure they pass.
+
 
 ## Phase 3: Finalization
 - [ ] Task: Conductor - User Manual Verification 'Physical Volume Parameter' (Protocol in workflow.md)
