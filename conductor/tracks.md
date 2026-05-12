@@ -14,4 +14,5 @@ This file registers all active and completed tracks for the project.
 | `expose-params` | Expose additional sonifier parameters in UI | Completed | [Archive](./archive/expose_sonifier_params_20260510) |
 | `fix-mallet-silent` | Fix silent MalletSonifier due to missing start() call | Completed | [Archive](./archive/fix_mallet_silent_20260508) |
 | `ui-config` | UI and Sonifier Configuration Improvements | Completed | [Archive](./archive/ui_configuration_improvements_20260510) |
+| `liquid-vol` | Add resonatorVolume parameter to LiquidSonifier | New | [./tracks/liquid_container_volume_20260511/](./tracks/liquid_container_volume_20260511/) |
 `n---`n
