@@ -24,7 +24,7 @@
 - [x] Task: Conductor - User Manual Verification 'DroneSonifier Class Development' (Protocol in workflow.md) c7c76a2
 
 ## Phase 4: UI & Demo Integration
-- [ ] Task: Register `DroneSonifier` in the demo application
-- [ ] Task: Create UI controls for all drone parameters in the demo dashboard
-- [ ] Task: Perform end-to-end manual verification of sound and data mapping
-- [ ] Task: Conductor - User Manual Verification 'UI & Demo Integration' (Protocol in workflow.md)
+- [x] Task: Register `DroneSonifier` in the demo application 12b6fa1
+- [x] Task: Create UI controls for all drone parameters in the demo dashboard 12b6fa1
+- [x] Task: Perform end-to-end manual verification of sound and data mapping
+- [x] Task: Conductor - User Manual Verification 'UI & Demo Integration' (Protocol in workflow.md)

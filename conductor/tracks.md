@@ -17,6 +17,6 @@ This file registers all active and completed tracks for the project.
 
 ---
 
-- [ ] **Track: Create a sonifier based on a SuperCollider synth in the file @docs/supercollider drone.scd**
+- [x] **Track: Create a sonifier based on a SuperCollider synth in the file @docs/supercollider drone.scd**
 *Link: [./tracks/drone_sonifier_20260515/](./tracks/drone_sonifier_20260515/)*
 `n---`n

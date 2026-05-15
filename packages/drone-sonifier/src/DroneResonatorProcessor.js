@@ -57,22 +57,23 @@ class DroneResonatorProcessor extends AudioWorkletProcessor {
     this.initialized = true;
   }
 
-  // Simplified Blip implementation: Sum of harmonics
-  // SC Blip.ar(freq, numharm) = (1/N) * sum_{i=1}^N cos(2pi * i * freq * t)
-  // Actually SC Blip is not normalized by 1/N by default, but let's be careful.
+  // Correct Blip implementation: Dirichlet kernel - 0.5
+  // sum_{k=1}^N cos(k*x) = sin((N+0.5)x) / (2*sin(0.5x)) - 0.5
   _blip(phase, nharm) {
-    let sum = 0;
     const n = Math.floor(nharm);
     if (n < 1) return 0;
     
-    // Band-limited impulse approximation using the formula:
-    // sin(n * pi * x) / (n * sin(pi * x))
-    // We use x = phase (0 to 1)
-    const x = phase * Math.PI;
-    const sinX = Math.sin(x);
-    if (Math.abs(sinX) < 1e-6) return 1.0;
+    const x = phase * 2 * Math.PI;
+    const halfX = 0.5 * x;
+    const sinHalfX = Math.sin(halfX);
     
-    return Math.sin(n * x) / (n * sinX);
+    if (Math.abs(sinHalfX) < 1e-6) return 1.0;
+    
+    // Dirichlet kernel part
+    const val = Math.sin((n + 0.5) * x) / (2 * sinHalfX) - 0.5;
+    
+    // Normalize by n so peak is 1.0
+    return val / n;
   }
 
   process(inputs, outputs, parameters) {
