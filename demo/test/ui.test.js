@@ -48,7 +48,8 @@ vi.mock('@web-sonify/core', () => ({
       setConfig: vi.fn(),
       map: vi.fn(() => 440)
     }
-  })
+  }),
+  SonifierBase: class {}
 }))
 
 vi.mock('@web-sonify/tone', () => ({ ToneSonifier: vi.fn() }))
@@ -57,6 +58,7 @@ vi.mock('@web-sonify/purr', () => ({ PurrSonifier: vi.fn() }))
 vi.mock('@web-sonify/liquid', () => ({ LiquidSonifier: vi.fn() }))
 vi.mock('@web-sonify/mallet', () => ({ MalletSonifier: vi.fn() }))
 vi.mock('@web-sonify/engine', () => ({ EngineSonifier: vi.fn() }))
+vi.mock('@web-sonify/drone', () => ({ DroneSonifier: class {} }))
 
 describe('Demo UI Live Updates', () => {
   it('should apply settings immediately when an input changes', async () => {

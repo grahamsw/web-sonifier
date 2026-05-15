@@ -5,6 +5,7 @@ import { PurrSonifier } from '@web-sonify/purr'
 import { LiquidSonifier } from '@web-sonify/liquid'
 import { MalletSonifier } from '@web-sonify/mallet'
 import { EngineSonifier } from '@web-sonify/engine'
+import { DroneSonifier } from '@web-sonify/drone'
 
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,9 @@ const rowForceEl         = document.getElementById('row-force')
 const rowEngineRateEl    = document.getElementById('row-engine-rate')
 const rowEngineVolVarEl  = document.getElementById('row-engine-vol-var')
 const rowEngineRolloffEl = document.getElementById('row-engine-rolloff')
+const rowDroneNharmEl    = document.getElementById('row-drone-nharm')
+const rowDroneDetuneEl   = document.getElementById('row-drone-detune')
+const rowDronePanEl      = document.getElementById('row-drone-pan')
 
 // Dialog Inputs (continued)
 const inputViscosityEl   = document.getElementById('input-viscosity')
@@ -79,6 +83,9 @@ const inputForceEl       = document.getElementById('input-force')
 const inputEngineRateEl    = document.getElementById('input-engine-rate')
 const inputEngineVolVarEl  = document.getElementById('input-engine-vol-var')
 const inputEngineRolloffEl = document.getElementById('input-engine-rolloff')
+const inputDroneNharmEl    = document.getElementById('input-drone-nharm')
+const inputDroneDetuneEl   = document.getElementById('input-drone-detune')
+const inputDronePanEl      = document.getElementById('input-drone-pan')
 
 // ---------------------------------------------------------------------------
 // State
@@ -91,6 +98,7 @@ runtime.register('purr', PurrSonifier)
 runtime.register('engine', EngineSonifier)
 runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
+runtime.register('drone', DroneSonifier)
 
 
 let activeSonifier = null
@@ -153,6 +161,15 @@ const defaultSettings = {
     boxSize:         1.0,
     resonance:       0.4,
     force:           0.7
+  },
+  drone: {
+    inputRange:      [85, 115],
+    outputRange:     [20, 200],
+    curve:           'linear',
+    sonifierVolume:  0.5,
+    nharm:           12,
+    detune:          0.2,
+    pan:             0
   }
 }
 
@@ -170,6 +187,7 @@ function loadSettings() {
     if (!settings.engine) settings.engine = { ...defaultSettings.engine, ...settings.engine }
     if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid, ...settings.liquid }
     if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet, ...settings.mallet }
+    if (!settings.drone) settings.drone = { ...defaultSettings.drone }
     return settings
   } catch {
     return JSON.parse(JSON.stringify(defaultSettings))
@@ -198,6 +216,7 @@ function getMappedParam(type) {
     case 'engine': return 'pitch'
     case 'liquid': return 'frequency'
     case 'mallet': return 'strikeRate'
+    case 'drone':  return 'frequency'
     default:       return 'frequency'
   }
 }
@@ -241,6 +260,11 @@ function applySettings() {
       activeSonifier.setParam('boxSize', s.boxSize)
       activeSonifier.setParam('resonance', s.resonance)
       activeSonifier.setParam('force', s.force)
+    }
+    if (type === 'drone') {
+      activeSonifier.setParam('nharm', s.nharm)
+      activeSonifier.setParam('detune', s.detune)
+      activeSonifier.setParam('pan', s.pan)
     }
     activeSonifier.setParam('volume', s.sonifierVolume)
   }
@@ -386,6 +410,10 @@ function updateSettingsFromUI() {
     s.boxSize = parseFloat(inputBoxSizeEl.value)
     s.resonance = parseFloat(inputResonanceEl.value)
     s.force = parseFloat(inputForceEl.value)
+  } else if (type === 'drone') {
+    s.nharm = parseFloat(inputDroneNharmEl.value)
+    s.detune = parseFloat(inputDroneDetuneEl.value)
+    s.pan = parseFloat(inputDronePanEl.value)
   }
 
   settings.sonifierType = type
@@ -397,7 +425,8 @@ const liveInputs = [
   curveSelectEl, waveformSelectEl, sonifierVolumeEl,
   inputViscosityEl, inputResonatorVolumeEl, inputJitterEl, inputRumbleEl, inputBreathEl,
   inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl,
-  inputEngineRateEl, inputEngineVolVarEl, inputEngineRolloffEl
+  inputEngineRateEl, inputEngineVolVarEl, inputEngineRolloffEl,
+  inputDroneNharmEl, inputDroneDetuneEl, inputDronePanEl
 ]
 
 liveInputs.forEach(el => {
@@ -418,7 +447,8 @@ btnSettings.addEventListener('click', () => {
     const rows = [
     rowWaveformEl, rowViscosityEl, rowResonatorVolumeEl, rowJitterEl, rowRumbleEl, rowBreathEl,
     rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl,
-    rowEngineRateEl, rowEngineVolVarEl, rowEngineRolloffEl
+    rowEngineRateEl, rowEngineVolVarEl, rowEngineRolloffEl,
+    rowDroneNharmEl, rowDroneDetuneEl, rowDronePanEl
   ]
   rows.forEach(r => r.style.display = 'none')
 
@@ -464,6 +494,16 @@ btnSettings.addEventListener('click', () => {
     rowResonatorVolumeEl.style.display = 'flex'
     inputViscosityEl.value = s.viscosity
     inputResonatorVolumeEl.value = s.resonatorVolume || 0.5
+  } else if (type === 'drone') {
+    outputRangeLabelEl.textContent = 'Output range (Hz)'
+    groupLabelEl.textContent = 'Drone'
+    rowDroneNharmEl.style.display = 'flex'
+    rowDroneDetuneEl.style.display = 'flex'
+    rowDronePanEl.style.display = 'flex'
+
+    inputDroneNharmEl.value = s.nharm
+    inputDroneDetuneEl.value = s.detune
+    inputDronePanEl.value = s.pan
   } else {
     outputRangeLabelEl.textContent = 'Output range (Hz)'
     groupLabelEl.textContent = 'Tone'
