@@ -6,22 +6,22 @@
     - [ ] Create directory structure (`src/`, `test/`)
 - [x] Task: Conductor - User Manual Verification 'Package Scaffolding' (Protocol in workflow.md) 6ba757c
 
-## Phase 2: AudioWorklet Implementation
-- [ ] Task: Implement `DroneResonatorProcessor` logic
-    - [ ] Replicate `Blip` impulse generation in JS
-    - [ ] Implement `LFNoise1` (linear interpolation noise) for frequency and amplitude modulation
-    - [ ] Implement `Splay` and `Balance2` equivalent for stereo splaying
-- [ ] Task: Write tests for `DroneResonatorProcessor`
-- [ ] Task: Conductor - User Manual Verification 'AudioWorklet Implementation' (Protocol in workflow.md)
+## Phase 2: AudioWorklet Implementation [checkpoint: c7c76a2]
+- [x] Task: Implement `DroneResonatorProcessor` logic cdc2d66
+    - [x] Replicate `Blip` impulse generation in JS
+    - [x] Implement `LFNoise1` (linear interpolation noise) for frequency and amplitude modulation
+    - [x] Implement `Splay` and `Balance2` equivalent for stereo splaying
+- [x] Task: Write tests for `DroneResonatorProcessor` cdc2d66
+- [x] Task: Conductor - User Manual Verification 'AudioWorklet Implementation' (Protocol in workflow.md) c7c76a2
 
-## Phase 3: DroneSonifier Class Development
-- [ ] Task: Implement `DroneSonifier` class
-    - [ ] Extend `SonifierBase`
-    - [ ] Handle `AudioWorklet` module registration and node creation
-    - [ ] Implement parameter smoothing using Web Audio automation
-    - [ ] Define default parameter mappings
-- [ ] Task: Write unit tests for `DroneSonifier`
-- [ ] Task: Conductor - User Manual Verification 'DroneSonifier Class Development' (Protocol in workflow.md)
+## Phase 3: DroneSonifier Class Development [checkpoint: c7c76a2]
+- [x] Task: Implement `DroneSonifier` class cdc2d66
+    - [x] Extend `SonifierBase`
+    - [x] Handle `AudioWorklet` module registration and node creation
+    - [x] Implement parameter smoothing using Web Audio automation
+    - [x] Define default parameter mappings
+- [x] Task: Write unit tests for `DroneSonifier` cdc2d66
+- [x] Task: Conductor - User Manual Verification 'DroneSonifier Class Development' (Protocol in workflow.md) c7c76a2
 
 ## Phase 4: UI & Demo Integration
 - [ ] Task: Register `DroneSonifier` in the demo application
