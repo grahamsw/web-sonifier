@@ -1,8 +1,0 @@
-{
-  "id": "expose_sonifier_params_20260510",
-  "title": "Expose Additional Sonifier Parameters",
-  "description": "Expose viscosity for Liquid, jitter/rumble/breath for Purr, and hardness/size/resonance/force for Mallet in the sonifier classes and UI.",
-  "status": "completed",
-  "created_at": "2026-05-10T00:00:00Z",
-  "updated_at": "2026-05-10T16:25:00Z"
-}

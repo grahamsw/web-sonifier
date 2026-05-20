@@ -10,12 +10,12 @@ This file contains foundational mandates for all agents and developers working o
 4.  **Browser Compatibility**: The core and plugin packages must remain compatible with vanilla browser environments. Avoid adding Node-specific dependencies to these packages.
 
 ## Workspace Guidelines
--   Use Conductor tracks for all non-trivial features and refactors.
+-   Use Antigravity planning mode for all non-trivial features and refactors.
 -   **Track Lifecycle**: 
-    -   **Branching**: Always create a new feature branch when starting a new track.
-    -   **Merging**: Merge the branch back into the main line once the track is completed and verified.
+    -   **Branching**: Always create a new feature branch when starting a new track or task.
+    -   **Merging**: Merge the branch back into the main line once the task is completed and verified.
     -   **Cleanup**: Delete the feature branch after a successful merge to keep the repository clean.
--   Maintain the `conductor/` directory as the single source of truth for planning.
+-   Maintain `implementation_plan.md` and `task.md` in the App Data Directory as the source of truth for tracking active tasks.
 
 ## Sonifier Best Practices
 
