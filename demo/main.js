@@ -6,7 +6,7 @@ import { LiquidSonifier } from '@web-sonify/liquid'
 import { MalletSonifier } from '@web-sonify/mallet'
 import { EngineSonifier } from '@web-sonify/engine'
 import { DroneSonifier } from '@web-sonify/drone'
-
+import { SettingsFormBuilder } from './SettingsFormBuilder.js'
 
 // ---------------------------------------------------------------------------
 // Mocked oil price feed — random walk, updates every 3 seconds
@@ -29,66 +29,131 @@ function startFeed(onUpdate) {
 // UI elements
 // ---------------------------------------------------------------------------
 
-const priceValueEl    = document.getElementById('price-value')
-const priceChangeEl   = document.getElementById('price-change')
+const priceValueEl     = document.getElementById('price-value')
+const priceChangeEl    = document.getElementById('price-change')
 const sonifierSelectEl = document.getElementById('sonifier-select')
 const feedRateSelectEl = document.getElementById('feed-rate-select')
-const btnPlay         = document.getElementById('btn-play')
-const btnStop         = document.getElementById('btn-stop')
-const btnSettings     = document.getElementById('btn-settings')
-const masterVolumeEl  = document.getElementById('master-volume')
-const masterVolDispEl = document.getElementById('master-volume-display')
-const statusEl        = document.getElementById('status')
-const dialog          = document.getElementById('settings-dialog')
+const btnPlay          = document.getElementById('btn-play')
+const btnStop          = document.getElementById('btn-stop')
+const btnSettings      = document.getElementById('btn-settings')
+const masterVolumeEl   = document.getElementById('master-volume')
+const masterVolDispEl  = document.getElementById('master-volume-display')
+const statusEl         = document.getElementById('status')
+const dialog           = document.getElementById('settings-dialog')
 
-// Dialog inputs
-const inputMinEl        = document.getElementById('input-min')
-const inputMaxEl        = document.getElementById('input-max')
-const outputMinEl       = document.getElementById('output-min')
-const outputMaxEl       = document.getElementById('output-max')
-const curveSelectEl     = document.getElementById('curve-select')
-const waveformSelectEl  = document.getElementById('waveform-select')
-const sonifierVolumeEl  = document.getElementById('sonifier-volume')
-
-// Dialog elements for dynamic updates
+// Dialog mapping inputs (static)
+const inputMinEl         = document.getElementById('input-min')
+const inputMaxEl         = document.getElementById('input-max')
+const outputMinEl        = document.getElementById('output-min')
+const outputMaxEl        = document.getElementById('output-max')
+const curveSelectEl      = document.getElementById('curve-select')
 const outputRangeLabelEl = document.getElementById('output-range-label')
-const groupLabelEl       = document.getElementById('group-label')
-const rowWaveformEl      = document.getElementById('row-waveform')
-const rowViscosityEl     = document.getElementById('row-viscosity')
-const rowResonatorVolumeEl = document.getElementById('row-resonator-volume')
-const rowJitterEl        = document.getElementById('row-jitter')
-const rowRumbleEl        = document.getElementById('row-rumble')
-const rowBreathEl        = document.getElementById('row-breath')
-const rowHardnessEl      = document.getElementById('row-hardness')
-const rowBoxSizeEl       = document.getElementById('row-box-size')
-const rowResonanceEl     = document.getElementById('row-resonance')
-const rowForceEl         = document.getElementById('row-force')
-const rowEngineRateEl    = document.getElementById('row-engine-rate')
-const rowEngineVolVarEl  = document.getElementById('row-engine-vol-var')
-const rowEngineRolloffEl = document.getElementById('row-engine-rolloff')
-const rowDroneNharmEl    = document.getElementById('row-drone-nharm')
-const rowDroneDetuneEl   = document.getElementById('row-drone-detune')
-const rowDronePanEl      = document.getElementById('row-drone-pan')
 
-// Dialog Inputs (continued)
-const inputViscosityEl   = document.getElementById('input-viscosity')
-const inputResonatorVolumeEl = document.getElementById('input-resonator-volume')
-const inputJitterEl      = document.getElementById('input-jitter')
-const inputRumbleEl      = document.getElementById('input-rumble')
-const inputBreathEl      = document.getElementById('input-breath')
-const inputHardnessEl    = document.getElementById('input-hardness')
-const inputBoxSizeEl     = document.getElementById('input-box-size')
-const inputResonanceEl   = document.getElementById('input-resonance')
-const inputForceEl       = document.getElementById('input-force')
-const inputEngineRateEl    = document.getElementById('input-engine-rate')
-const inputEngineVolVarEl  = document.getElementById('input-engine-vol-var')
-const inputEngineRolloffEl = document.getElementById('input-engine-rolloff')
-const inputDroneNharmEl    = document.getElementById('input-drone-nharm')
-const inputDroneDetuneEl   = document.getElementById('input-drone-detune')
-const inputDronePanEl      = document.getElementById('input-drone-pan')
+// Container for dynamic sonifier-specific inputs
+const dynamicContainer   = document.getElementById('dynamic-params-container')
 
 // ---------------------------------------------------------------------------
-// State
+// UI configurations ("facets") for sonifiers
+// ---------------------------------------------------------------------------
+
+const UI_CONFIGS = {
+  tone: {
+    mappedParam: 'frequency',
+    groups: [
+      {
+        title: 'Tone Settings',
+        params: {
+          waveform: { control: 'select', label: 'Waveform' },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  geiger: {
+    mappedParam: 'rate',
+    groups: [
+      {
+        title: 'Geiger Settings',
+        params: {
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  purr: {
+    mappedParam: 'frequency',
+    groups: [
+      {
+        title: 'Purr Settings',
+        params: {
+          jitter: { control: 'slider', label: 'Jitter', step: 0.05 },
+          rumble: { control: 'slider', label: 'Rumble', step: 0.05 },
+          breath: { control: 'slider', label: 'Breath', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  engine: {
+    mappedParam: 'pitch',
+    groups: [
+      {
+        title: 'Engine Settings',
+        params: {
+          rate: { control: 'slider', label: 'Engine Rate', step: 0.1 },
+          volumeVariance: { control: 'slider', label: 'Throttle Depth', step: 0.01 },
+          rolloff: { control: 'select', label: 'Rolloff' },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  liquid: {
+    mappedParam: 'frequency',
+    groups: [
+      {
+        title: 'Liquid Settings',
+        params: {
+          viscosity: { control: 'slider', label: 'Viscosity', step: 0.05 },
+          resonatorVolume: { control: 'slider', label: 'Resonator Vol (Size)', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  mallet: {
+    mappedParam: 'strikeRate',
+    groups: [
+      {
+        title: 'Mallet Settings',
+        params: {
+          hardness: { control: 'slider', label: 'Hardness', step: 0.05 },
+          boxSize: { control: 'slider', label: 'Size (Body)', step: 0.05 },
+          resonance: { control: 'slider', label: 'Resonance (Q)', step: 0.05 },
+          force: { control: 'slider', label: 'Force (Impact)', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  },
+  drone: {
+    mappedParam: 'frequency',
+    groups: [
+      {
+        title: 'Drone Settings',
+        params: {
+          nharm: { control: 'slider', label: 'Harmonics', step: 1 },
+          detune: { control: 'slider', label: 'Detune (st)', step: 0.01 },
+          pan: { control: 'slider', label: 'Pan', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// State & Defaults
 // ---------------------------------------------------------------------------
 
 const runtime = new Runtime()
@@ -99,7 +164,6 @@ runtime.register('engine', EngineSonifier)
 runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
 runtime.register('drone', DroneSonifier)
-
 
 let activeSonifier = null
 let activeSonifierType = null
@@ -118,19 +182,19 @@ const defaultSettings = {
     outputRange:     [110, 440],
     curve:           'exponential',
     waveform:        'sine',
-    sonifierVolume:  0.5
+    volume:          0.5
   },
   geiger: {
     inputRange:      [85, 115],
     outputRange:     [1, 50],
     curve:           'linear',
-    sonifierVolume:  0.7
+    volume:          0.7
   },
   purr: {
     inputRange:      [85, 115],
     outputRange:     [20, 150],
     curve:           'exponential',
-    sonifierVolume:  0.6,
+    volume:          0.6,
     jitter:          0.5,
     rumble:          0.5,
     breath:          0.5
@@ -139,7 +203,7 @@ const defaultSettings = {
     inputRange:      [85, 115],
     outputRange:     [20, 2000],
     curve:           'exponential',
-    sonifierVolume:  0.25,
+    volume:          0.25,
     rate:            25,
     volumeVariance:  0.1,
     rolloff:         -96
@@ -148,7 +212,7 @@ const defaultSettings = {
     inputRange:      [85, 115],
     outputRange:     [20, 80],
     curve:           'linear',
-    sonifierVolume:  0.5,
+    volume:          0.5,
     viscosity:       0.5,
     resonatorVolume: 0.5
   },
@@ -156,7 +220,7 @@ const defaultSettings = {
     inputRange:      [85, 115],
     outputRange:     [0.5, 10],
     curve:           'linear',
-    sonifierVolume:  0.7,
+    volume:          0.7,
     hardness:        0.5,
     boxSize:         1.0,
     resonance:       0.4,
@@ -166,7 +230,7 @@ const defaultSettings = {
     inputRange:      [85, 115],
     outputRange:     [20, 200],
     curve:           'linear',
-    sonifierVolume:  0.5,
+    volume:          0.5,
     nharm:           12,
     detune:          0.2,
     pan:             0
@@ -178,16 +242,23 @@ function loadSettings() {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) return JSON.parse(JSON.stringify(defaultSettings))
     
-    // Deep merge or manual repair for migrations
-    const settings = JSON.parse(saved)
-    if (!settings.feedIntervalMs) settings.feedIntervalMs = 1000
-    if (!settings.tone) settings.tone = { ...defaultSettings.tone }
-    if (!settings.geiger) settings.geiger = { ...defaultSettings.geiger }
-    if (!settings.purr) settings.purr = { ...defaultSettings.purr, ...settings.purr }
-    if (!settings.engine) settings.engine = { ...defaultSettings.engine, ...settings.engine }
-    if (!settings.liquid) settings.liquid = { ...defaultSettings.liquid, ...settings.liquid }
-    if (!settings.mallet) settings.mallet = { ...defaultSettings.mallet, ...settings.mallet }
-    if (!settings.drone) settings.drone = { ...defaultSettings.drone }
+    const loaded = JSON.parse(saved)
+    const settings = JSON.parse(JSON.stringify(defaultSettings))
+    
+    for (const key of Object.keys(defaultSettings)) {
+      if (typeof defaultSettings[key] === 'object' && defaultSettings[key] !== null) {
+        if (loaded[key]) {
+          settings[key] = { ...defaultSettings[key], ...loaded[key] }
+          // Migrate sonifierVolume -> volume
+          if (loaded[key].sonifierVolume !== undefined) {
+            settings[key].volume = loaded[key].sonifierVolume
+            delete settings[key].sonifierVolume
+          }
+        }
+      } else if (loaded[key] !== undefined) {
+        settings[key] = loaded[key]
+      }
+    }
     return settings
   } catch {
     return JSON.parse(JSON.stringify(defaultSettings))
@@ -205,69 +276,40 @@ btnSettings.disabled = false
 masterVolumeEl.disabled = false
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function getMappedParam(type) {
-  switch (type) {
-    case 'tone':   return 'frequency'
-    case 'geiger': return 'rate'
-    case 'purr':   return 'frequency'
-    case 'engine': return 'pitch'
-    case 'liquid': return 'frequency'
-    case 'mallet': return 'strikeRate'
-    case 'drone':  return 'frequency'
-    default:       return 'frequency'
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Apply settings to live objects
 // ---------------------------------------------------------------------------
 
 function applySettings() {
   const type = sonifierSelectEl.value
   const s = settings[type]
+  const uiConfig = UI_CONFIGS[type]
   
+  if (!uiConfig) return
+
   if (activeAdapter) {
     activeAdapter.setConfig({
-      param:       getMappedParam(type),
+      param:       uiConfig.mappedParam,
       inputRange:  s.inputRange,
       outputRange: s.outputRange,
       curve:       s.curve
     })
   }
+
   if (activeSonifier) {
-    if (type === 'tone') {
-      activeSonifier.setParam('waveform', s.waveform)
+    // Apply parameters from groups
+    for (const group of uiConfig.groups || []) {
+      for (const paramName of Object.keys(group.params || {})) {
+        if (s[paramName] !== undefined) {
+          activeSonifier.setParam(paramName, s[paramName])
+        }
+      }
     }
-    if (type === 'engine') {
-      activeSonifier.setParam('rate', s.rate)
-      activeSonifier.setParam('volumeVariance', s.volumeVariance)
-      activeSonifier.setParam('rolloff', s.rolloff)
+    // Apply fixed parameters if any
+    for (const [paramName, value] of Object.entries(uiConfig.fixedParams || {})) {
+      activeSonifier.setParam(paramName, value)
     }
-    if (type === 'purr') {
-      activeSonifier.setParam('jitter', s.jitter)
-      activeSonifier.setParam('rumble', s.rumble)
-      activeSonifier.setParam('breath', s.breath)
-    }
-    if (type === 'liquid') {
-      activeSonifier.setParam('viscosity', s.viscosity)
-      activeSonifier.setParam('resonatorVolume', s.resonatorVolume)
-    }
-    if (type === 'mallet') {
-      activeSonifier.setParam('hardness', s.hardness)
-      activeSonifier.setParam('boxSize', s.boxSize)
-      activeSonifier.setParam('resonance', s.resonance)
-      activeSonifier.setParam('force', s.force)
-    }
-    if (type === 'drone') {
-      activeSonifier.setParam('nharm', s.nharm)
-      activeSonifier.setParam('detune', s.detune)
-      activeSonifier.setParam('pan', s.pan)
-    }
-    activeSonifier.setParam('volume', s.sonifierVolume)
   }
+
   runtime.setMasterVolume(settings.masterVolume)
   masterVolumeEl.value = settings.masterVolume
   masterVolDispEl.textContent = settings.masterVolume.toFixed(2)
@@ -291,12 +333,15 @@ function initFeed() {
 async function startSonifier() {
   const type = sonifierSelectEl.value
   const s = settings[type]
+  const uiConfig = UI_CONFIGS[type]
   
+  if (!uiConfig) return
+
   activeSonifier = runtime.create(type)
   activeSonifierType = type
 
   activeAdapter = new Adapter({
-    param:        getMappedParam(type),
+    param:        uiConfig.mappedParam,
     inputRange:   s.inputRange,
     outputRange:  s.outputRange,
     curve:        s.curve
@@ -383,147 +428,70 @@ function updatePriceDisplay(price, prev) {
 // Settings dialog
 // ---------------------------------------------------------------------------
 
-function updateSettingsFromUI() {
+function updateMappingFromUI() {
   const type = sonifierSelectEl.value
   const s = settings[type]
 
-  s.inputRange     = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
-  s.outputRange    = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
-  s.curve          = curveSelectEl.value
-  s.sonifierVolume = parseFloat(sonifierVolumeEl.value)
-  
-  if (type === 'tone') {
-    s.waveform = waveformSelectEl.value
-  } else if (type === 'purr') {
-    s.jitter = parseFloat(inputJitterEl.value)
-    s.rumble = parseFloat(inputRumbleEl.value)
-    s.breath = parseFloat(inputBreathEl.value)
-  } else if (type === 'liquid') {
-    s.viscosity = parseFloat(inputViscosityEl.value)
-    s.resonatorVolume = parseFloat(inputResonatorVolumeEl.value)
-  } else if (type === 'engine') {
-    s.rate = parseFloat(inputEngineRateEl.value)
-    s.volumeVariance = parseFloat(inputEngineVolVarEl.value)
-    s.rolloff = parseInt(inputEngineRolloffEl.value, 10)
-  } else if (type === 'mallet') {
-    s.hardness = parseFloat(inputHardnessEl.value)
-    s.boxSize = parseFloat(inputBoxSizeEl.value)
-    s.resonance = parseFloat(inputResonanceEl.value)
-    s.force = parseFloat(inputForceEl.value)
-  } else if (type === 'drone') {
-    s.nharm = parseFloat(inputDroneNharmEl.value)
-    s.detune = parseFloat(inputDroneDetuneEl.value)
-    s.pan = parseFloat(inputDronePanEl.value)
-  }
-
-  settings.sonifierType = type
+  s.inputRange  = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
+  s.outputRange = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
+  s.curve       = curveSelectEl.value
 }
 
-// Add 'input' listeners for live updates
-const liveInputs = [
-  inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, 
-  curveSelectEl, waveformSelectEl, sonifierVolumeEl,
-  inputViscosityEl, inputResonatorVolumeEl, inputJitterEl, inputRumbleEl, inputBreathEl,
-  inputHardnessEl, inputBoxSizeEl, inputResonanceEl, inputForceEl,
-  inputEngineRateEl, inputEngineVolVarEl, inputEngineRolloffEl,
-  inputDroneNharmEl, inputDroneDetuneEl, inputDronePanEl
-]
-
-liveInputs.forEach(el => {
+// Static mapping inputs listener for live updates
+const mappingInputs = [inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, curveSelectEl]
+mappingInputs.forEach(el => {
   el.addEventListener('input', () => {
-    updateSettingsFromUI()
+    updateMappingFromUI()
     applySettings()
     saveSettings(settings)
   })
 })
+
 btnSettings.addEventListener('click', () => {
   const type = sonifierSelectEl.value
   const s = settings[type]
+  const uiConfig = UI_CONFIGS[type]
 
   // Backup current settings for revert on cancel
   settingsBackup = JSON.parse(JSON.stringify(settings))
 
-  // Dynamic UI updates
-    const rows = [
-    rowWaveformEl, rowViscosityEl, rowResonatorVolumeEl, rowJitterEl, rowRumbleEl, rowBreathEl,
-    rowHardnessEl, rowBoxSizeEl, rowResonanceEl, rowForceEl,
-    rowEngineRateEl, rowEngineVolVarEl, rowEngineRolloffEl,
-    rowDroneNharmEl, rowDroneDetuneEl, rowDronePanEl
-  ]
-  rows.forEach(r => r.style.display = 'none')
+  // Populate static mapping fields
+  inputMinEl.value    = s.inputRange[0]
+  inputMaxEl.value    = s.inputRange[1]
+  outputMinEl.value   = s.outputRange[0]
+  outputMaxEl.value   = s.outputRange[1]
+  curveSelectEl.value = s.curve
 
-  if (type === 'geiger') {
-    outputRangeLabelEl.textContent = 'Output range (Clicks/sec)'
-    groupLabelEl.textContent = 'Geiger'
-  } else if (type === 'engine') {
-    outputRangeLabelEl.textContent = 'Output range (Hz)'
-    groupLabelEl.textContent = 'Engine'
-    rowEngineRateEl.style.display = 'flex'
-    rowEngineVolVarEl.style.display = 'flex'
-    rowEngineRolloffEl.style.display = 'flex'
-
-    inputEngineRateEl.value = s.rate
-    inputEngineVolVarEl.value = s.volumeVariance
-    inputEngineRolloffEl.value = s.rolloff
-  } else if (type === 'mallet') {
-    outputRangeLabelEl.textContent = 'Output range (Strikes/sec)'
-    groupLabelEl.textContent = 'Mallet'
-    rowHardnessEl.style.display = 'flex'
-    rowBoxSizeEl.style.display = 'flex'
-    rowResonanceEl.style.display = 'flex'
-    rowForceEl.style.display = 'flex'
-    
-    inputHardnessEl.value = s.hardness
-    inputBoxSizeEl.value = s.boxSize
-    inputResonanceEl.value = s.resonance
-    inputForceEl.value = s.force
-  } else if (type === 'purr') {
-    outputRangeLabelEl.textContent = 'Output range (Hz)'
-    groupLabelEl.textContent = 'Purr'
-    rowJitterEl.style.display = 'flex'
-    rowRumbleEl.style.display = 'flex'
-    rowBreathEl.style.display = 'flex'
-
-    inputJitterEl.value = s.jitter
-    inputRumbleEl.value = s.rumble
-    inputBreathEl.value = s.breath
-  } else if (type === 'liquid') {
-    outputRangeLabelEl.textContent = 'Output range (Hz)'
-    groupLabelEl.textContent = 'Liquid'
-    rowViscosityEl.style.display = 'flex'
-    rowResonatorVolumeEl.style.display = 'flex'
-    inputViscosityEl.value = s.viscosity
-    inputResonatorVolumeEl.value = s.resonatorVolume || 0.5
-  } else if (type === 'drone') {
-    outputRangeLabelEl.textContent = 'Output range (Hz)'
-    groupLabelEl.textContent = 'Drone'
-    rowDroneNharmEl.style.display = 'flex'
-    rowDroneDetuneEl.style.display = 'flex'
-    rowDronePanEl.style.display = 'flex'
-
-    inputDroneNharmEl.value = s.nharm
-    inputDroneDetuneEl.value = s.detune
-    inputDronePanEl.value = s.pan
-  } else {
-    outputRangeLabelEl.textContent = 'Output range (Hz)'
-    groupLabelEl.textContent = 'Tone'
-    rowWaveformEl.style.display = 'flex'
-    waveformSelectEl.value = s.waveform || 'sine'
+  // Update output range label dynamically based on mapping parameter's schema label
+  let tempSonifierInstance = activeSonifier
+  let isTemp = false
+  if (!tempSonifierInstance) {
+    tempSonifierInstance = runtime.create(type)
+    isTemp = true
   }
 
-  // Populate common fields
-  inputMinEl.value       = s.inputRange[0]
-  inputMaxEl.value       = s.inputRange[1]
-  outputMinEl.value      = s.outputRange[0]
-  outputMaxEl.value      = s.outputRange[1]
-  curveSelectEl.value    = s.curve
-  sonifierVolumeEl.value = s.sonifierVolume
+  const schema = tempSonifierInstance.getParamSchema()
+  const mappedEntry = schema.find(p => p.name === uiConfig.mappedParam)
+  if (mappedEntry) {
+    outputRangeLabelEl.textContent = `Output range (${mappedEntry.label || uiConfig.mappedParam})`
+  }
+
+  // Render dynamic setting controls
+  SettingsFormBuilder.build(dynamicContainer, tempSonifierInstance, uiConfig, s, (paramName, value) => {
+    s[paramName] = value
+    applySettings()
+    saveSettings(settings)
+  })
+
+  if (isTemp) {
+    runtime.destroy(type)
+  }
 
   dialog.showModal()
 })
 
 document.getElementById('btn-save').addEventListener('click', () => {
-  updateSettingsFromUI()
+  updateMappingFromUI()
   saveSettings(settings)
   applySettings()
   dialog.close()

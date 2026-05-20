@@ -1,41 +1,74 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-let mockElements = {}
-
 beforeEach(() => {
-  mockElements = {}
   vi.clearAllMocks()
   vi.resetModules()
+
+  // Build the mock DOM for index.html
+  document.body.innerHTML = `
+    <span id="price-value">100</span>
+    <span id="price-change"></span>
+    <select id="sonifier-select">
+      <option value="tone">Tone</option>
+      <option value="geiger">Geiger</option>
+      <option value="purr">Purr</option>
+    </select>
+    <select id="feed-rate-select">
+      <option value="1000">1s</option>
+    </select>
+    <button id="btn-play">Play</button>
+    <button id="btn-stop">Stop</button>
+    <button id="btn-settings">Settings</button>
+    <input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.8">
+    <span id="master-volume-display">0.80</span>
+    <span id="status">Stopped</span>
+    
+    <dialog id="settings-dialog">
+      <input type="number" id="input-min">
+      <input type="number" id="input-max">
+      <input type="number" id="output-min">
+      <input type="number" id="output-max">
+      <select id="curve-select">
+        <option value="linear">Linear</option>
+        <option value="exponential">Exponential</option>
+      </select>
+      <span id="output-range-label">Output range</span>
+      <div id="dynamic-params-container"></div>
+      <button id="btn-save">Save</button>
+      <button id="btn-cancel">Cancel</button>
+    </dialog>
+  `
+
+  // Mock dialog functions not implemented in basic jsdom
+  const dialog = document.getElementById('settings-dialog')
+  dialog.showModal = vi.fn()
+  dialog.close = vi.fn()
+
+  // Mock localStorage
+  const mockLocalStorage = {
+    getItem: vi.fn().mockReturnValue(null),
+    setItem: vi.fn()
+  }
+  Object.defineProperty(window, 'localStorage', {
+    value: mockLocalStorage,
+    writable: true,
+    configurable: true
+  })
+  global.localStorage = mockLocalStorage
 })
-
-global.document = {
-  getElementById: vi.fn(id => {
-    if (!mockElements[id]) {
-      mockElements[id] = {
-        addEventListener: vi.fn(),
-        value: '',
-        style: { display: '' },
-        textContent: '',
-        showModal: vi.fn(),
-        close: vi.fn()
-      }
-    }
-    return mockElements[id]
-  }),
-  activeElement: null
-}
-
-global.localStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn()
-}
 
 // Mocking @web-sonify/core and sonifiers
 const mockRuntimeInstance = {
   register: vi.fn(),
   start: vi.fn(),
   create: vi.fn(() => ({
-    setParam: vi.fn()
+    setParam: vi.fn(),
+    getParamSchema: () => [
+      { name: 'frequency', type: 'number', range: [20, 2000], default: 220, label: 'Frequency' },
+      { name: 'waveform', type: 'enum', values: ['sine', 'square'], default: 'sine', label: 'Waveform' },
+      { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume' }
+    ]
   })),
   setMasterVolume: vi.fn(),
   destroy: vi.fn()
@@ -46,7 +79,8 @@ vi.mock('@web-sonify/core', () => ({
   Adapter: vi.fn(function() {
     return {
       setConfig: vi.fn(),
-      map: vi.fn(() => 440)
+      map: vi.fn(() => 440),
+      param: 'frequency'
     }
   }),
   SonifierBase: class {}
@@ -62,77 +96,70 @@ vi.mock('@web-sonify/drone', () => ({ DroneSonifier: class {} }))
 
 describe('Demo UI Live Updates', () => {
   it('should apply settings immediately when an input changes', async () => {
-    // We need to import main.js to trigger its logic
-    // Since it's a script that runs on load, we import it here
     await import('../main.js')
 
-    // Find the input element for sonifier volume (for example)
-    const sonifierVolumeEl = mockElements['sonifier-volume']
-    expect(sonifierVolumeEl).toBeDefined()
+    // Open settings dialog to render dynamic controls
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
 
-    // It should have an 'input' event listener added for live updates
-    const inputListeners = sonifierVolumeEl.addEventListener.mock.calls.filter(call => call[0] === 'input')
-    expect(inputListeners.length).toBeGreaterThan(0)
+    // Find the dynamic volume input
+    const volumeEl = document.getElementById('input-volume')
+    expect(volumeEl).not.toBeNull()
+
+    // Set value and trigger input event
+    volumeEl.value = '0.9'
+    volumeEl.dispatchEvent(new Event('input'))
+
+    // Verify localStorage setItem was called
+    expect(localStorage.setItem).toHaveBeenCalled()
   })
 
   it('should save settings to localStorage on input change', async () => {
-    // Reset mocks
-    vi.clearAllMocks()
-    
-    // Import main.js
     await import('../main.js?t=' + Date.now()) // Force re-import
 
-    const sonifierVolumeEl = mockElements['sonifier-volume']
-    sonifierVolumeEl.value = '0.9'
-    
-    // Simulate input event
-    const inputHandler = sonifierVolumeEl.addEventListener.mock.calls.find(call => call[0] === 'input')[1]
-    inputHandler()
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
 
-    expect(global.localStorage.setItem).toHaveBeenCalled()
+    const volumeEl = document.getElementById('input-volume')
+    volumeEl.value = '0.9'
+    volumeEl.dispatchEvent(new Event('input'))
+
+    expect(localStorage.setItem).toHaveBeenCalled()
   })
 
   it('should revert settings on cancel', async () => {
-    vi.clearAllMocks()
     await import('../main.js?t=' + Date.now())
 
-    const settingsBtn = mockElements['btn-settings']
-    const cancelBtn = mockElements['btn-cancel']
-    const sonifierVolumeEl = mockElements['sonifier-volume']
+    const settingsBtn = document.getElementById('btn-settings')
+    const cancelBtn = document.getElementById('btn-cancel')
 
-    // 1. Open dialog
-    const openHandler = settingsBtn.addEventListener.mock.calls.find(call => call[0] === 'click')[1]
-    openHandler()
+    // 1. Open settings
+    settingsBtn.click()
 
-    // 2. Change a value
-    sonifierVolumeEl.value = '0.1'
-    const inputHandler = sonifierVolumeEl.addEventListener.mock.calls.find(call => call[0] === 'input')[1]
-    inputHandler()
+    const volumeEl = document.getElementById('input-volume')
+    const originalVal = volumeEl.value
+
+    // 2. Change value
+    volumeEl.value = '0.1'
+    volumeEl.dispatchEvent(new Event('input'))
 
     // 3. Cancel
-    const cancelHandler = cancelBtn.addEventListener.mock.calls.find(call => call[0] === 'click')[1]
-    cancelHandler()
+    cancelBtn.click()
 
-    // Verify localStorage was called to save the original settings back
-    // (Actual verification of object equality is harder with mocks here, but we check if saveSettings was called)
-    expect(global.localStorage.setItem).toHaveBeenCalled()
+    // Check that localStorage setItem was called to save the original settings back
+    expect(localStorage.setItem).toHaveBeenCalled()
   })
 
   it('should enable master volume slider and update runtime on input', async () => {
-    vi.clearAllMocks()
     await import('../main.js?t=' + Date.now())
 
-    const masterVolumeEl = mockElements['master-volume']
-    
-    // It should be enabled by JS on load
+    const masterVolumeEl = document.getElementById('master-volume')
     expect(masterVolumeEl.disabled).toBe(false)
 
-    // Simulate input
     masterVolumeEl.value = '0.5'
-    const inputHandler = masterVolumeEl.addEventListener.mock.calls.find(call => call[0] === 'input')[1]
-    inputHandler({ target: masterVolumeEl })
+    masterVolumeEl.dispatchEvent(new Event('input'))
 
     expect(mockRuntimeInstance.setMasterVolume).toHaveBeenCalledWith(0.5)
-    expect(global.localStorage.setItem).toHaveBeenCalled()
+    expect(localStorage.setItem).toHaveBeenCalled()
   })
 })
