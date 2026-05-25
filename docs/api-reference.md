@@ -1,6 +1,6 @@
 # API Reference
 
-## `@web-sonify/core`
+## `@web-sonifier/core`
 
 ### `Runtime`
 - `start()`: Initialises the AudioContext (must be from user gesture).
@@ -25,7 +25,7 @@
 
 ## Included Sonifiers
 
-### `LiquidSonifier` (`@web-sonify/liquid`)
+### `LiquidSonifier` (`@web-sonifier/liquid`)
 A physical modeling liquid resonator.
 - **Parameters**:
   - `frequency`: Excitation frequency (10-100).

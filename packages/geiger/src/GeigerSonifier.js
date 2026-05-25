@@ -9,7 +9,7 @@
  *   volume - gain of this sonifier (0..1)
  */
 
-import { SonifierBase } from '@web-sonify/core'
+import { SonifierBase } from '@web-sonifier/core'
 
 export class GeigerSonifier extends SonifierBase {
 

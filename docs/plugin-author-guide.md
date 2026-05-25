@@ -16,7 +16,7 @@ All plugins must extend `SonifierBase` and implement four key methods:
 ## Implementation Example
 
 ```js
-import { SonifierBase } from '@web-sonify/core'
+import { SonifierBase } from '@web-sonifier/core'
 
 export class MySonifier extends SonifierBase {
   getParamSchema() {

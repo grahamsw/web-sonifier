@@ -10,9 +10,9 @@ The library uses plain ES modules. You can use an import map to resolve package 
 <script type="importmap">
 {
   "imports": {
-    "@web-sonify/core": "./packages/core/src/index.js",
-    "@web-sonify/tone": "./packages/tone/src/ToneSonifier.js",
-    "@web-sonify/engine": "./packages/engine/src/EngineSonifier.js"
+    "@web-sonifier/core": "./packages/core/src/index.js",
+    "@web-sonifier/tone": "./packages/tone/src/ToneSonifier.js",
+    "@web-sonifier/engine": "./packages/engine/src/EngineSonifier.js"
   }
 }
 </script>
@@ -25,8 +25,8 @@ The library uses plain ES modules. You can use an import map to resolve package 
 Create the runtime at page load. Note that you must call `runtime.start()` inside a user gesture (like a click) to comply with browser autoplay policies.
 
 ```js
-import { Runtime } from '@web-sonify/core'
-import { ToneSonifier } from '@web-sonify/tone'
+import { Runtime } from '@web-sonifier/core'
+import { ToneSonifier } from '@web-sonifier/tone'
 
 const runtime = new Runtime()
 runtime.register('tone', ToneSonifier)
@@ -40,7 +40,7 @@ const tone = runtime.create('tone')
 Use the `Adapter` to map your data stream to sonifier parameters.
 
 ```js
-import { Adapter } from '@web-sonify/core'
+import { Adapter } from '@web-sonifier/core'
 
 const pitchAdapter = new Adapter({
   param:       'frequency',

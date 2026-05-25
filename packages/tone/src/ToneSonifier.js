@@ -12,7 +12,7 @@
  *   oscillator -> gainNode -> outputNode
  */
 
-import { SonifierBase } from '@web-sonify/core'
+import { SonifierBase } from '@web-sonifier/core'
 
 export class ToneSonifier extends SonifierBase {
 

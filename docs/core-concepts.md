@@ -12,13 +12,13 @@ Three concerns are managed by different parts of the system:
 
 ## System Architecture
 
-### Runtime (`@web-sonify/core`)
+### Runtime (`@web-sonifier/core`)
 The top-level orchestrator. One per page. It manages the `AudioContext`, a master gain node, and the lifecycle of all sonifier instances.
 
-### Adapter (`@web-sonify/core`)
+### Adapter (`@web-sonifier/core`)
 A stateful mapping function that handles the "translation" layer. It supports linear, exponential, and logarithmic curves, as well as dynamic auto-ranging.
 
-### Sonifier (`@web-sonify/<aSonifier>`)
+### Sonifier (`@web-sonifier/<aSonifier>`)
 A sound generator using WebAudio that implements `SonifierBase. It exposes a parameter schema and responds to `setParam()` calls. All sonifiers route their output through the `Runtime`'s master gain node.
 
 ---

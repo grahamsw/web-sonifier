@@ -1,7 +1,7 @@
 {
 
 
-  "name": "@web-sonify/tone",
+  "name": "@web-sonifier/tone",
   "version": "0.1.0",
   "type": "module",
   "main": "src/ToneSonifier.js",
@@ -9,6 +9,6 @@
     ".": "./src/ToneSonifier.js"
   },
   "peerDependencies": {
-    "@web-sonify/core": "*"
+    "@web-sonifier/core": "*"
   }
 }

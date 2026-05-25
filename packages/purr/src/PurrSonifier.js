@@ -1,4 +1,4 @@
-import { SonifierBase } from '@web-sonify/core'
+import { SonifierBase } from '@web-sonifier/core'
 
 /**
  * PurrSonifier

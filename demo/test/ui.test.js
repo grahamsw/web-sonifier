@@ -58,7 +58,7 @@ beforeEach(() => {
   global.localStorage = mockLocalStorage
 })
 
-// Mocking @web-sonify/core and sonifiers
+// Mocking @web-sonifier/core and sonifiers
 const mockRuntimeInstance = {
   register: vi.fn(),
   start: vi.fn(),
@@ -74,7 +74,7 @@ const mockRuntimeInstance = {
   destroy: vi.fn()
 }
 
-vi.mock('@web-sonify/core', () => ({
+vi.mock('@web-sonifier/core', () => ({
   Runtime: vi.fn(function() { return mockRuntimeInstance }),
   Adapter: vi.fn(function() {
     return {
@@ -86,13 +86,13 @@ vi.mock('@web-sonify/core', () => ({
   SonifierBase: class {}
 }))
 
-vi.mock('@web-sonify/tone', () => ({ ToneSonifier: vi.fn() }))
-vi.mock('@web-sonify/geiger', () => ({ GeigerSonifier: vi.fn() }))
-vi.mock('@web-sonify/purr', () => ({ PurrSonifier: vi.fn() }))
-vi.mock('@web-sonify/liquid', () => ({ LiquidSonifier: vi.fn() }))
-vi.mock('@web-sonify/mallet', () => ({ MalletSonifier: vi.fn() }))
-vi.mock('@web-sonify/engine', () => ({ EngineSonifier: vi.fn() }))
-vi.mock('@web-sonify/drone', () => ({ DroneSonifier: class {} }))
+vi.mock('@web-sonifier/tone', () => ({ ToneSonifier: vi.fn() }))
+vi.mock('@web-sonifier/geiger', () => ({ GeigerSonifier: vi.fn() }))
+vi.mock('@web-sonifier/purr', () => ({ PurrSonifier: vi.fn() }))
+vi.mock('@web-sonifier/liquid', () => ({ LiquidSonifier: vi.fn() }))
+vi.mock('@web-sonifier/mallet', () => ({ MalletSonifier: vi.fn() }))
+vi.mock('@web-sonifier/engine', () => ({ EngineSonifier: vi.fn() }))
+vi.mock('@web-sonifier/drone', () => ({ DroneSonifier: class {} }))
 
 describe('Demo UI Live Updates', () => {
   it('should apply settings immediately when an input changes', async () => {

@@ -1,5 +1,5 @@
 {
-  "name": "@web-sonify/engine",
+  "name": "@web-sonifier/engine",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.js",
@@ -7,6 +7,6 @@
     ".": "./src/index.js"
   },
   "peerDependencies": {
-    "@web-sonify/core": "*"
+    "@web-sonifier/core": "*"
   }
 }

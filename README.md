@@ -27,7 +27,7 @@ The relationship between the core modules:
 
 ```mermaid
 graph LR
-    subgraph "@web-sonify/core"
+    subgraph "@web-sonifier/core"
         Runtime[Runtime]
         Adapter[Adapter]
         Base[SonifierBase]
