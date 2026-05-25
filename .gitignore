@@ -4,3 +4,4 @@ node_modules/
 dist/
 *.log
 .antigravitycli/cd35dbd2-6396-4fcb-ba5f-6319de2e5459.json
+.npm-cache/

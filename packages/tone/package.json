@@ -1,12 +1,20 @@
 {
-
-
   "name": "@web-sonifier/tone",
   "version": "0.1.0",
   "type": "module",
-  "main": "src/ToneSonifier.js",
+  "main": "./dist/ToneSonifier.cjs",
+  "module": "./dist/ToneSonifier.js",
   "exports": {
-    ".": "./src/ToneSonifier.js"
+    ".": {
+      "import": "./dist/ToneSonifier.js",
+      "require": "./dist/ToneSonifier.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/ToneSonifier.js --format cjs,esm --clean"
   },
   "peerDependencies": {
     "@web-sonifier/core": "*"
