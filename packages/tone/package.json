@@ -1,9 +1,10 @@
 {
   "name": "@web-sonifier/tone",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "./dist/ToneSonifier.cjs",
   "module": "./dist/ToneSonifier.js",
+  "unpkg": "./dist/ToneSonifier.global.js",
   "exports": {
     ".": {
       "import": "./dist/ToneSonifier.js",
@@ -14,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/ToneSonifier.js --format cjs,esm --clean"
+    "build": "tsup src/ToneSonifier.js --format cjs,esm,iife --global-name ToneSonifier --clean"
   },
   "peerDependencies": {
     "@web-sonifier/core": "*"

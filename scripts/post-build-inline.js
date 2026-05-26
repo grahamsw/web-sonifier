@@ -35,7 +35,7 @@ function inlineProcessors() {
       .replace(/`/g, '\\`')
       .replace(/\${/g, '\\${');
 
-    const filesToPatch = ['index.js', 'index.cjs'];
+    const filesToPatch = ['index.js', 'index.cjs', 'index.global.js'];
 
     for (const fileName of filesToPatch) {
       const filePath = path.join(rootDir, target.distDir, fileName);

@@ -1,9 +1,10 @@
 {
   "name": "@web-sonifier/liquid",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
+  "unpkg": "./dist/index.global.js",
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -14,7 +15,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.js --format cjs,esm --clean"
+    "build": "tsup src/index.js --format cjs,esm,iife --global-name LiquidSonifier --clean"
   },
   "peerDependencies": {
     "@web-sonifier/core": "*"
