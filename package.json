@@ -8,7 +8,7 @@
   "scripts": {
     "test": "vitest run",
     "prepare": "husky",
-    "build": "npm run build --workspaces"
+    "build": "npm run build --workspaces && node scripts/post-build-inline.js"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.5",
