@@ -51,6 +51,66 @@ graph LR
 
 ---
 
+## Installation & Usage
+
+Web Sonifier is published as scoped packages on NPM under `@web-sonifier/core` and individual plugin packages (e.g. `@web-sonifier/tone`, `@web-sonifier/geiger`, `@web-sonifier/liquid`).
+
+### 1. From NPM (Vite, Vue, React, Svelte, etc.)
+Ideal for modern framework projects utilizing standard package managers:
+
+```bash
+npm install @web-sonifier/core @web-sonifier/tone
+```
+
+Import and use standard ES imports directly in your JavaScript or framework components:
+```js
+import { Runtime, Adapter } from '@web-sonifier/core'
+import { ToneSonifier } from '@web-sonifier/tone'
+
+const runtime = new Runtime()
+runtime.register('tone', ToneSonifier)
+await runtime.start()
+```
+
+### 2. From CDN (Vanilla Browser HTML/JS)
+You can use Web Sonifier directly in your browser without any bundlers or build steps using public NPM mirrors like **unpkg** or **jsDelivr**.
+
+#### Method A: Using Global Script Tags (IIFE)
+Import the pre-packaged self-contained scripts. The libraries will automatically expose themselves on global namespaces (`window.WebSonifier`, `window.ToneSonifier`, etc.):
+
+```html
+<!-- Load Core -->
+<script src="https://unpkg.com/@web-sonifier/core"></script>
+<!-- Load Tone Plugin -->
+<script src="https://unpkg.com/@web-sonifier/tone"></script>
+
+<script>
+  // Access via global variables
+  const runtime = new WebSonifier.Runtime();
+  runtime.register('tone', ToneSonifier.ToneSonifier);
+  
+  runtime.start().then(() => {
+    const toneInstance = runtime.create('tone');
+  });
+</script>
+```
+
+#### Method B: Using Browser ES Modules (ESM)
+Load standard modern ES modules directly using standard browser import statements:
+
+```html
+<script type="module">
+  import { Runtime, Adapter } from 'https://cdn.jsdelivr.net/npm/@web-sonifier/core/dist/index.js';
+  import { ToneSonifier } from 'https://cdn.jsdelivr.net/npm/@web-sonifier/tone/dist/ToneSonifier.js';
+
+  const runtime = new Runtime();
+  runtime.register('tone', ToneSonifier);
+  await runtime.start();
+</script>
+```
+
+---
+
 ## Documentation
 
 -  [**Core Concepts**](./docs/core-concepts.md) — The mental model and architectural overview.
