@@ -1,6 +1,6 @@
 # Web Sonifier
 
-[**Listen to the live demo**](https://web-sonifier.web.app)
+[**Listen to the live demo**](https://web-sonifier.com)
 
 A browser-native sonification framework that makes it easy to turn data streams into sound.
 
@@ -134,6 +134,7 @@ The repository includes a vanilla JS demo in the `demo/` folder.
 2. `firebase login`
 3. `firebase deploy --only hosting`
 
+You can listen to the demo [here](https://web-sonifier.com)
 ---
 
 ## Contributing
