@@ -16,5 +16,9 @@
   ],
   "scripts": {
     "build": "tsup src/index.js --format cjs,esm,iife --global-name WebSonifier --clean"
+  },
+  "license": "ISC",
+  "publishConfig": {
+    "access": "public"
   }
 }

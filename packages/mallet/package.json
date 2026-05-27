@@ -19,5 +19,9 @@
   },
   "peerDependencies": {
     "@web-sonifier/core": "*"
+  },
+  "license": "ISC",
+  "publishConfig": {
+    "access": "public"
   }
 }
