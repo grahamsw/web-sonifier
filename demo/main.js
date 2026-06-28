@@ -6,6 +6,7 @@ import { LiquidSonifier } from '@web-sonifier/liquid'
 import { MalletSonifier } from '@web-sonifier/mallet'
 import { EngineSonifier } from '@web-sonifier/engine'
 import { DroneSonifier } from '@web-sonifier/drone'
+import { VoscSonifier } from '@web-sonifier/vosc'
 import { SettingsFormBuilder } from './SettingsFormBuilder.js'
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,34 @@ const UI_CONFIGS = {
         }
       }
     ]
+  },
+  vosc: {
+    mappedParam: 'frequency',
+    groups: [
+      {
+        title: 'VOSC Basic Settings',
+        params: {
+          amplitude: { control: 'slider', label: 'Amplitude', step: 0.05 },
+          spread: { control: 'slider', label: 'Spread', step: 0.05 },
+          waveSet: { control: 'select', label: 'Wave Set', values: [0, 1, 2, 3] },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      },
+      {
+        title: 'VOSC Random Walk Settings',
+        params: {
+          bufLow: { control: 'slider', label: 'Buffer Low (0-7)', step: 1 },
+          bufHigh: { control: 'slider', label: 'Buffer High (0-7)', step: 1 },
+          bufSteps: { control: 'slider', label: 'Buffer Steps', step: 1 },
+          detuneLow: { control: 'slider', label: 'Detune Low (st)', step: 0.01 },
+          detuneHigh: { control: 'slider', label: 'Detune High (st)', step: 0.01 },
+          detuneSteps: { control: 'slider', label: 'Detune Steps', step: 1 },
+          panLow: { control: 'slider', label: 'Pan Low', step: 0.05 },
+          panHigh: { control: 'slider', label: 'Pan High', step: 0.05 },
+          panSteps: { control: 'slider', label: 'Pan Steps', step: 1 }
+        }
+      }
+    ]
   }
 }
 
@@ -164,6 +193,7 @@ runtime.register('engine', EngineSonifier)
 runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
 runtime.register('drone', DroneSonifier)
+runtime.register('vosc', VoscSonifier)
 
 let activeSonifier = null
 let activeSonifierType = null
@@ -234,6 +264,26 @@ const defaultSettings = {
     nharm:           12,
     detune:          0.2,
     pan:             0
+  },
+  vosc: {
+    inputRange:      [85, 115],
+    outputRange:     [100, 1000],
+    curve:           'linear',
+    volume:          0.5,
+    amplitude:       0.5,
+    bufLow:          0,
+    bufHigh:         7,
+    bufSteps:        10,
+    detuneLow:       0.01,
+    detuneHigh:      0.1,
+    detuneSteps:     10,
+    panLow:          -1,
+    panHigh:         1,
+    panSteps:        10,
+    spread:          0.5,
+    releaseTime:     10,
+    gate:            1,
+    waveSet:         0
   }
 }
 

@@ -15,6 +15,12 @@ const targets = [
     processorPath: 'packages/liquid/src/LiquidResonatorProcessor.js',
     distDir: 'packages/liquid/dist',
     targetString: '/packages/liquid/src/LiquidResonatorProcessor.js',
+  },
+  {
+    name: 'vosc',
+    processorPath: 'packages/vosc/src/VoscProcessor.js',
+    distDir: 'packages/vosc/dist',
+    targetString: '/packages/vosc/src/VoscProcessor.js',
   }
 ];
 
