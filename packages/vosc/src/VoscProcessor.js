@@ -108,7 +108,7 @@ class VoscProcessor extends AudioWorkletProcessor {
     if (!this.initialized) this._init(sRate);
 
     // Parameters (either constant or audio-rate, we'll read index [0] or sample index)
-    const baseFreq = parameters.frequency[0];
+    const baseFreq = parameters.frequency && parameters.frequency.length > 0 ? parameters.frequency[0] : 400;
     const amp = parameters.amplitude[0];
     const bufLow = parameters.bufLow[0];
     const bufHigh = parameters.bufHigh[0];
