@@ -54,7 +54,10 @@ class VoscProcessor extends AudioWorkletProcessor {
     this.triggerCounter = 0;
     this.triggerPeriod = 0; // will set in _init based on sampleRate
     
-    // Current values of the Dbrown random walks
+    // Target and current values of the Dbrown random walks
+    this.targetBufindex = null;
+    this.targetDetune = null;
+    this.targetPan = null;
     this.currentBufindex = 0;
     this.currentDetune = 0;
     this.currentPan = 0;
@@ -75,6 +78,10 @@ class VoscProcessor extends AudioWorkletProcessor {
 
     // Envelope state
     this.envelopeValue = 0;
+
+    // Last gains for interpolating panning
+    this.lastGainsL = new Float32Array(this.numVoices);
+    this.lastGainsR = new Float32Array(this.numVoices);
 
     this.initialized = false;
   }
@@ -107,30 +114,88 @@ class VoscProcessor extends AudioWorkletProcessor {
 
     if (!this.initialized) this._init(sRate);
 
-    // Parameters (either constant or audio-rate, we'll read index [0] or sample index)
-    const baseFreq = parameters.frequency && parameters.frequency.length > 0 ? parameters.frequency[0] : 400;
-    const amp = parameters.amplitude[0];
-    const bufLow = parameters.bufLow[0];
-    const bufHigh = parameters.bufHigh[0];
-    const bufSteps = parameters.bufSteps[0];
-    const detuneLow = parameters.detuneLow[0];
-    const detuneHigh = parameters.detuneHigh[0];
-    const detuneSteps = parameters.detuneSteps[0];
-    const panLow = parameters.panLow[0];
-    const panHigh = parameters.panHigh[0];
-    const panSteps = parameters.panSteps[0];
-    const spread = parameters.spread[0];
-    const releaseTime = parameters.releaseTime[0];
-    const gate = parameters.gate[0];
+    // Safe parameter loading (ensures arrays are defined and fall back to default arrays if empty)
+    const freqArray = parameters.frequency && parameters.frequency.length > 0 ? parameters.frequency : [400];
+    const ampArray = parameters.amplitude && parameters.amplitude.length > 0 ? parameters.amplitude : [0.5];
+    const bufLow = parameters.bufLow && parameters.bufLow.length > 0 ? parameters.bufLow[0] : 0;
+    const bufHigh = parameters.bufHigh && parameters.bufHigh.length > 0 ? parameters.bufHigh[0] : 7;
+    const bufSteps = parameters.bufSteps && parameters.bufSteps.length > 0 ? parameters.bufSteps[0] : 10;
+    const detuneLow = parameters.detuneLow && parameters.detuneLow.length > 0 ? parameters.detuneLow[0] : 0.01;
+    const detuneHigh = parameters.detuneHigh && parameters.detuneHigh.length > 0 ? parameters.detuneHigh[0] : 0.1;
+    const detuneSteps = parameters.detuneSteps && parameters.detuneSteps.length > 0 ? parameters.detuneSteps[0] : 10;
+    const panLow = parameters.panLow && parameters.panLow.length > 0 ? parameters.panLow[0] : -1;
+    const panHigh = parameters.panHigh && parameters.panHigh.length > 0 ? parameters.panHigh[0] : 1;
+    const panSteps = parameters.panSteps && parameters.panSteps.length > 0 ? parameters.panSteps[0] : 10;
+    const spreadArray = parameters.spread && parameters.spread.length > 0 ? parameters.spread : [0.5];
+    const releaseTime = parameters.releaseTime && parameters.releaseTime.length > 0 ? parameters.releaseTime[0] : 10;
+    const gateArray = parameters.gate && parameters.gate.length > 0 ? parameters.gate : [1];
 
     const len = left.length;
+
+    // Detect if parameters are block-constant (length 1)
+    const isFreqConstant = freqArray.length === 1;
+    const isAmpConstant = ampArray.length === 1;
+    const isSpreadConstant = spreadArray.length === 1;
+    const isGateConstant = gateArray.length === 1;
+
+    // Initialize Dbrown values and panning state if not already set
+    if (this.targetBufindex === null) {
+      this.targetBufindex = (bufLow + bufHigh) / 2;
+      this.targetDetune = (detuneLow + detuneHigh) / 2;
+      this.targetPan = (panLow + panHigh) / 2;
+
+      this.currentBufindex = this.targetBufindex;
+      this.currentDetune = this.targetDetune;
+      this.currentPan = this.targetPan;
+
+      const initSpread = spreadArray[0];
+      for (let j = 0; j < this.numVoices; j++) {
+        const relativePan = initSpread * ((j / (this.numVoices - 1)) * 2 - 1);
+        const voicePan = Math.min(1.0, Math.max(-1.0, this.currentPan + relativePan));
+        const angle = (voicePan + 1.0) * Math.PI / 4.0;
+        this.lastGainsL[j] = Math.cos(angle);
+        this.lastGainsR[j] = Math.sin(angle);
+      }
+    }
 
     // ASR Envelope steps
     const attackStep = 1.0 / (0.01 * sRate); // 10ms attack
     const releaseStep = releaseTime > 0 ? 1.0 / (releaseTime * sRate) : 1.0;
 
+    // 20ms smoothing coefficient for random walk targets
+    const smoothCoeff = 1.0 - Math.exp(-1.0 / (0.02 * sRate));
+
+    // Precalculate voice midiratios at block-rate (Math.pow optimization)
+    const midiratios = new Float32Array(this.numVoices);
+    for (let j = 0; j < this.numVoices; j++) {
+      const detuneVal = this.lfNoiseVals[j] * this.currentDetune;
+      midiratios[j] = Math.pow(2, detuneVal / 12);
+    }
+
+    // Project target end-of-block pan and precalculate pan gains
+    const targetGainsL = new Float32Array(this.numVoices);
+    const targetGainsR = new Float32Array(this.numVoices);
+    const stepGainsL = new Float32Array(this.numVoices);
+    const stepGainsR = new Float32Array(this.numVoices);
+
+    const endSpread = isSpreadConstant ? spreadArray[0] : spreadArray[len - 1];
+    const decay = Math.pow(1.0 - smoothCoeff, len);
+    const endPan = this.targetPan + (this.currentPan - this.targetPan) * decay;
+
+    for (let j = 0; j < this.numVoices; j++) {
+      const relativePan = endSpread * ((j / (this.numVoices - 1)) * 2 - 1);
+      const voicePan = Math.min(1.0, Math.max(-1.0, endPan + relativePan));
+      const angle = (voicePan + 1.0) * Math.PI / 4.0;
+      targetGainsL[j] = Math.cos(angle);
+      targetGainsR[j] = Math.sin(angle);
+      
+      stepGainsL[j] = (targetGainsL[j] - this.lastGainsL[j]) / len;
+      stepGainsR[j] = (targetGainsR[j] - this.lastGainsR[j]) / len;
+    }
+
     for (let i = 0; i < len; i++) {
       // 1. ASR Envelope logic
+      const gate = isGateConstant ? gateArray[0] : gateArray[i];
       if (gate > 0) {
         this.envelopeValue += attackStep;
         if (this.envelopeValue > 1.0) this.envelopeValue = 1.0;
@@ -143,45 +208,46 @@ class VoscProcessor extends AudioWorkletProcessor {
       if (this.triggerCounter >= this.triggerPeriod) {
         this.triggerCounter = 0;
 
-        // Initialize Dbrown values to midpoint if we just started
-        if (this.currentBufindex === 0 && this.currentDetune === 0 && this.currentPan === 0) {
-          this.currentBufindex = (bufLow + bufHigh) / 2;
-          this.currentDetune = (detuneLow + detuneHigh) / 2;
-          this.currentPan = (panLow + panHigh) / 2;
-        }
-
         // bufindex random walk
         const bufStepSize = bufSteps > 0 ? (bufHigh - bufLow) / bufSteps : 0;
         if (bufStepSize > 0) {
           const walk = (Math.random() * 2 - 1) * bufStepSize;
-          this.currentBufindex = Math.min(bufHigh, Math.max(bufLow, this.currentBufindex + walk));
+          this.targetBufindex = Math.min(bufHigh, Math.max(bufLow, this.targetBufindex + walk));
         } else {
-          this.currentBufindex = bufLow;
+          this.targetBufindex = bufLow;
         }
 
         // detune random walk
         const detuneStepSize = detuneSteps > 0 ? (detuneHigh - detuneLow) / detuneSteps : 0;
         if (detuneStepSize > 0) {
           const walk = (Math.random() * 2 - 1) * detuneStepSize;
-          this.currentDetune = Math.min(detuneHigh, Math.max(detuneLow, this.currentDetune + walk));
+          this.targetDetune = Math.min(detuneHigh, Math.max(detuneLow, this.targetDetune + walk));
         } else {
-          this.currentDetune = detuneLow;
+          this.targetDetune = detuneLow;
         }
 
         // pan random walk
         const panStepSize = panSteps > 0 ? (panHigh - panLow) / panSteps : 0;
         if (panStepSize > 0) {
           const walk = (Math.random() * 2 - 1) * panStepSize;
-          this.currentPan = Math.min(panHigh, Math.max(panLow, this.currentPan + walk));
+          this.targetPan = Math.min(panHigh, Math.max(panLow, this.targetPan + walk));
         } else {
-          this.currentPan = panLow;
+          this.targetPan = panLow;
         }
       }
       this.triggerCounter++;
 
+      // Exponential smoothing of the random walk target values
+      this.currentBufindex += (this.targetBufindex - this.currentBufindex) * smoothCoeff;
+      this.currentDetune += (this.targetDetune - this.currentDetune) * smoothCoeff;
+      this.currentPan += (this.targetPan - this.currentPan) * smoothCoeff;
+
       // 3. Process LFNoise1 and calculate frequencies + lookup VOsc for each voice
       let sumL = 0;
       let sumR = 0;
+
+      const baseFreq = isFreqConstant ? freqArray[0] : freqArray[i];
+      const amp = isAmpConstant ? ampArray[0] : ampArray[i];
 
       for (let j = 0; j < this.numVoices; j++) {
         // Advance LFNoise1
@@ -195,9 +261,7 @@ class VoscProcessor extends AudioWorkletProcessor {
         this.lfNoiseCounters[j]++;
 
         // Calculate detuned frequency
-        const detuneVal = this.lfNoiseVals[j] * this.currentDetune;
-        const midiratio = Math.pow(2, detuneVal / 12);
-        const voiceFreq = baseFreq * midiratio;
+        const voiceFreq = baseFreq * midiratios[j];
 
         // VOsc lookup
         // Update phase
@@ -223,15 +287,12 @@ class VoscProcessor extends AudioWorkletProcessor {
         // Bilinear interpolated signal value
         const sig = (1 - frac) * w0 + frac * w1;
 
-        // Panning spread (Splay)
-        // Spread is distributed evenly from -spread to +spread around currentPan
-        const relativePan = spread * ((j / (this.numVoices - 1)) * 2 - 1);
-        const voicePan = Math.min(1.0, Math.max(-1.0, this.currentPan + relativePan));
-        
-        // Constant-power panning
-        const angle = (voicePan + 1.0) * Math.PI / 4.0;
-        sumL += sig * Math.cos(angle);
-        sumR += sig * Math.sin(angle);
+        // Constant-power panning (linearly interpolated gains)
+        const gainL = this.lastGainsL[j] + i * stepGainsL[j];
+        const gainR = this.lastGainsR[j] + i * stepGainsR[j];
+
+        sumL += sig * gainL;
+        sumR += sig * gainR;
       }
 
       // Splay scale factor: 1 / sqrt(N) to normalize power
@@ -250,6 +311,12 @@ class VoscProcessor extends AudioWorkletProcessor {
 
       left[i] = outL;
       right[i] = outR;
+    }
+
+    // Save final gains for next block's starting gains
+    for (let j = 0; j < this.numVoices; j++) {
+      this.lastGainsL[j] = targetGainsL[j];
+      this.lastGainsR[j] = targetGainsR[j];
     }
 
     return true;
