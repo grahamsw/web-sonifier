@@ -229,6 +229,7 @@
           <option value="drone">Drone</option>
           <option value="vosc">VOSC Player</option>
         </select>
+        <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.25rem 0.55rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer; margin-left: 0.35rem;">+ External</button>
       </div>
       <div>
         <label style="margin-right: 0.5rem;">Feed Rate:</label>
@@ -294,6 +295,44 @@
     <div class="dialog-actions">
       <button class="btn-save"   id="btn-save">Save</button>
       <button class="btn-cancel" id="btn-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- External Sonifier Dialog -->
+  <dialog id="custom-sonifier-dialog">
+    <h2 style="font-size: 1.1rem; margin-bottom: 0.5rem; color: #fff;">Load External Sonifier</h2>
+    <p style="font-size: 0.8rem; color: #888; margin-bottom: 1rem;">
+      Load an ES Module from a local dev URL (e.g. <code>http://localhost:5173/index.js</code>), a relative path, or a CDN URL.
+    </p>
+
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div>
+        <label style="display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 0.25rem;">Module URL or Path:</label>
+        <input type="text" id="custom-url-input" placeholder="http://localhost:5173/src/index.js" style="width: 100%; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.5rem; font-size: 0.85rem;">
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 0.25rem;">Sonifier Name:</label>
+          <input type="text" id="custom-name-input" placeholder="my-sonifier" style="width: 100%; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.5rem; font-size: 0.85rem;">
+        </div>
+        <div style="flex: 1;">
+          <label style="display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 0.25rem;">Export Name (optional):</label>
+          <input type="text" id="custom-export-input" placeholder="Default or class name" style="width: 100%; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.5rem; font-size: 0.85rem;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 0.25rem;">Mapped Parameter (optional):</label>
+        <input type="text" id="custom-mapped-param-input" placeholder="Auto-detected if empty (default: frequency)" style="width: 100%; background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.5rem; font-size: 0.85rem;">
+      </div>
+
+      <div id="custom-load-error" style="color: #e05c5c; font-size: 0.8rem; min-height: 1.2rem;"></div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn-save" id="btn-custom-load">Load</button>
+        <button type="button" class="btn-cancel" id="btn-custom-cancel">Cancel</button>
+      </div>
     </div>
   </dialog>
 
