@@ -555,3 +555,172 @@ document.getElementById('btn-cancel').addEventListener('click', () => {
   }
   dialog.close()
 })
+
+// ---------------------------------------------------------------------------
+// External / Custom Sonifier Dynamic Loader
+// ---------------------------------------------------------------------------
+
+const btnOpenLoadCustom      = document.getElementById('btn-open-load-custom')
+const customDialog           = document.getElementById('custom-sonifier-dialog')
+const customUrlInput         = document.getElementById('custom-url-input')
+const customNameInput        = document.getElementById('custom-name-input')
+const customExportInput      = document.getElementById('custom-export-input')
+const customMappedParamInput = document.getElementById('custom-mapped-param-input')
+const customErrorEl          = document.getElementById('custom-load-error')
+const btnCustomLoad          = document.getElementById('btn-custom-load')
+const btnCustomCancel        = document.getElementById('btn-custom-cancel')
+
+if (btnOpenLoadCustom && customDialog) {
+  btnOpenLoadCustom.addEventListener('click', () => {
+    customErrorEl.textContent = ''
+    customDialog.showModal()
+  })
+
+  btnCustomCancel.addEventListener('click', () => {
+    customDialog.close()
+  })
+
+  btnCustomLoad.addEventListener('click', async () => {
+    customErrorEl.textContent = ''
+    const url = customUrlInput.value.trim()
+    if (!url) {
+      customErrorEl.textContent = 'Please provide a module URL or relative path.'
+      return
+    }
+
+    try {
+      btnCustomLoad.disabled = true
+      btnCustomLoad.textContent = 'Loading…'
+
+      // Import the ES module dynamically
+      const mod = await import(url)
+
+      // Identify the sonifier class
+      const explicitExport = customExportInput.value.trim()
+      let SonifierClass = null
+
+      if (explicitExport) {
+        SonifierClass = mod[explicitExport]
+      } else if (mod.default && typeof mod.default === 'function') {
+        SonifierClass = mod.default
+      } else {
+        // Find first exported class or function
+        for (const key of Object.keys(mod)) {
+          if (typeof mod[key] === 'function') {
+            SonifierClass = mod[key]
+            break
+          }
+        }
+      }
+
+      if (!SonifierClass) {
+        throw new Error('No valid Sonifier class/function found in the loaded module.')
+      }
+
+      // Generate or normalize name
+      let name = customNameInput.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-')
+      if (!name) {
+        name = SonifierClass.name ? SonifierClass.name.replace(/Sonifier$/, '').toLowerCase() : 'custom'
+      }
+
+      const displayName = customNameInput.value.trim() || SonifierClass.name || name
+
+      // Instantiate temporarily to read parameter schema if available
+      let tempInstance = null
+      let schema = []
+      try {
+        tempInstance = new SonifierClass()
+        if (typeof tempInstance.getParamSchema === 'function') {
+          schema = tempInstance.getParamSchema()
+        }
+      } catch {
+        // Constructor might require audioContext; runtime handles audioContext instantiation
+      }
+
+      // Determine mapped parameter
+      let mappedParam = customMappedParamInput.value.trim()
+      if (!mappedParam) {
+        if (schema.length > 0) {
+          mappedParam = schema[0].name
+        } else {
+          mappedParam = 'frequency'
+        }
+      }
+
+      // Build UI configuration
+      const paramControls = {
+        volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+      }
+
+      for (const param of schema) {
+        if (param.name !== mappedParam && param.name !== 'volume') {
+          paramControls[param.name] = {
+            control: 'slider',
+            label: param.label || param.name,
+            step: param.step || 0.01
+          }
+        }
+      }
+
+      UI_CONFIGS[name] = {
+        mappedParam,
+        groups: [
+          {
+            title: `${displayName} Settings`,
+            params: paramControls
+          }
+        ]
+      }
+
+      // Setup initial settings for this sonifier
+      if (!settings[name]) {
+        settings[name] = {
+          inputRange:  [85, 115],
+          outputRange: [100, 1000],
+          curve:       'linear',
+          volume:      0.5
+        }
+        for (const param of schema) {
+          if (param.name !== 'volume' && param.default !== undefined) {
+            settings[name][param.name] = param.default
+          }
+        }
+      }
+
+      // Register with runtime
+      runtime.register(name, SonifierClass)
+
+      // Add to select dropdown if not already present
+      let option = sonifierSelectEl.querySelector(`option[value="${name}"]`)
+      if (!option) {
+        option = document.createElement('option')
+        option.value = name
+        option.textContent = `${displayName} (External)`
+        sonifierSelectEl.appendChild(option)
+      }
+
+      // Switch to this sonifier
+      const wasPlaying = !!activeSonifier
+      if (wasPlaying) {
+        stopSonifier()
+      }
+
+      sonifierSelectEl.value = name
+      settings.sonifierType = name
+      saveSettings(settings)
+
+      if (wasPlaying) {
+        startSonifier()
+      }
+
+      customDialog.close()
+    } catch (err) {
+      console.error('Failed to load external sonifier:', err)
+      customErrorEl.textContent = `Error: ${err.message}`
+    } finally {
+      btnCustomLoad.disabled = false
+      btnCustomLoad.textContent = 'Load'
+    }
+  })
+}
+
