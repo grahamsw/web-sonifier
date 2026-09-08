@@ -189,18 +189,31 @@ export class RainSonifier extends SonifierBase {
   }
 
   _createDropImpulseBuffer() {
-    // Pure white noise spatter: short, crisp, non-tonal
-    const duration = 0.012 // 12ms
+    // Soft fluid droplet buffer: smooth Hann attack followed by gentle decay (no sharp fire clicks)
+    const duration = 0.02 // 20ms
     const sampleRate = this._ctx.sampleRate
     const frameCount = Math.floor(sampleRate * duration)
+    const attackFrames = Math.floor(sampleRate * 0.003) // 3ms smooth onset
     const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
     const data = buffer.getChannelData(0)
 
+    let b0 = 0, b1 = 0
     for (let i = 0; i < frameCount; i++) {
-      const t = i / frameCount
-      // Fast exponential decay: instant onset, decaying noise burst
-      const decay = Math.exp(-t * 24)
-      data[i] = (Math.random() * 2 - 1) * decay
+      // Soft pink/brownian noise base for water texture rather than harsh white noise
+      const white = Math.random() * 2 - 1
+      b0 = 0.99 * b0 + white * 0.08
+      b1 = 0.95 * b1 + b0 * 0.1
+      const noise = b0 + b1 + white * 0.1
+
+      let envelope
+      if (i < attackFrames) {
+        // Smooth raised-cosine attack (eliminates crackle/click)
+        envelope = 0.5 * (1 - Math.cos((Math.PI * i) / attackFrames))
+      } else {
+        const decayT = (i - attackFrames) / (frameCount - attackFrames)
+        envelope = Math.exp(-decayT * 6)
+      }
+      data[i] = noise * envelope
     }
     return buffer
   }
@@ -222,7 +235,7 @@ export class RainSonifier extends SonifierBase {
         b2 = 0.96900 * b2 + white * 0.1538520
         const pink = b0 + b1 + b2 + white * 0.5362
         // Mix pink noise body with crisp white noise texture
-        data[i] = (pink * 0.07 + white * 0.03)
+        data[i] = (pink * 0.08 + white * 0.035)
       }
     }
     return buffer
@@ -258,25 +271,26 @@ export class RainSonifier extends SonifierBase {
     const size = this.getParam('dropletSize') || 1.0
     const spread = this.getParam('spread') ?? 0.8
 
-    // Random spectral variation around base pitch (+/- 25%)
-    const pitchJitter = 1 + (Math.random() - 0.5) * 0.5
-    const dropFreq = Math.min(10000, Math.max(200, basePitch * pitchJitter))
+    // Warm water droplet frequency range (300 Hz - 2800 Hz)
+    const pitchJitter = 1 + (Math.random() - 0.5) * 0.4
+    const dropFreq = Math.min(2800, Math.max(300, basePitch * 0.8 * pitchJitter))
 
     const source = this._ctx.createBufferSource()
     source.buffer = this._dropImpulseBuffer
 
-    // Non-resonant filter (Q = 0.8): provides noise spectral tilt without metallic ringing
+    // Lowpass/bandpass filter with low Q (0.7): soft, round droplet sound without harsh fire snaps
     const filter = this._ctx.createBiquadFilter()
-    filter.type = 'bandpass'
+    filter.type = 'lowpass'
     filter.frequency.setValueAtTime(dropFreq, time)
-    filter.Q.setValueAtTime(0.8, time) // Gentle, non-ringing
+    filter.Q.setValueAtTime(0.7, time)
 
-    // Amplitude envelope: instant crisp attack, fast decay (no bouncing)
+    // Smooth amplitude envelope with 3ms soft attack and gentle decay
     const dropGain = this._ctx.createGain()
-    const peakGain = (0.08 + Math.random() * 0.08) * Math.min(1.3, size)
-    const dropDuration = 0.008 * size
+    const peakGain = (0.02 + Math.random() * 0.02) * Math.min(1.2, size)
+    const dropDuration = 0.018 * size
 
-    dropGain.gain.setValueAtTime(peakGain, time)
+    dropGain.gain.setValueAtTime(0, time)
+    dropGain.gain.linearRampToValueAtTime(peakGain, time + 0.003)
     dropGain.gain.exponentialRampToValueAtTime(0.0001, time + dropDuration)
 
     source.connect(filter)
