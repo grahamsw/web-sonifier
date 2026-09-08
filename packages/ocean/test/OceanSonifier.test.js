@@ -85,6 +85,9 @@ describe('OceanSonifier', () => {
     const intensity = schema.find(p => p.name === 'intensity')
     const pitch = schema.find(p => p.name === 'pitch')
     const swellPeriod = schema.find(p => p.name === 'swellPeriod')
+    const swellPeriodStdDev = schema.find(p => p.name === 'swellPeriodStdDev')
+    const swellDepth = schema.find(p => p.name === 'swellDepth')
+    const swellDepthStdDev = schema.find(p => p.name === 'swellDepthStdDev')
     const foam = schema.find(p => p.name === 'foam')
     const volume = schema.find(p => p.name === 'volume')
 
@@ -100,6 +103,15 @@ describe('OceanSonifier', () => {
 
     expect(swellPeriod).toBeDefined()
     expect(swellPeriod.default).toBe(8.0)
+
+    expect(swellPeriodStdDev).toBeDefined()
+    expect(swellPeriodStdDev.default).toBe(1.5)
+
+    expect(swellDepth).toBeDefined()
+    expect(swellDepth.default).toBe(0.7)
+
+    expect(swellDepthStdDev).toBeDefined()
+    expect(swellDepthStdDev.default).toBe(0.15)
 
     expect(foam).toBeDefined()
     expect(volume).toBeDefined()

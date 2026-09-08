@@ -199,10 +199,18 @@ const UI_CONFIGS = {
     mappedParam: 'intensity',
     groups: [
       {
-        title: 'Ocean Swell & Depth Settings',
+        title: 'Ocean Swell Dynamics',
+        params: {
+          swellPeriod: { control: 'slider', label: 'Swell Period Mean (s)', step: 0.5 },
+          swellPeriodStdDev: { control: 'slider', label: 'Period Std Dev (s)', step: 0.1 },
+          swellDepth: { control: 'slider', label: 'Swell Depth Mean', step: 0.05 },
+          swellDepthStdDev: { control: 'slider', label: 'Depth Std Dev', step: 0.02 }
+        }
+      },
+      {
+        title: 'Timbre & Master Settings',
         params: {
           pitch: { control: 'slider', label: 'Spectral Depth (Hz)', step: 10 },
-          swellPeriod: { control: 'slider', label: 'Swell Period (s)', step: 0.5 },
           foam: { control: 'slider', label: 'Foam & Spray', step: 0.05 },
           volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
         }
@@ -327,13 +335,16 @@ const defaultSettings = {
     spread:          0.8
   },
   ocean: {
-    inputRange:      [85, 115],
-    outputRange:     [15, 85],
-    curve:           'linear',
-    volume:          0.5,
-    pitch:           500,
-    swellPeriod:     8.0,
-    foam:            0.5
+    inputRange:        [85, 115],
+    outputRange:       [15, 85],
+    curve:             'linear',
+    volume:            0.5,
+    pitch:             500,
+    swellPeriod:       8.0,
+    swellPeriodStdDev: 1.5,
+    swellDepth:        0.7,
+    swellDepthStdDev:  0.15,
+    foam:              0.5
   }
 }
 

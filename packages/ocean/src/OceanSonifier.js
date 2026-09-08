@@ -4,19 +4,22 @@ import { SonifierBase } from '@web-sonifier/core'
  * OceanSonifier
  *
  * Synthesizes an acoustic ocean surf and rolling wave environment using
- * tri-band noise filtering and asymmetric wave swell cycle dynamics:
+ * tri-band noise filtering and stochastic wave swell cycle dynamics:
  *
  * 1. Deep Undertow (Low): Low-frequency resonant body (80-350 Hz) capturing water mass
  *    and receding wash back into the ocean.
- * 2. Surf Body (Mid): Sweeping bandpass surge (200-2000 Hz) that crests and crashes.
- * 3. Spray & Foam (High): Highpass water spray (1500-6000 Hz) that peaks as waves break.
+ * 2. Surf Body (Mid): Sweeping bandpass surge (200-2200 Hz) that crests and crashes.
+ * 3. Spray & Foam (High): Highpass water spray (1500-7000 Hz) that peaks as waves break.
  *
  * Parameters:
- *   intensity   - Wave surge power and crash amplitude (0..100)
- *   pitch       - Spectral depth and undertow resonance (80..2500 Hz)
- *   swellPeriod - Duration of a wave cycle in seconds (3..20s)
- *   foam        - High-frequency sea foam and spray prominence (0..1)
- *   volume      - Master sonifier volume (0..1)
+ *   intensity          - Wave surge power and crash amplitude (0..100)
+ *   pitch              - Spectral depth and undertow resonance (80..2500 Hz)
+ *   swellPeriod        - Mean duration of a wave cycle in seconds (3..20s)
+ *   swellPeriodStdDev  - Standard deviation of wave cycle period in seconds (0..5s)
+ *   swellDepth         - Mean swell volume dynamic range from trough to crest (0..1)
+ *   swellDepthStdDev   - Standard deviation of swell volume depth (0..0.5)
+ *   foam               - High-frequency sea foam and spray prominence (0..1)
+ *   volume             - Master sonifier volume (0..1)
  */
 export class OceanSonifier extends SonifierBase {
 
@@ -46,8 +49,35 @@ export class OceanSonifier extends SonifierBase {
         range: [3.0, 20.0],
         default: 8.0,
         group: 'ocean',
-        label: 'Swell Period (s)',
-        description: 'Duration of one rolling wave cycle'
+        label: 'Swell Period Mean (s)',
+        description: 'Mean duration of one rolling wave cycle'
+      },
+      {
+        name: 'swellPeriodStdDev',
+        type: 'number',
+        range: [0, 5.0],
+        default: 1.5,
+        group: 'ocean',
+        label: 'Swell Period Std Dev (s)',
+        description: 'Variation in seconds between wave cycles'
+      },
+      {
+        name: 'swellDepth',
+        type: 'number',
+        range: [0, 1.0],
+        default: 0.7,
+        group: 'ocean',
+        label: 'Swell Depth Mean',
+        description: 'Mean volume dynamic range between trough and crest'
+      },
+      {
+        name: 'swellDepthStdDev',
+        type: 'number',
+        range: [0, 0.5],
+        default: 0.15,
+        group: 'ocean',
+        label: 'Swell Depth Std Dev',
+        description: 'Variation in swell volume depth from wave to wave'
       },
       {
         name: 'foam',
@@ -85,8 +115,10 @@ export class OceanSonifier extends SonifierBase {
     // Tri-band synthesis network
     this._setupAudioGraph()
 
-    // Wave swell cycle state
+    // Stochastic wave swell cycle state
     this._cycleStartTime = audioContext.currentTime
+    this._currentWaveDuration = this._computeNextWaveDuration()
+    this._currentWaveDepth = this._computeNextWaveDepth()
     this._timer = null
     this._tickInterval = 35 // 35ms update interval
 
@@ -106,7 +138,7 @@ export class OceanSonifier extends SonifierBase {
 
   destroy() {
     if (this._timer) {
-      clearInterval(this._timer)
+      clearTimeout(this._timer)
       this._timer = null
     }
 
@@ -237,23 +269,52 @@ export class OceanSonifier extends SonifierBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Wave Swell Dynamics
+  // Stochastic Wave Swell Dynamics
   // ---------------------------------------------------------------------------
+
+  _sampleGaussian(mean, stdDev, minVal, maxVal) {
+    if (stdDev <= 0) return Math.min(maxVal, Math.max(minVal, mean))
+    const u1 = Math.max(1e-6, Math.random())
+    const u2 = Math.random()
+    const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2)
+    const sampled = mean + z * stdDev
+    return Math.min(maxVal, Math.max(minVal, sampled))
+  }
+
+  _computeNextWaveDuration() {
+    const mean = this.getParam('swellPeriod') ?? 8.0
+    const stdDev = this.getParam('swellPeriodStdDev') ?? 1.5
+    return this._sampleGaussian(mean, stdDev, 2.5, 30.0)
+  }
+
+  _computeNextWaveDepth() {
+    const mean = this.getParam('swellDepth') ?? 0.7
+    const stdDev = this.getParam('swellDepthStdDev') ?? 0.15
+    return this._sampleGaussian(mean, stdDev, 0.05, 0.98)
+  }
 
   _updateWaveCycle() {
     if (!this._ctx || !this._gainNode) return
 
     const now = this._ctx.currentTime
-    const period = Math.max(3.0, this.getParam('swellPeriod') || 8.0)
+    let elapsed = now - this._cycleStartTime
+
+    // Check if wave cycle has finished, transition to next randomized wave
+    if (elapsed >= this._currentWaveDuration) {
+      this._cycleStartTime = now
+      this._currentWaveDuration = this._computeNextWaveDuration()
+      this._currentWaveDepth = this._computeNextWaveDepth()
+      elapsed = 0
+    }
+
+    const duration = this._currentWaveDuration
+    const depth = this._currentWaveDepth
+    const phase = Math.min(0.9999, elapsed / duration)
+
     const intensity = Math.min(100, Math.max(0, this.getParam('intensity') ?? 50))
     const pitch = Math.min(2500, Math.max(80, this.getParam('pitch') || 500))
     const foamParam = Math.min(1, Math.max(0, this.getParam('foam') ?? 0.5))
-
     const normIntensity = intensity / 100 // 0 to 1
-
-    // Wave cycle phase: 0 to 1
-    const elapsed = now - this._cycleStartTime
-    const phase = (elapsed % period) / period
 
     let swellEnv = 0
     let crashEnv = 0
@@ -279,10 +340,11 @@ export class OceanSonifier extends SonifierBase {
       backwashEnv = 0.4 + 0.6 * Math.sin(Math.PI * p)
     }
 
-    // Dynamic gains tracking wave envelope and intensity
-    const surfTargetGain = (0.05 + 0.35 * normIntensity) * (0.2 + 0.8 * swellEnv)
-    const undertowTargetGain = (0.08 + 0.32 * normIntensity) * (0.3 + 0.7 * backwashEnv)
-    const foamTargetGain = (0.02 + 0.25 * normIntensity * foamParam) * crashEnv
+    // Dynamic gains modulated by swellDepth (trough level vs crest level)
+    const trough = 1.0 - depth
+    const surfTargetGain = (0.05 + 0.35 * normIntensity) * (trough + depth * swellEnv)
+    const undertowTargetGain = (0.08 + 0.32 * normIntensity) * (trough * 0.8 + depth * backwashEnv)
+    const foamTargetGain = (0.02 + 0.25 * normIntensity * foamParam) * depth * crashEnv
 
     // Dynamic filter frequencies (sweeping with swell and pitch)
     const surfTargetFreq = Math.min(2600, Math.max(160, pitch * (0.6 + 1.2 * swellEnv)))
