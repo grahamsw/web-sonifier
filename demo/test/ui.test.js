@@ -7,16 +7,25 @@ beforeEach(() => {
 
   // Build the mock DOM for index.html
   document.body.innerHTML = `
-    <span id="price-value">100</span>
-    <span id="price-change"></span>
+    <button id="btn-mode-feed" class="mode-btn active">Feed</button>
+    <button id="btn-mode-manual" class="mode-btn">Manual</button>
+    <div id="feed-display-section">
+      <span id="price-value">100</span>
+      <span id="price-change"></span>
+    </div>
+    <div id="manual-workbench-section" style="display: none;">
+      <div id="manual-params-container"></div>
+    </div>
     <select id="sonifier-select">
       <option value="tone">Tone</option>
       <option value="geiger">Geiger</option>
       <option value="purr">Purr</option>
     </select>
-    <select id="feed-rate-select">
-      <option value="1000">1s</option>
-    </select>
+    <div id="feed-rate-group">
+      <select id="feed-rate-select">
+        <option value="1000">1s</option>
+      </select>
+    </div>
     <button id="btn-play">Play</button>
     <button id="btn-stop">Stop</button>
     <button id="btn-settings">Settings</button>
@@ -162,4 +171,67 @@ describe('Demo UI Live Updates', () => {
     expect(mockRuntimeInstance.setMasterVolume).toHaveBeenCalledWith(0.5)
     expect(localStorage.setItem).toHaveBeenCalled()
   })
+
+  it('should switch between Live Feed and Manual Workbench modes', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const btnManual = document.getElementById('btn-mode-manual')
+    const btnFeed = document.getElementById('btn-mode-feed')
+    const feedSection = document.getElementById('feed-display-section')
+    const manualSection = document.getElementById('manual-workbench-section')
+    const feedRateGroup = document.getElementById('feed-rate-group')
+    const container = document.getElementById('manual-params-container')
+
+    // Click Manual Workbench
+    btnManual.click()
+
+    expect(btnManual.classList.contains('active')).toBe(true)
+    expect(btnFeed.classList.contains('active')).toBe(false)
+    expect(feedSection.style.display).toBe('none')
+    expect(manualSection.style.display).toBe('block')
+    expect(feedRateGroup.style.display).toBe('none')
+
+    // Verify parameter rows were created for tone schema (frequency, waveform, volume)
+    const rows = container.querySelectorAll('.workbench-param-row')
+    expect(rows.length).toBe(3)
+
+    // Click back to Live Feed
+    btnFeed.click()
+
+    expect(btnFeed.classList.contains('active')).toBe(true)
+    expect(btnManual.classList.contains('active')).toBe(false)
+    expect(feedSection.style.display).toBe('')
+    expect(manualSection.style.display).toBe('none')
+    expect(feedRateGroup.style.display).toBe('')
+  })
+
+  it('should update sonifier parameter and save settings when adjusting workbench slider', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    // Start sonifier
+    const playBtn = document.getElementById('btn-play')
+    await playBtn.click()
+
+    // Switch to manual mode
+    const btnManual = document.getElementById('btn-mode-manual')
+    btnManual.click()
+
+    const container = document.getElementById('manual-params-container')
+    const rows = container.querySelectorAll('.workbench-param-row')
+    expect(rows.length).toBeGreaterThan(0)
+
+    // First row is frequency slider and number input
+    const slider = rows[0].querySelector('input[type="range"]')
+    const numberInput = rows[0].querySelector('input[type="number"]')
+    expect(slider).not.toBeNull()
+    expect(numberInput).not.toBeNull()
+
+    // Adjust slider
+    slider.value = '880'
+    slider.dispatchEvent(new Event('input'))
+
+    expect(numberInput.value).toBe('880')
+    expect(localStorage.setItem).toHaveBeenCalled()
+  })
 })
+
