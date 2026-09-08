@@ -8,6 +8,7 @@ import { EngineSonifier } from '@web-sonifier/engine'
 import { DroneSonifier } from '@web-sonifier/drone'
 import { VoscSonifier } from '@web-sonifier/vosc'
 import { RainSonifier } from '@web-sonifier/rain'
+import { OceanSonifier } from '@web-sonifier/ocean'
 import { SettingsFormBuilder } from './SettingsFormBuilder.js'
 
 // ---------------------------------------------------------------------------
@@ -193,6 +194,28 @@ const UI_CONFIGS = {
         }
       }
     ]
+  },
+  ocean: {
+    mappedParam: 'intensity',
+    groups: [
+      {
+        title: 'Ocean Swell Dynamics',
+        params: {
+          swellPeriod: { control: 'slider', label: 'Swell Period Mean (s)', step: 0.5 },
+          swellPeriodStdDev: { control: 'slider', label: 'Period Std Dev (s)', step: 0.1 },
+          swellDepth: { control: 'slider', label: 'Swell Depth Mean', step: 0.05 },
+          swellDepthStdDev: { control: 'slider', label: 'Depth Std Dev', step: 0.02 }
+        }
+      },
+      {
+        title: 'Timbre & Master Settings',
+        params: {
+          pitch: { control: 'slider', label: 'Spectral Depth (Hz)', step: 10 },
+          foam: { control: 'slider', label: 'Foam & Spray', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
   }
 }
 
@@ -210,6 +233,7 @@ runtime.register('mallet', MalletSonifier)
 runtime.register('drone', DroneSonifier)
 runtime.register('vosc', VoscSonifier)
 runtime.register('rain', RainSonifier)
+runtime.register('ocean', OceanSonifier)
 
 let activeSonifier = null
 let activeSonifierType = null
@@ -307,8 +331,20 @@ const defaultSettings = {
     curve:           'linear',
     volume:          0.5,
     pitch:           1200,
-    dropletSize:     1.0,
+    dropletSize:     0.4,
     spread:          0.8
+  },
+  ocean: {
+    inputRange:        [85, 115],
+    outputRange:       [15, 85],
+    curve:             'linear',
+    volume:            0.5,
+    pitch:             500,
+    swellPeriod:       8.0,
+    swellPeriodStdDev: 1.5,
+    swellDepth:        0.7,
+    swellDepthStdDev:  0.15,
+    foam:              0.5
   }
 }
 
