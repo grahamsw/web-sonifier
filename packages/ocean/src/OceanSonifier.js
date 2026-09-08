@@ -46,7 +46,7 @@ export class OceanSonifier extends SonifierBase {
       {
         name: 'swellPeriod',
         type: 'number',
-        range: [3.0, 20.0],
+        range: [0, 20.0],
         default: 8.0,
         group: 'ocean',
         label: 'Swell Period Mean (s)',
@@ -248,14 +248,24 @@ export class OceanSonifier extends SonifierBase {
   }
 
   _createNoiseBuffer() {
-    const duration = 4.0
+    const duration = 20.0
     const sampleRate = this._ctx.sampleRate
     const frameCount = Math.floor(sampleRate * duration)
     const buffer = this._ctx.createBuffer(2, frameCount, sampleRate)
+    const fadeFrames = Math.floor(sampleRate * 0.5)
 
     for (let ch = 0; ch < 2; ch++) {
       const data = buffer.getChannelData(ch)
       let b0 = 0, b1 = 0, b2 = 0
+
+      // Warm up filter state
+      for (let i = 0; i < 500; i++) {
+        const white = Math.random() * 2 - 1
+        b0 = 0.99886 * b0 + white * 0.0555179
+        b1 = 0.99332 * b1 + white * 0.0750759
+        b2 = 0.96900 * b2 + white * 0.1538520
+      }
+
       for (let i = 0; i < frameCount; i++) {
         const white = Math.random() * 2 - 1
         b0 = 0.99886 * b0 + white * 0.0555179
@@ -263,6 +273,17 @@ export class OceanSonifier extends SonifierBase {
         b2 = 0.96900 * b2 + white * 0.1538520
         const pink = b0 + b1 + b2 + white * 0.5362
         data[i] = pink * 0.12 + white * 0.04
+      }
+
+      // Equal-power crossfade between start and end to ensure seamless looping
+      for (let i = 0; i < fadeFrames; i++) {
+        const progress = i / fadeFrames
+        const headWeight = Math.sin(progress * Math.PI * 0.5)
+        const tailWeight = Math.cos(progress * Math.PI * 0.5)
+        const tailIdx = frameCount - fadeFrames + i
+        const blended = data[i] * headWeight + data[tailIdx] * tailWeight
+        data[i] = blended
+        data[tailIdx] = blended
       }
     }
     return buffer
@@ -284,13 +305,14 @@ export class OceanSonifier extends SonifierBase {
   _computeNextWaveDuration() {
     const mean = this.getParam('swellPeriod') ?? 8.0
     const stdDev = this.getParam('swellPeriodStdDev') ?? 1.5
-    return this._sampleGaussian(mean, stdDev, 2.5, 30.0)
+    if (mean <= 0.1) return 1000000.0 // static, effectively no period
+    return this._sampleGaussian(mean, stdDev, 1.0, 30.0)
   }
 
   _computeNextWaveDepth() {
     const mean = this.getParam('swellDepth') ?? 0.7
     const stdDev = this.getParam('swellDepthStdDev') ?? 0.15
-    return this._sampleGaussian(mean, stdDev, 0.05, 0.98)
+    return this._sampleGaussian(mean, stdDev, 0.0, 1.0)
   }
 
   _updateWaveCycle() {
@@ -308,7 +330,8 @@ export class OceanSonifier extends SonifierBase {
     }
 
     const duration = this._currentWaveDuration
-    const depth = this._currentWaveDepth
+    const rawDepth = this._currentWaveDepth
+    const depth = rawDepth <= 0.001 ? 0 : rawDepth
     const phase = Math.min(0.9999, elapsed / duration)
 
     const intensity = Math.min(100, Math.max(0, this.getParam('intensity') ?? 50))
@@ -346,10 +369,10 @@ export class OceanSonifier extends SonifierBase {
     const undertowTargetGain = (0.08 + 0.32 * normIntensity) * (trough * 0.8 + depth * backwashEnv)
     const foamTargetGain = (0.02 + 0.25 * normIntensity * foamParam) * depth * crashEnv
 
-    // Dynamic filter frequencies (sweeping with swell and pitch)
-    const surfTargetFreq = Math.min(2600, Math.max(160, pitch * (0.6 + 1.2 * swellEnv)))
-    const undertowTargetFreq = Math.min(450, Math.max(60, pitch * 0.35 * (0.8 + 0.4 * backwashEnv)))
-    const foamTargetFreq = Math.min(7500, Math.max(1200, pitch * 2.8 * (0.9 + 0.3 * crashEnv)))
+    // Dynamic filter frequencies (sweeping with swell and pitch, scaled by depth)
+    const surfTargetFreq = Math.min(2600, Math.max(160, pitch * (0.8 + depth * 0.8 * swellEnv)))
+    const undertowTargetFreq = Math.min(450, Math.max(60, pitch * 0.35 * (1.0 + depth * (0.4 * backwashEnv - 0.2))))
+    const foamTargetFreq = Math.min(7500, Math.max(1200, pitch * 2.8 * (1.0 + depth * (0.3 * crashEnv - 0.1))))
 
     // Parameter smoothing with 35ms time constant
     const smooth = 0.035

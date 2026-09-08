@@ -175,4 +175,38 @@ describe('OceanSonifier', () => {
     expect(sonifier._gainNode).toBeNull()
     expect(sonifier._timer).toBeNull()
   })
+
+  it('allocates a 20-second stereo noise buffer with equal-power looping', () => {
+    sonifier.init(mockContext, mockOutput)
+    expect(mockContext.createBuffer).toHaveBeenCalledWith(2, 44100 * 20, 44100)
+    expect(mockNoiseSource.loop).toBe(true)
+  })
+
+  it('produces completely static filter frequency and gain targets when swellDepth is 0', () => {
+    vi.useFakeTimers()
+    sonifier.setParam('swellDepth', 0)
+    sonifier.setParam('swellDepthStdDev', 0)
+    sonifier.setParam('swellPeriod', 0)
+    sonifier.setParam('pitch', 500)
+    sonifier.setParam('intensity', 50)
+
+    sonifier.init(mockContext, mockOutput)
+
+    const surfFilter = filtersCreated[1]
+    surfFilter.frequency.setTargetAtTime.mockClear()
+
+    // Advance through time across several seconds
+    for (let t = 0; t < 10; t++) {
+      mockContext.currentTime += 0.5
+      vi.advanceTimersByTime(500)
+    }
+
+    // Every call to surfFilter.frequency.setTargetAtTime should target pitch * 0.8 = 400
+    expect(surfFilter.frequency.setTargetAtTime).toHaveBeenCalled()
+    const targetFreqs = surfFilter.frequency.setTargetAtTime.mock.calls.map(call => call[0])
+    for (const freq of targetFreqs) {
+      expect(freq).toBeCloseTo(400, 1)
+    }
+  })
 })
+
