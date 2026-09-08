@@ -175,4 +175,57 @@ describe('OceanSonifier', () => {
     expect(sonifier._gainNode).toBeNull()
     expect(sonifier._timer).toBeNull()
   })
+
+  it('allocates a 20-second stereo noise buffer with equal-power looping', () => {
+    sonifier.init(mockContext, mockOutput)
+    expect(mockContext.createBuffer).toHaveBeenCalledWith(2, 44100 * 20, 44100)
+    expect(mockNoiseSource.loop).toBe(true)
+  })
+
+  it('produces completely static filter frequency and gain targets when swellDepth is 0', () => {
+    vi.useFakeTimers()
+    sonifier.setParam('swellDepth', 0)
+    sonifier.setParam('swellDepthStdDev', 0)
+    sonifier.setParam('swellPeriod', 0)
+    sonifier.setParam('pitch', 500)
+    sonifier.setParam('intensity', 50)
+
+    sonifier.init(mockContext, mockOutput)
+
+    const surfFilter = filtersCreated[1]
+    surfFilter.frequency.setTargetAtTime.mockClear()
+
+    // Advance through time across several seconds
+    for (let t = 0; t < 10; t++) {
+      mockContext.currentTime += 0.5
+      vi.advanceTimersByTime(500)
+    }
+
+    // Every call to surfFilter.frequency.setTargetAtTime should target pitch * 1.0 = 500
+    expect(surfFilter.frequency.setTargetAtTime).toHaveBeenCalled()
+    const targetFreqs = surfFilter.frequency.setTargetAtTime.mock.calls.map(call => call[0])
+    for (const freq of targetFreqs) {
+      expect(freq).toBeCloseTo(500, 1)
+    }
+  })
+
+  it('immediately updates wave depth and duration when swell parameters change via setParam', () => {
+    vi.useFakeTimers()
+    sonifier.init(mockContext, mockOutput)
+
+    // Set to zero depth
+    sonifier.setParam('swellDepth', 0)
+    sonifier.setParam('swellDepthStdDev', 0)
+    expect(sonifier._currentWaveDepth).toBe(0)
+
+    // Set back to 0.8 depth - should update immediately without waiting for next cycle
+    sonifier.setParam('swellDepth', 0.8)
+    expect(sonifier._currentWaveDepth).toBeCloseTo(0.8, 1)
+
+    // Set period to 4.0 - should update duration immediately
+    sonifier.setParam('swellPeriod', 4.0)
+    sonifier.setParam('swellPeriodStdDev', 0)
+    expect(sonifier._currentWaveDuration).toBeCloseTo(4.0, 1)
+  })
 })
+
