@@ -1,0 +1,27 @@
+{
+  "name": "@web-sonifier/rain",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "unpkg": "./dist/index.global.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.js --format cjs,esm,iife --global-name RainSonifier --clean"
+  },
+  "peerDependencies": {
+    "@web-sonifier/core": "*"
+  },
+  "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  }
+}

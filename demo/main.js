@@ -7,6 +7,7 @@ import { MalletSonifier } from '@web-sonifier/mallet'
 import { EngineSonifier } from '@web-sonifier/engine'
 import { DroneSonifier } from '@web-sonifier/drone'
 import { VoscSonifier } from '@web-sonifier/vosc'
+import { RainSonifier } from '@web-sonifier/rain'
 import { SettingsFormBuilder } from './SettingsFormBuilder.js'
 
 // ---------------------------------------------------------------------------
@@ -178,6 +179,20 @@ const UI_CONFIGS = {
         }
       }
     ]
+  },
+  rain: {
+    mappedParam: 'intensity',
+    groups: [
+      {
+        title: 'Rain Synthesis Settings',
+        params: {
+          pitch: { control: 'slider', label: 'Rain Pitch (Hz)', step: 10 },
+          dropletSize: { control: 'slider', label: 'Droplet Size', step: 0.05 },
+          spread: { control: 'slider', label: 'Stereo Spread', step: 0.05 },
+          volume: { control: 'slider', label: 'Sonifier Volume', step: 0.05 }
+        }
+      }
+    ]
   }
 }
 
@@ -194,6 +209,7 @@ runtime.register('liquid', LiquidSonifier)
 runtime.register('mallet', MalletSonifier)
 runtime.register('drone', DroneSonifier)
 runtime.register('vosc', VoscSonifier)
+runtime.register('rain', RainSonifier)
 
 let activeSonifier = null
 let activeSonifierType = null
@@ -284,6 +300,15 @@ const defaultSettings = {
     releaseTime:     10,
     gate:            1,
     waveSet:         0
+  },
+  rain: {
+    inputRange:      [85, 115],
+    outputRange:     [5, 120],
+    curve:           'linear',
+    volume:          0.5,
+    pitch:           1200,
+    dropletSize:     1.0,
+    spread:          0.8
   }
 }
 
