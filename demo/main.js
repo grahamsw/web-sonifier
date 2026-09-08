@@ -55,6 +55,16 @@ const outputRangeLabelEl = document.getElementById('output-range-label')
 // Container for dynamic sonifier-specific inputs
 const dynamicContainer   = document.getElementById('dynamic-params-container')
 
+// Mode toggle & workbench elements
+const btnModeFeed            = document.getElementById('btn-mode-feed')
+const btnModeManual          = document.getElementById('btn-mode-manual')
+const feedDisplaySection     = document.getElementById('feed-display-section')
+const manualWorkbenchSection = document.getElementById('manual-workbench-section')
+const manualParamsContainer  = document.getElementById('manual-params-container')
+const feedRateGroup          = document.getElementById('feed-rate-group')
+
+let currentMode = 'feed'
+
 // ---------------------------------------------------------------------------
 // UI configurations ("facets") for sonifiers
 // ---------------------------------------------------------------------------
@@ -419,6 +429,15 @@ function applySettings() {
     for (const [paramName, value] of Object.entries(uiConfig.fixedParams || {})) {
       activeSonifier.setParam(paramName, value)
     }
+
+    // In manual mode, apply all schema parameters saved in settings
+    if (currentMode === 'manual' && typeof activeSonifier.getParamSchema === 'function') {
+      for (const param of activeSonifier.getParamSchema()) {
+        if (s[param.name] !== undefined) {
+          activeSonifier.setParam(param.name, s[param.name])
+        }
+      }
+    }
   }
 
   runtime.setMasterVolume(settings.masterVolume)
@@ -430,7 +449,7 @@ function initFeed() {
   if (feedInterval) clearInterval(feedInterval)
   feedInterval = startFeed((price, prev) => {
     updatePriceDisplay(price, prev)
-    if (activeAdapter && activeSonifier) {
+    if (currentMode === 'feed' && activeAdapter && activeSonifier) {
       const mappedValue = activeAdapter.map(price)
       activeSonifier.setParam(activeAdapter.param, mappedValue)
     }
@@ -460,9 +479,13 @@ async function startSonifier() {
 
   applySettings()
 
-  statusEl.textContent = 'Sonifying…'
+  statusEl.textContent = currentMode === 'manual' ? 'Sonifying (Manual Workbench)…' : 'Sonifying…'
   btnPlay.disabled      = true
   btnStop.disabled      = false
+
+  if (currentMode === 'manual') {
+    renderManualWorkbench()
+  }
 }
 
 function stopSonifier() {
@@ -495,6 +518,9 @@ sonifierSelectEl.addEventListener('change', async () => {
   }
   settings.sonifierType = sonifierSelectEl.value
   saveSettings(settings)
+  if (currentMode === 'manual') {
+    renderManualWorkbench()
+  }
 })
 
 feedRateSelectEl.addEventListener('change', () => {
@@ -533,6 +559,211 @@ function updatePriceDisplay(price, prev) {
   const sign = diff >= 0 ? '+' : ''
   priceChangeEl.textContent = `${sign}${diff.toFixed(2)}`
   priceChangeEl.className   = `change ${diff >= 0 ? 'up' : 'down'}`
+}
+
+// ---------------------------------------------------------------------------
+// Manual Workbench & Mode Navigation
+// ---------------------------------------------------------------------------
+
+function renderManualWorkbench() {
+  if (!manualParamsContainer) return
+  manualParamsContainer.innerHTML = ''
+
+  const type = sonifierSelectEl.value
+  const s = settings[type] || {}
+  const uiConfig = UI_CONFIGS[type]
+
+  let tempInstance = activeSonifier
+  let isTemp = false
+  if (!tempInstance) {
+    try {
+      tempInstance = runtime.create(type)
+      isTemp = true
+    } catch (e) {
+      console.warn('Could not instantiate sonifier for schema inspection:', e)
+    }
+  }
+
+  const schema = (tempInstance && typeof tempInstance.getParamSchema === 'function')
+    ? tempInstance.getParamSchema()
+    : []
+
+  if (schema.length === 0) {
+    manualParamsContainer.innerHTML = '<div style="font-size: 0.8rem; color: #666; text-align: center; padding: 0.5rem;">No parameters available for this sonifier.</div>'
+    if (isTemp) runtime.destroy(type)
+    return
+  }
+
+  for (const param of schema) {
+    const row = document.createElement('div')
+    row.className = 'workbench-param-row'
+
+    const label = document.createElement('label')
+    label.textContent = param.label || param.name
+    label.title = `${param.name}${param.description ? ': ' + param.description : ''}`
+
+    const isEnum = param.type === 'enum' && Array.isArray(param.values || param.options)
+    const options = isEnum ? (param.values || param.options) : []
+
+    if (isEnum) {
+      const select = document.createElement('select')
+      select.style.cssText = 'background: #0f1117; border: 1px solid #2a2d3a; border-radius: 4px; color: #fff; font-size: 0.8rem; padding: 0.2rem 0.4rem; flex: 1;'
+      for (const opt of options) {
+        const optEl = document.createElement('option')
+        optEl.value = opt
+        optEl.textContent = opt
+        select.appendChild(optEl)
+      }
+      const currentVal = s[param.name] !== undefined ? s[param.name] : param.default
+      if (s[param.name] === undefined && currentVal !== undefined) {
+        s[param.name] = currentVal
+      }
+      select.value = currentVal
+
+      select.addEventListener('change', () => {
+        s[param.name] = select.value
+        if (activeSonifier) {
+          activeSonifier.setParam(param.name, select.value)
+        }
+        saveSettings(settings)
+      })
+
+      row.appendChild(label)
+      row.appendChild(select)
+    } else {
+      // Numeric slider + number input
+      const range = param.range || [0, 1]
+      const min = range[0]
+      const max = range[1]
+
+      // Determine step from schema or uiConfig
+      let step = param.step
+      if (!step && uiConfig?.groups) {
+        for (const g of uiConfig.groups) {
+          if (g.params?.[param.name]?.step !== undefined) {
+            step = g.params[param.name].step
+            break
+          }
+        }
+      }
+      if (!step) {
+        const span = max - min
+        if (span <= 2) step = 0.01
+        else if (span <= 20) step = 0.1
+        else if (span <= 200) step = 1
+        else step = 10
+      }
+
+      const currentVal = s[param.name] !== undefined
+        ? s[param.name]
+        : (param.default !== undefined ? param.default : min)
+
+      if (s[param.name] === undefined && currentVal !== undefined) {
+        s[param.name] = currentVal
+      }
+
+      const slider = document.createElement('input')
+      slider.type = 'range'
+      slider.min = min
+      slider.max = max
+      slider.step = step
+      slider.value = currentVal
+
+      const number = document.createElement('input')
+      number.type = 'number'
+      number.min = min
+      number.max = max
+      number.step = step
+      number.value = currentVal
+
+      const updateValue = (val) => {
+        let numVal = parseFloat(val)
+        if (isNaN(numVal)) return
+        numVal = Math.max(min, Math.min(max, numVal))
+        slider.value = numVal
+        number.value = numVal
+        s[param.name] = numVal
+        if (activeSonifier) {
+          activeSonifier.setParam(param.name, numVal)
+        }
+        saveSettings(settings)
+      }
+
+      slider.addEventListener('input', () => updateValue(slider.value))
+      number.addEventListener('input', () => updateValue(number.value))
+
+      row.appendChild(label)
+      row.appendChild(slider)
+      row.appendChild(number)
+    }
+
+    manualParamsContainer.appendChild(row)
+  }
+
+  if (isTemp) {
+    runtime.destroy(type)
+  }
+}
+
+function setMode(mode) {
+  currentMode = mode
+  if (mode === 'manual') {
+    if (btnModeFeed) {
+      btnModeFeed.classList.remove('active')
+      btnModeFeed.setAttribute('aria-selected', 'false')
+    }
+    if (btnModeManual) {
+      btnModeManual.classList.add('active')
+      btnModeManual.setAttribute('aria-selected', 'true')
+    }
+
+    if (feedDisplaySection) feedDisplaySection.style.display = 'none'
+    if (manualWorkbenchSection) manualWorkbenchSection.style.display = 'block'
+    if (feedRateGroup) feedRateGroup.style.display = 'none'
+
+    // Pause feed while in manual mode
+    if (feedInterval) {
+      clearInterval(feedInterval)
+      feedInterval = null
+    }
+
+    renderManualWorkbench()
+
+    if (activeSonifier) {
+      applySettings()
+      if (statusEl) statusEl.textContent = 'Sonifying (Manual Workbench)…'
+    }
+  } else {
+    if (btnModeManual) {
+      btnModeManual.classList.remove('active')
+      btnModeManual.setAttribute('aria-selected', 'false')
+    }
+    if (btnModeFeed) {
+      btnModeFeed.classList.add('active')
+      btnModeFeed.setAttribute('aria-selected', 'true')
+    }
+
+    if (manualWorkbenchSection) manualWorkbenchSection.style.display = 'none'
+    if (feedDisplaySection) feedDisplaySection.style.display = ''
+    if (feedRateGroup) feedRateGroup.style.display = ''
+
+    // Resume feed
+    initFeed()
+
+    if (activeSonifier) {
+      applySettings()
+      if (activeAdapter) {
+        const mappedValue = activeAdapter.map(currentPrice)
+        activeSonifier.setParam(activeAdapter.param, mappedValue)
+      }
+      if (statusEl) statusEl.textContent = 'Sonifying…'
+    }
+  }
+}
+
+if (btnModeFeed && btnModeManual) {
+  btnModeFeed.addEventListener('click', () => setMode('feed'))
+  btnModeManual.addEventListener('click', () => setMode('manual'))
 }
 
 // ---------------------------------------------------------------------------
@@ -605,6 +836,9 @@ document.getElementById('btn-save').addEventListener('click', () => {
   updateMappingFromUI()
   saveSettings(settings)
   applySettings()
+  if (currentMode === 'manual') {
+    renderManualWorkbench()
+  }
   dialog.close()
 })
 
@@ -613,6 +847,9 @@ document.getElementById('btn-cancel').addEventListener('click', () => {
     settings = settingsBackup
     saveSettings(settings)
     applySettings()
+    if (currentMode === 'manual') {
+      renderManualWorkbench()
+    }
   }
   dialog.close()
 })
@@ -772,6 +1009,8 @@ if (btnOpenLoadCustom && customDialog) {
 
       if (wasPlaying) {
         startSonifier()
+      } else if (currentMode === 'manual') {
+        renderManualWorkbench()
       }
 
       customDialog.close()
