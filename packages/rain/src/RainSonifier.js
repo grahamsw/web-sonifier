@@ -3,16 +3,16 @@ import { SonifierBase } from '@web-sonifier/core'
 /**
  * RainSonifier
  *
- * Simulates an acoustic rain environment using a dual-layer synthesis model:
- * 1. Granular Droplet Engine: A Poisson process schedules individual droplet impacts
- *    filtered through tuned resonant bandpass filters with stereo dispersion.
- * 2. Ambient Rain Wash: A continuous filtered noise layer providing the characteristic
- *    background rain shower that swells smoothly with intensity.
+ * Simulates an acoustic rain environment using a dual-layer noise synthesis model:
+ * 1. Granular Droplet Engine: A Poisson process schedules short, non-resonant
+ *    white-noise droplet spatters with gentle spectral shaping and stereo dispersion.
+ * 2. Ambient Rain Wash: A continuous filtered pink/white noise bed providing the
+ *    natural background rain shower that swells smoothly with intensity.
  *
  * Parameters:
  *   intensity   - Droplet arrival rate (drops/sec) and rain wash swell (0..500)
- *   pitch       - Resonant frequency of droplets and rain wash (200..4000 Hz)
- *   dropletSize - Decay time and weight of droplet impacts (0.1..2.0)
+ *   pitch       - Spectral brightness/cutoff of droplets and rain wash (200..4000 Hz)
+ *   dropletSize - Duration and weight of droplet spatters (0.1..2.0)
  *   spread      - Stereo panning dispersion width (0..1)
  *   volume      - Master sonifier volume (0..1)
  */
@@ -36,7 +36,7 @@ export class RainSonifier extends SonifierBase {
         default: 1200,
         group: 'rain',
         label: 'Rain Pitch',
-        description: 'Resonant frequency of droplets and rain wash'
+        description: 'Spectral brightness of droplets and rain wash'
       },
       {
         name: 'dropletSize',
@@ -45,7 +45,7 @@ export class RainSonifier extends SonifierBase {
         default: 1.0,
         group: 'rain',
         label: 'Droplet Size',
-        description: 'Droplet impact weight and decay time'
+        description: 'Droplet spatter weight and duration'
       },
       {
         name: 'spread',
@@ -77,7 +77,7 @@ export class RainSonifier extends SonifierBase {
     this._gainNode.gain.value = 0
     this._gainNode.connect(outputNode)
 
-    // Pre-calculate audio buffers
+    // Pre-calculate audio buffers (short white noise spatter + looping wash)
     this._dropImpulseBuffer = this._createDropImpulseBuffer()
     this._washBuffer = this._createWashBuffer()
 
@@ -102,13 +102,15 @@ export class RainSonifier extends SonifierBase {
     }
 
     if (name === 'intensity' && this._washGain) {
-      const normalizedIntensity = Math.min(1, Math.max(0, value / 300))
-      const targetWashGain = Math.pow(normalizedIntensity, 1.4) * 0.35
+      // Smoothly swell ambient wash as intensity increases
+      const normalizedIntensity = Math.min(1, Math.max(0, value / 250))
+      const targetWashGain = Math.pow(normalizedIntensity, 1.2) * 0.4
       this._washGain.gain.setTargetAtTime(targetWashGain, now, 0.03)
     }
 
     if (name === 'pitch' && this._washFilter) {
-      const targetFreq = Math.min(16000, Math.max(100, value * 1.5))
+      // Spectral tilt tracking pitch (brightness of rain shower)
+      const targetFreq = Math.min(16000, Math.max(300, value * 2.2))
       this._washFilter.frequency.setTargetAtTime(targetFreq, now, 0.03)
     }
   }
@@ -166,13 +168,14 @@ export class RainSonifier extends SonifierBase {
 
     this._washFilter = this._ctx.createBiquadFilter()
     this._washFilter.type = 'lowpass'
+    this._washFilter.Q.value = 0.7 // Flat, natural non-resonant Butterworth roll-off
     const initialPitch = this.getParam('pitch') || 1200
-    this._washFilter.frequency.value = Math.min(16000, initialPitch * 1.5)
+    this._washFilter.frequency.value = Math.min(16000, initialPitch * 2.2)
 
     this._washGain = this._ctx.createGain()
     const initialIntensity = this.getParam('intensity') || 30
-    const norm = Math.min(1, initialIntensity / 300)
-    this._washGain.gain.value = Math.pow(norm, 1.4) * 0.35
+    const norm = Math.min(1, initialIntensity / 250)
+    this._washGain.gain.value = Math.pow(norm, 1.2) * 0.4
 
     this._washSource.connect(this._washFilter)
     this._washFilter.connect(this._washGain)
@@ -186,7 +189,8 @@ export class RainSonifier extends SonifierBase {
   }
 
   _createDropImpulseBuffer() {
-    const duration = 0.015 // 15ms excitation
+    // Pure white noise spatter: short, crisp, non-tonal
+    const duration = 0.012 // 12ms
     const sampleRate = this._ctx.sampleRate
     const frameCount = Math.floor(sampleRate * duration)
     const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
@@ -194,14 +198,16 @@ export class RainSonifier extends SonifierBase {
 
     for (let i = 0; i < frameCount; i++) {
       const t = i / frameCount
-      const decay = Math.exp(-t * 20)
+      // Fast exponential decay: instant onset, decaying noise burst
+      const decay = Math.exp(-t * 24)
       data[i] = (Math.random() * 2 - 1) * decay
     }
     return buffer
   }
 
   _createWashBuffer() {
-    const duration = 2.0 // 2 seconds seamless loop
+    // 3 seconds seamless stereo rain bed: balanced white and pink noise
+    const duration = 3.0
     const sampleRate = this._ctx.sampleRate
     const frameCount = Math.floor(sampleRate * duration)
     const buffer = this._ctx.createBuffer(2, frameCount, sampleRate)
@@ -210,13 +216,13 @@ export class RainSonifier extends SonifierBase {
       const data = buffer.getChannelData(ch)
       let b0 = 0, b1 = 0, b2 = 0
       for (let i = 0; i < frameCount; i++) {
-        // Pink noise approximation
         const white = Math.random() * 2 - 1
         b0 = 0.99886 * b0 + white * 0.0555179
         b1 = 0.99332 * b1 + white * 0.0750759
         b2 = 0.96900 * b2 + white * 0.1538520
         const pink = b0 + b1 + b2 + white * 0.5362
-        data[i] = pink * 0.1
+        // Mix pink noise body with crisp white noise texture
+        data[i] = (pink * 0.07 + white * 0.03)
       }
     }
     return buffer
@@ -228,7 +234,7 @@ export class RainSonifier extends SonifierBase {
     const now = this._ctx.currentTime
     const intensity = this.getParam('intensity') || 0
 
-    // Schedule droplet impacts using a Poisson process
+    // Schedule droplet spatters using a Poisson process
     while (intensity > 0 && this._nextDropTime < now + this._lookahead) {
       this._scheduleDrop(this._nextDropTime)
 
@@ -252,32 +258,31 @@ export class RainSonifier extends SonifierBase {
     const size = this.getParam('dropletSize') || 1.0
     const spread = this.getParam('spread') ?? 0.8
 
-    // Random pitch variance around base pitch (+/- 15%)
-    const pitchJitter = 1 + (Math.random() - 0.5) * 0.3
-    const dropFreq = Math.min(8000, Math.max(150, basePitch * pitchJitter))
+    // Random spectral variation around base pitch (+/- 25%)
+    const pitchJitter = 1 + (Math.random() - 0.5) * 0.5
+    const dropFreq = Math.min(10000, Math.max(200, basePitch * pitchJitter))
 
     const source = this._ctx.createBufferSource()
     source.buffer = this._dropImpulseBuffer
 
-    // Resonant bandpass filter
+    // Non-resonant filter (Q = 0.8): provides noise spectral tilt without metallic ringing
     const filter = this._ctx.createBiquadFilter()
     filter.type = 'bandpass'
     filter.frequency.setValueAtTime(dropFreq, time)
-    filter.Q.setValueAtTime(10 + 5 * size, time)
+    filter.Q.setValueAtTime(0.8, time) // Gentle, non-ringing
 
-    // Amplitude envelope for this single drop
+    // Amplitude envelope: instant crisp attack, fast decay (no bouncing)
     const dropGain = this._ctx.createGain()
-    const peakGain = (0.2 + Math.random() * 0.15) * Math.min(1.5, size)
-    const dropDuration = 0.02 * size
+    const peakGain = (0.08 + Math.random() * 0.08) * Math.min(1.3, size)
+    const dropDuration = 0.008 * size
 
-    dropGain.gain.setValueAtTime(0, time)
-    dropGain.gain.linearRampToValueAtTime(peakGain, time + 0.002)
+    dropGain.gain.setValueAtTime(peakGain, time)
     dropGain.gain.exponentialRampToValueAtTime(0.0001, time + dropDuration)
 
     source.connect(filter)
     filter.connect(dropGain)
 
-    // Stereo panning if supported
+    // Stereo panning
     if (typeof this._ctx.createStereoPanner === 'function') {
       const panner = this._ctx.createStereoPanner()
       const panVal = (Math.random() * 2 - 1) * spread
@@ -289,6 +294,6 @@ export class RainSonifier extends SonifierBase {
     }
 
     source.start(time)
-    source.stop(time + dropDuration + 0.01)
+    source.stop(time + dropDuration + 0.005)
   }
 }
