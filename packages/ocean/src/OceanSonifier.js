@@ -133,7 +133,14 @@ export class OceanSonifier extends SonifierBase {
       this._gainNode.gain.setTargetAtTime(value, now, 0.02)
     }
 
-    // Dynamic wave parameters are applied on each cycle tick
+    if (name === 'swellPeriod' || name === 'swellPeriodStdDev') {
+      this._currentWaveDuration = this._computeNextWaveDuration()
+      this._cycleStartTime = now
+    }
+
+    if (name === 'swellDepth' || name === 'swellDepthStdDev') {
+      this._currentWaveDepth = this._computeNextWaveDepth()
+    }
   }
 
   destroy() {
@@ -305,13 +312,14 @@ export class OceanSonifier extends SonifierBase {
   _computeNextWaveDuration() {
     const mean = this.getParam('swellPeriod') ?? 8.0
     const stdDev = this.getParam('swellPeriodStdDev') ?? 1.5
-    if (mean <= 0.1) return 1000000.0 // static, effectively no period
+    if (mean <= 0.2) return 0.2
     return this._sampleGaussian(mean, stdDev, 1.0, 30.0)
   }
 
   _computeNextWaveDepth() {
     const mean = this.getParam('swellDepth') ?? 0.7
     const stdDev = this.getParam('swellDepthStdDev') ?? 0.15
+    if (mean <= 0.001) return 0.0
     return this._sampleGaussian(mean, stdDev, 0.0, 1.0)
   }
 
@@ -332,7 +340,7 @@ export class OceanSonifier extends SonifierBase {
     const duration = this._currentWaveDuration
     const rawDepth = this._currentWaveDepth
     const depth = rawDepth <= 0.001 ? 0 : rawDepth
-    const phase = Math.min(0.9999, elapsed / duration)
+    const phase = duration <= 0.25 ? 0 : Math.min(0.9999, elapsed / duration)
 
     const intensity = Math.min(100, Math.max(0, this.getParam('intensity') ?? 50))
     const pitch = Math.min(2500, Math.max(80, this.getParam('pitch') || 500))
@@ -370,9 +378,13 @@ export class OceanSonifier extends SonifierBase {
     const foamTargetGain = (0.02 + 0.25 * normIntensity * foamParam) * depth * crashEnv
 
     // Dynamic filter frequencies (sweeping with swell and pitch, scaled by depth)
-    const surfTargetFreq = Math.min(2600, Math.max(160, pitch * (0.8 + depth * 0.8 * swellEnv)))
-    const undertowTargetFreq = Math.min(450, Math.max(60, pitch * 0.35 * (1.0 + depth * (0.4 * backwashEnv - 0.2))))
-    const foamTargetFreq = Math.min(7500, Math.max(1200, pitch * 2.8 * (1.0 + depth * (0.3 * crashEnv - 0.1))))
+    const surfSweep = 0.6 + 1.2 * swellEnv
+    const undertowSweep = 0.8 + 0.4 * backwashEnv
+    const foamSweep = 0.9 + 0.3 * crashEnv
+
+    const surfTargetFreq = Math.min(2600, Math.max(160, pitch * (1.0 + depth * (surfSweep - 1.0))))
+    const undertowTargetFreq = Math.min(450, Math.max(60, pitch * 0.35 * (1.0 + depth * (undertowSweep - 1.0))))
+    const foamTargetFreq = Math.min(7500, Math.max(1200, pitch * 2.8 * (1.0 + depth * (foamSweep - 1.0))))
 
     // Parameter smoothing with 35ms time constant
     const smooth = 0.035

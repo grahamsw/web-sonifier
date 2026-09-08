@@ -201,12 +201,31 @@ describe('OceanSonifier', () => {
       vi.advanceTimersByTime(500)
     }
 
-    // Every call to surfFilter.frequency.setTargetAtTime should target pitch * 0.8 = 400
+    // Every call to surfFilter.frequency.setTargetAtTime should target pitch * 1.0 = 500
     expect(surfFilter.frequency.setTargetAtTime).toHaveBeenCalled()
     const targetFreqs = surfFilter.frequency.setTargetAtTime.mock.calls.map(call => call[0])
     for (const freq of targetFreqs) {
-      expect(freq).toBeCloseTo(400, 1)
+      expect(freq).toBeCloseTo(500, 1)
     }
+  })
+
+  it('immediately updates wave depth and duration when swell parameters change via setParam', () => {
+    vi.useFakeTimers()
+    sonifier.init(mockContext, mockOutput)
+
+    // Set to zero depth
+    sonifier.setParam('swellDepth', 0)
+    sonifier.setParam('swellDepthStdDev', 0)
+    expect(sonifier._currentWaveDepth).toBe(0)
+
+    // Set back to 0.8 depth - should update immediately without waiting for next cycle
+    sonifier.setParam('swellDepth', 0.8)
+    expect(sonifier._currentWaveDepth).toBeCloseTo(0.8, 1)
+
+    // Set period to 4.0 - should update duration immediately
+    sonifier.setParam('swellPeriod', 4.0)
+    sonifier.setParam('swellPeriodStdDev', 0)
+    expect(sonifier._currentWaveDuration).toBeCloseTo(4.0, 1)
   })
 })
 
