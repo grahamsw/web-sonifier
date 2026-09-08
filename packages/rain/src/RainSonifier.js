@@ -42,7 +42,7 @@ export class RainSonifier extends SonifierBase {
         name: 'dropletSize',
         type: 'number',
         range: [0.1, 2.0],
-        default: 1.0,
+        default: 0.4,
         group: 'rain',
         label: 'Droplet Size',
         description: 'Droplet spatter weight and duration'

@@ -307,7 +307,7 @@ const defaultSettings = {
     curve:           'linear',
     volume:          0.5,
     pitch:           1200,
-    dropletSize:     1.0,
+    dropletSize:     0.4,
     spread:          0.8
   }
 }

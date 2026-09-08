@@ -129,6 +129,7 @@ describe('RainSonifier', () => {
     expect(pitch.default).toBe(1200)
 
     expect(dropletSize).toBeDefined()
+    expect(dropletSize.default).toBe(0.4)
     expect(spread).toBeDefined()
     expect(volume).toBeDefined()
   })
