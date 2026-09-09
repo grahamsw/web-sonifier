@@ -46,7 +46,8 @@ const masterVolDispEl  = document.getElementById('master-volume-display')
 const statusEl         = document.getElementById('status')
 const dialog           = document.getElementById('settings-dialog')
 
-// Dialog mapping inputs (dynamic feed and dual-ended range picker)
+// Dialog mapping inputs (dynamic feed, mapped parameter, and dual-ended range picker)
+const mappedParamSelectEl  = document.getElementById('mapped-param-select')
 const feedRangeDisplayEl   = document.getElementById('feed-range-display')
 const outputMinValEl       = document.getElementById('output-min-val')
 const outputMaxValEl       = document.getElementById('output-max-val')
@@ -262,68 +263,92 @@ const defaultSettings = {
   feedIntervalMs:  1000,
   masterVolume:    0.8,
   tone: {
+    mappedParam:     'frequency',
     inputRange:      [0, 100],
     outputRange:     [110, 440],
+    paramRanges:     { frequency: [110, 440], volume: [0.1, 0.9] },
     curve:           'exponential',
     waveform:        'sine',
-    volume:          0.5
+    volume:          0.5,
+    frequency:       440
   },
   geiger: {
+    mappedParam:     'rate',
     inputRange:      [0, 100],
     outputRange:     [1, 50],
+    paramRanges:     { rate: [1, 50], volume: [0.1, 0.9] },
     curve:           'linear',
-    volume:          0.7
+    volume:          0.7,
+    rate:            10
   },
   purr: {
+    mappedParam:     'frequency',
     inputRange:      [0, 100],
     outputRange:     [20, 150],
+    paramRanges:     { frequency: [20, 150], volume: [0.1, 0.9] },
     curve:           'exponential',
     volume:          0.6,
+    frequency:       50,
     jitter:          0.5,
     rumble:          0.5,
     breath:          0.5
   },
   engine: {
+    mappedParam:     'pitch',
     inputRange:      [0, 100],
     outputRange:     [20, 2000],
+    paramRanges:     { pitch: [20, 2000], rate: [2, 40], volume: [0.1, 0.8] },
     curve:           'exponential',
     volume:          0.25,
+    pitch:           65,
     rate:            25,
     volumeVariance:  0.1,
     rolloff:         -96
   },
   liquid: {
+    mappedParam:     'frequency',
     inputRange:      [0, 100],
     outputRange:     [20, 80],
+    paramRanges:     { frequency: [20, 80], viscosity: [0.1, 0.9], volume: [0.1, 0.9] },
     curve:           'linear',
     volume:          0.5,
+    frequency:       50,
     viscosity:       0.5,
     resonatorVolume: 0.5
   },
   mallet: {
+    mappedParam:     'strikeRate',
     inputRange:      [0, 100],
     outputRange:     [0.5, 10],
+    paramRanges:     { strikeRate: [0.5, 10], hardness: [0.1, 0.9], volume: [0.1, 0.9] },
     curve:           'linear',
     volume:          0.7,
+    strikeRate:      2,
     hardness:        0.5,
     boxSize:         1.0,
     resonance:       0.4,
     force:           0.7
   },
   drone: {
+    mappedParam:     'frequency',
     inputRange:      [0, 100],
     outputRange:     [20, 200],
+    paramRanges:     { frequency: [20, 200], volume: [0.1, 0.9] },
     curve:           'linear',
     volume:          0.5,
+    frequency:       100,
     nharm:           12,
     detune:          0.2,
     pan:             0
   },
   vosc: {
+    mappedParam:     'frequency',
     inputRange:      [0, 100],
     outputRange:     [100, 1000],
+    paramRanges:     { frequency: [100, 1000], volume: [0.1, 0.9] },
     curve:           'linear',
     volume:          0.5,
+    frequency:       200,
     amplitude:       0.5,
     bufLow:          0,
     bufHigh:         7,
@@ -340,19 +365,25 @@ const defaultSettings = {
     waveSet:         0
   },
   rain: {
+    mappedParam:     'intensity',
     inputRange:      [0, 100],
     outputRange:     [5, 120],
+    paramRanges:     { intensity: [5, 120], pitch: [400, 3000], volume: [0.1, 0.9] },
     curve:           'linear',
     volume:          0.5,
+    intensity:       50,
     pitch:           1200,
     dropletSize:     0.4,
     spread:          0.8
   },
   ocean: {
+    mappedParam:       'intensity',
     inputRange:        [0, 100],
     outputRange:       [15, 85],
+    paramRanges:       { intensity: [15, 85], pitch: [200, 1200], swellPeriod: [3, 15], swellDepth: [0.1, 0.9], volume: [0.1, 0.9] },
     curve:             'linear',
     volume:            0.5,
+    intensity:         50,
     pitch:             500,
     swellPeriod:       8.0,
     swellPeriodStdDev: 1.5,
@@ -384,6 +415,16 @@ function loadSettings() {
             settings[key].volume = loaded[key].sonifierVolume
             delete settings[key].sonifierVolume
           }
+          // Ensure mappedParam and paramRanges exist
+          if (!settings[key].mappedParam && UI_CONFIGS[key]) {
+            settings[key].mappedParam = UI_CONFIGS[key].mappedParam
+          }
+          if (!settings[key].paramRanges) {
+            settings[key].paramRanges = {}
+          }
+          if (settings[key].outputRange && settings[key].mappedParam && !settings[key].paramRanges[settings[key].mappedParam]) {
+            settings[key].paramRanges[settings[key].mappedParam] = settings[key].outputRange
+          }
         }
       } else if (loaded[key] !== undefined) {
         settings[key] = loaded[key]
@@ -414,11 +455,13 @@ function applySettings() {
   const s = settings[type]
   const uiConfig = UI_CONFIGS[type]
   
-  if (!uiConfig) return
+  if (!uiConfig || !s) return
+
+  const mappedParam = s.mappedParam || uiConfig.mappedParam
 
   if (activeAdapter) {
     activeAdapter.setConfig({
-      param:       uiConfig.mappedParam,
+      param:       mappedParam,
       inputRange:  s.inputRange,
       outputRange: s.outputRange,
       curve:       s.curve
@@ -426,26 +469,20 @@ function applySettings() {
   }
 
   if (activeSonifier) {
-    // Apply parameters from groups
-    for (const group of uiConfig.groups || []) {
-      for (const paramName of Object.keys(group.params || {})) {
-        if (s[paramName] !== undefined) {
-          activeSonifier.setParam(paramName, s[paramName])
-        }
+    // Apply all schema parameters (except mappedParam when in feed mode)
+    const schema = typeof activeSonifier.getParamSchema === 'function' ? activeSonifier.getParamSchema() : []
+    for (const param of schema) {
+      if (currentMode === 'feed' && param.name === mappedParam) {
+        continue
+      }
+      if (s[param.name] !== undefined) {
+        activeSonifier.setParam(param.name, s[param.name])
       }
     }
+
     // Apply fixed parameters if any
     for (const [paramName, value] of Object.entries(uiConfig.fixedParams || {})) {
       activeSonifier.setParam(paramName, value)
-    }
-
-    // In manual mode, apply all schema parameters saved in settings
-    if (currentMode === 'manual' && typeof activeSonifier.getParamSchema === 'function') {
-      for (const param of activeSonifier.getParamSchema()) {
-        if (s[param.name] !== undefined) {
-          activeSonifier.setParam(param.name, s[param.name])
-        }
-      }
     }
   }
 
@@ -480,7 +517,7 @@ async function startSonifier() {
   activeSonifierType = type
 
   activeAdapter = new Adapter({
-    param:        uiConfig.mappedParam,
+    param:        s.mappedParam || uiConfig.mappedParam,
     inputRange:   s.inputRange,
     outputRange:  s.outputRange,
     curve:        s.curve
@@ -790,10 +827,13 @@ function getOutputRangeBounds(schemaParam) {
   let trackMin = sMin >= 0 ? Math.max(0, sMin - headTail) : (sMin - headTail)
   let trackMax = sMax + headTail
 
-  // For frequency ranges, keep minimum at a safe audible floor (e.g. 15-20 Hz)
-  if (schemaParam.name === 'frequency' && sMin >= 20) {
+  // For frequency/pitch ranges, keep minimum at a safe audible floor (e.g. 15-20 Hz)
+  if ((schemaParam.name === 'frequency' || schemaParam.name === 'pitch') && sMin >= 20) {
     trackMin = Math.max(20, Math.floor(trackMin))
     trackMax = Math.max(2500, Math.ceil(trackMax / 100) * 100)
+  } else if (sMax <= 1 && sMin >= 0) {
+    trackMin = 0
+    trackMax = 1.0
   } else if (trackMax >= 100) {
     trackMin = Math.floor(trackMin)
     trackMax = Math.ceil(trackMax / 10) * 10
@@ -802,7 +842,8 @@ function getOutputRangeBounds(schemaParam) {
   let step = schemaParam.step
   if (!step) {
     const totalSpan = trackMax - trackMin
-    if (totalSpan <= 10) step = 0.1
+    if (totalSpan <= 1.5) step = 0.01
+    else if (totalSpan <= 10) step = 0.1
     else if (totalSpan <= 100) step = 0.5
     else if (totalSpan <= 500) step = 1
     else step = 5
@@ -847,10 +888,30 @@ function setupRangeSlider(type) {
   }
 
   const schema = typeof tempSonifierInstance.getParamSchema === 'function' ? tempSonifierInstance.getParamSchema() : []
-  const mappedEntry = schema.find(p => p.name === uiConfig.mappedParam)
+  const mappableParams = schema.filter(p => {
+    return (p.type === 'number' || p.type === undefined) && Array.isArray(p.range) && p.range.length === 2
+  })
+
+  const currentMappedParam = s.mappedParam || uiConfig.mappedParam || (mappableParams[0] ? mappableParams[0].name : 'frequency')
+  s.mappedParam = currentMappedParam
+
+  if (mappedParamSelectEl) {
+    mappedParamSelectEl.innerHTML = ''
+    for (const p of mappableParams) {
+      const opt = document.createElement('option')
+      opt.value = p.name
+      opt.textContent = p.label || p.name
+      if (p.name === currentMappedParam) {
+        opt.selected = true
+      }
+      mappedParamSelectEl.appendChild(opt)
+    }
+  }
+
+  const mappedEntry = schema.find(p => p.name === currentMappedParam) || mappableParams[0]
 
   if (mappedEntry && outputRangeLabelEl) {
-    outputRangeLabelEl.textContent = `Output range (${mappedEntry.label || uiConfig.mappedParam})`
+    outputRangeLabelEl.textContent = `Output range (${mappedEntry.label || currentMappedParam})`
   }
 
   const bounds = getOutputRangeBounds(mappedEntry)
@@ -868,8 +929,15 @@ function setupRangeSlider(type) {
     rangeSliderMaxEl.max = bounds.max
     rangeSliderMaxEl.step = bounds.step
 
-    const curMin = s.outputRange ? s.outputRange[0] : bounds.min
-    const curMax = s.outputRange ? s.outputRange[1] : bounds.max
+    if (!s.paramRanges) s.paramRanges = {}
+    let [curMin, curMax] = s.paramRanges[currentMappedParam] || s.outputRange || [bounds.min, bounds.max]
+
+    curMin = Math.max(bounds.min, Math.min(bounds.max, curMin))
+    curMax = Math.max(bounds.min, Math.min(bounds.max, curMax))
+    if (curMin > curMax) curMin = curMax
+
+    s.outputRange = [curMin, curMax]
+    s.paramRanges[currentMappedParam] = [curMin, curMax]
 
     rangeSliderMinEl.value = curMin
     rangeSliderMaxEl.value = curMax
@@ -914,6 +982,11 @@ if (rangeSliderMinEl && rangeSliderMaxEl) {
     }
 
     s.outputRange = [valMin, valMax]
+    if (!s.paramRanges) s.paramRanges = {}
+    const curParam = s.mappedParam || UI_CONFIGS[type]?.mappedParam
+    if (curParam) {
+      s.paramRanges[curParam] = [valMin, valMax]
+    }
     updateRangeSliderUI(valMin, valMax, trackMin, trackMax)
     applySettings()
     saveSettings(settings)
@@ -921,6 +994,57 @@ if (rangeSliderMinEl && rangeSliderMaxEl) {
 
   rangeSliderMinEl.addEventListener('input', () => handleRangeInput('min'))
   rangeSliderMaxEl.addEventListener('input', () => handleRangeInput('max'))
+}
+
+if (mappedParamSelectEl) {
+  mappedParamSelectEl.addEventListener('change', () => {
+    const type = sonifierSelectEl.value
+    const s = settings[type]
+    const uiConfig = UI_CONFIGS[type]
+    if (!s || !uiConfig) return
+
+    const newParam = mappedParamSelectEl.value
+    const oldParam = s.mappedParam || uiConfig.mappedParam
+    if (newParam === oldParam) return
+
+    // Cache current range for the old parameter
+    if (!s.paramRanges) s.paramRanges = {}
+    if (s.outputRange) {
+      s.paramRanges[oldParam] = s.outputRange
+    }
+
+    // Set new mapped parameter
+    s.mappedParam = newParam
+
+    // Update range slider for the new parameter
+    setupRangeSlider(type)
+
+    // Re-render single-value controls in dynamic settings form
+    let tempSonifierInstance = activeSonifier
+    let isTemp = false
+    if (!tempSonifierInstance) {
+      tempSonifierInstance = runtime.create(type)
+      isTemp = true
+    }
+
+    SettingsFormBuilder.build(dynamicContainer, tempSonifierInstance, uiConfig, s, (paramName, value) => {
+      s[paramName] = value
+      applySettings()
+      saveSettings(settings)
+    }, s.mappedParam)
+
+    if (isTemp) {
+      runtime.destroy(type)
+    }
+
+    // If the old parameter has a single value in s, apply it to the active sonifier
+    if (activeSonifier && s[oldParam] !== undefined) {
+      activeSonifier.setParam(oldParam, s[oldParam])
+    }
+
+    applySettings()
+    saveSettings(settings)
+  })
 }
 
 if (curveSelectEl) {
@@ -952,12 +1076,12 @@ btnSettings.addEventListener('click', () => {
     isTemp = true
   }
 
-  // Render dynamic setting controls
+  // Render dynamic setting controls (excluding currently mapped parameter)
   SettingsFormBuilder.build(dynamicContainer, tempSonifierInstance, uiConfig, s, (paramName, value) => {
     s[paramName] = value
     applySettings()
     saveSettings(settings)
-  })
+  }, s.mappedParam)
 
   if (isTemp) {
     runtime.destroy(type)

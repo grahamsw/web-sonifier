@@ -81,4 +81,38 @@ describe('SettingsFormBuilder', () => {
 
     expect(onChange).toHaveBeenCalledWith('bypass', false)
   })
+
+  it('excludes mappedParam from controls and renders fallback for unconfigured schema parameters', () => {
+    const container = document.createElement('div')
+    const sonifierWithExtra = {
+      getParamSchema: () => [
+        { name: 'cutoff', type: 'number', range: [20, 20000], default: 1000, label: 'Cutoff' },
+        { name: 'resonance', type: 'number', range: [0, 10], default: 1, label: 'Resonance' },
+        { name: 'type', type: 'enum', values: ['lowpass', 'highpass'], default: 'lowpass' }
+      ]
+    }
+    const uiConfig = {
+      groups: [
+        {
+          title: 'Filter',
+          params: {
+            cutoff: { control: 'slider' }
+          }
+        }
+      ]
+    }
+    const settings = { cutoff: 500, resonance: 2, type: 'lowpass' }
+    const onChange = vi.fn()
+
+    // Pass 'cutoff' as mappedParam
+    SettingsFormBuilder.build(container, sonifierWithExtra, uiConfig, settings, onChange, 'cutoff')
+
+    // 'cutoff' should be excluded
+    expect(container.querySelector('#input-cutoff')).toBeNull()
+
+    // 'resonance' and 'type' were not in uiConfig.groups, but should be rendered via fallback
+    expect(container.querySelector('#input-resonance')).not.toBeNull()
+    expect(container.querySelector('#input-type')).not.toBeNull()
+  })
 })
+

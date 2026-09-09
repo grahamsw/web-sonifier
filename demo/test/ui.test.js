@@ -34,6 +34,7 @@ beforeEach(() => {
     <span id="status">Stopped</span>
     
     <dialog id="settings-dialog">
+      <select id="mapped-param-select"></select>
       <div class="feed-range-badge">
         <span class="range-val-badge" id="feed-range-display">0 to 100</span>
       </div>
@@ -330,5 +331,71 @@ describe('Demo UI Live Updates', () => {
 
     expect(localStorage.setItem).toHaveBeenCalled()
   })
+
+  it('should populate mapped-param-select with available numeric parameters', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const mappedSelect = document.getElementById('mapped-param-select')
+    expect(mappedSelect).not.toBeNull()
+
+    // Tone schema has frequency (number), waveform (enum), and volume (number)
+    const options = Array.from(mappedSelect.options).map(o => o.value)
+    expect(options).toContain('frequency')
+    expect(options).toContain('volume')
+    expect(options).not.toContain('waveform') // enum should not be in mappable numeric options
+    expect(mappedSelect.value).toBe('frequency')
+  })
+
+  it('should switch mapped parameter, adjust range picker bounds, and swap single-value controls', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const mappedSelect = document.getElementById('mapped-param-select')
+    const sliderMin = document.getElementById('range-slider-min')
+    const sliderMax = document.getElementById('range-slider-max')
+    const rangeLabel = document.getElementById('output-range-label')
+
+    // Initial state: frequency is mapped
+    expect(rangeLabel.textContent).toContain('Frequency')
+    // Volume is a single-value input in dynamicContainer
+    expect(document.getElementById('input-volume')).not.toBeNull()
+    expect(document.getElementById('input-frequency')).toBeNull()
+
+    // Switch mapped parameter to volume
+    mappedSelect.value = 'volume'
+    mappedSelect.dispatchEvent(new Event('change'))
+
+    // Now volume is mapped
+    expect(rangeLabel.textContent).toContain('Volume')
+    expect(parseFloat(sliderMin.min)).toBe(0)
+    expect(parseFloat(sliderMax.max)).toBe(1)
+
+    // Volume should no longer be a single-value input in dynamicContainer
+    expect(document.getElementById('input-volume')).toBeNull()
+    // Frequency should now appear as a single-value control
+    const freqInput = document.getElementById('input-frequency')
+    expect(freqInput).not.toBeNull()
+
+    // Modifying frequency single value sets parameter
+    freqInput.value = '520'
+    freqInput.dispatchEvent(new Event('input'))
+    expect(localStorage.setItem).toHaveBeenCalled()
+
+    // Switch back to frequency
+    mappedSelect.value = 'frequency'
+    mappedSelect.dispatchEvent(new Event('change'))
+
+    // Frequency is mapped again with frequency bounds
+    expect(rangeLabel.textContent).toContain('Frequency')
+    expect(parseFloat(sliderMax.max)).toBeGreaterThanOrEqual(2000)
+    expect(document.getElementById('input-frequency')).toBeNull()
+    expect(document.getElementById('input-volume')).not.toBeNull()
+  })
 })
+
 
