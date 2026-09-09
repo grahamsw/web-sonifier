@@ -16,85 +16,90 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 2rem;
-      padding: 2rem;
+      justify-content: flex-start;
+      gap: 1.5rem;
+      padding: 2rem 1rem 4rem 1rem;
     }
 
-    h1 { font-size: 1.4rem; font-weight: 500; color: #fff; letter-spacing: 0.05em; }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 500;
+      color: #fff;
+      letter-spacing: 0.05em;
+    }
 
     .card {
       background: #1a1d27;
       border: 1px solid #2a2d3a;
-      border-radius: 12px;
-      padding: 1.5rem 2rem;
+      border-radius: 14px;
+      padding: 1.5rem 1.75rem;
       width: 100%;
-      max-width: 480px;
+      max-width: 580px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
     }
 
-    .price-display {
-      text-align: center;
-      padding: 1rem 0;
-    }
-
-    .price-display .label {
-      font-size: 0.8rem;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .price-display .value {
-      font-size: 3rem;
-      font-weight: 600;
-      color: #fff;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .price-display .change {
-      font-size: 0.9rem;
-      margin-top: 0.25rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .change.up   { color: #4caf82; }
-    .change.down { color: #e05c5c; }
-
-    .controls {
+    /* Top transport & volume bar */
+    .transport-bar {
       display: flex;
-      gap: 0.75rem;
-      margin-top: 1.25rem;
-      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
     }
 
     button {
-      flex: 1;
-      padding: 0.6rem 1rem;
+      padding: 0.55rem 1rem;
       border: none;
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       cursor: pointer;
-      transition: opacity 0.15s;
+      transition: all 0.15s ease;
     }
 
     button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .btn-play    { background: #4caf82; color: #000; font-weight: 600; }
-    .btn-stop    { background: #444; color: #fff; }
-    .btn-settings { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
+    .btn-play { background: #4caf82; color: #000; font-weight: 600; flex: 1.2; }
+    .btn-play:not(:disabled):hover { background: #5bc493; }
+    .btn-stop { background: #333745; color: #fff; flex: 1; }
+    .btn-stop:not(:disabled):hover { background: #3f4455; }
 
+    .status-badge {
+      font-size: 0.78rem;
+      color: #888;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .status-badge.active {
+      color: #4caf82;
+      border-color: rgba(76, 175, 130, 0.4);
+    }
+
+    /* Master volume row */
     .volume-row {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      margin-top: 1rem;
+      margin-bottom: 1.25rem;
+      background: #13151f;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid #232635;
     }
 
-    .volume-row label { font-size: 0.85rem; color: #888; white-space: nowrap; }
+    .volume-row label {
+      font-size: 0.82rem;
+      color: #888;
+      white-space: nowrap;
+      min-width: 5.5rem;
+    }
 
     input[type=range] {
       flex: 1;
       accent-color: #4caf82;
+      cursor: pointer;
     }
 
     .volume-row .vol-value {
@@ -105,141 +110,180 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .mode-nav {
-      display: flex;
-      background: #0f1117;
-      border: 1px solid #2a2d3a;
-      border-radius: 8px;
-      padding: 3px;
-      margin-bottom: 1.25rem;
-    }
-
-    .mode-btn {
-      flex: 1;
-      padding: 0.45rem 0.8rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
-      border: none;
-      background: transparent;
-      color: #888;
-      transition: all 0.15s ease;
-    }
-
-    .mode-btn:hover {
-      color: #fff;
-    }
-
-    .mode-btn.active {
-      background: #2a2d3a;
-      color: #4caf82;
-      font-weight: 600;
-    }
-
-    .workbench-param-row {
+    /* Sonifier selector row */
+    .sonifier-row {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid #2a2d3a;
+      flex-wrap: wrap;
     }
 
-    .workbench-param-row label {
-      font-size: 0.82rem;
+    .sonifier-select-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .sonifier-select-group label {
+      font-size: 0.85rem;
       color: #aaa;
-      width: 8.5rem;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    .workbench-param-row input[type=range] {
-      flex: 1;
-    }
-
-    .workbench-param-row input[type=number] {
-      width: 4.8rem;
-      background: #0f1117;
-      border: 1px solid #2a2d3a;
-      border-radius: 4px;
-      color: #fff;
-      font-size: 0.8rem;
-      padding: 0.2rem 0.4rem;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Settings dialog */
-    dialog {
-      background: #1a1d27;
-      border: 1px solid #2a2d3a;
-      border-radius: 12px;
-      color: #e0e0e0;
-      padding: 1.5rem 2rem;
-      width: min(480px, 90vw);
-      margin: auto;
-    }
-
-    dialog::backdrop { background: rgba(0,0,0,0.7); }
-
-    dialog h2 { font-size: 1rem; font-weight: 500; margin-bottom: 1.25rem; color: #fff; }
-
-    .setting-group {
-      margin-bottom: 1.25rem;
-    }
-
-    .setting-group h3 {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: #666;
-      margin-bottom: 0.75rem;
-    }
-
-    .setting-row {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .setting-row label {
-      font-size: 0.85rem;
-      color: #aaa;
-      width: 9rem;
-      flex-shrink: 0;
-    }
-
-    .setting-row input[type=number] {
-      width: 5rem;
+    select {
       background: #0f1117;
       border: 1px solid #2a2d3a;
       border-radius: 6px;
       color: #fff;
-      padding: 0.3rem 0.5rem;
+      padding: 0.4rem 0.6rem;
       font-size: 0.85rem;
+      cursor: pointer;
     }
 
-    .setting-row select {
-      background: #0f1117;
-      border: 1px solid #2a2d3a;
-      border-radius: 6px;
-      color: #fff;
-      padding: 0.3rem 0.5rem;
-      font-size: 0.85rem;
+    select:focus, input:focus {
+      outline: none;
+      border-color: #4caf82;
     }
 
-    .dialog-range-row {
+    .feed-rate-group {
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
 
-    .dialog-range-row span { font-size: 0.8rem; color: #666; }
+    .feed-rate-group label {
+      font-size: 0.82rem;
+      color: #777;
+    }
 
-    .dialog-actions {
+    /* Parameters section */
+    .parameters-header {
       display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.85rem;
+    }
+
+    .parameters-header h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.04em;
+    }
+
+    .parameters-header .hint {
+      font-size: 0.75rem;
+      color: #777;
+    }
+
+    .parameters-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    /* Individual parameter card */
+    .param-card {
+      background: #13151f;
+      border: 1px solid #232635;
+      border-radius: 10px;
+      padding: 0.75rem 0.9rem;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .param-card:hover {
+      border-color: #33384c;
+    }
+
+    .param-card.sonified {
+      border-color: rgba(76, 175, 130, 0.35);
+      background: #141822;
+    }
+
+    .param-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      gap: 0.5rem;
+    }
+
+    .param-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #ddd;
+      user-select: none;
+    }
+
+    .param-toggle-label input[type=checkbox] {
+      accent-color: #4caf82;
+      width: 1rem;
+      height: 1rem;
+      cursor: pointer;
+    }
+
+    .param-readouts {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+    }
+
+    .param-feed-badge {
+      background: rgba(76, 175, 130, 0.15);
+      border: 1px solid rgba(76, 175, 130, 0.35);
+      color: #4caf82;
+      border-radius: 5px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .badge-static {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      color: #aaa;
+      border-radius: 5px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .badge-range {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      color: #4caf82;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Single slider wrapper */
+    .single-slider-wrapper {
+      display: flex;
+      align-items: center;
       gap: 0.75rem;
-      margin-top: 1.5rem;
+      padding: 0.15rem 0;
+    }
+
+    .single-slider-wrapper input[type=range] {
+      flex: 1;
+      height: 24px;
     }
 
     /* Dual range slider */
@@ -255,19 +299,36 @@
       position: absolute;
       left: 0;
       right: 0;
-      height: 6px;
+      height: 8px;
       background: #0f1117;
       border: 1px solid #2a2d3a;
-      border-radius: 3px;
+      border-radius: 4px;
       z-index: 1;
     }
 
     .dual-range-progress {
       position: absolute;
-      height: 6px;
+      height: 100%;
       background: #4caf82;
-      border-radius: 3px;
+      border-radius: 4px;
+      cursor: grab;
+      touch-action: none;
+      pointer-events: auto;
       z-index: 2;
+    }
+
+    .dual-range-progress::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      bottom: -10px;
+      left: 0;
+      right: 0;
+    }
+
+    .dual-range-progress:active {
+      cursor: grabbing;
+      background: #6fcf9f;
     }
 
     .dual-range-input {
@@ -291,7 +352,7 @@
       height: 18px;
       border-radius: 50%;
       background: #4caf82;
-      cursor: pointer;
+      cursor: ew-resize;
       pointer-events: auto;
       border: 2px solid #0f1117;
       box-shadow: 0 0 5px rgba(0,0,0,0.6);
@@ -299,7 +360,7 @@
     }
 
     .dual-range-input::-webkit-slider-thumb:hover {
-      transform: scale(1.18);
+      transform: scale(1.2);
     }
 
     .dual-range-input::-moz-range-thumb {
@@ -307,44 +368,43 @@
       height: 18px;
       border-radius: 50%;
       background: #4caf82;
-      cursor: pointer;
+      cursor: ew-resize;
       pointer-events: auto;
       border: 2px solid #0f1117;
       box-shadow: 0 0 5px rgba(0,0,0,0.6);
     }
 
-    .range-val-badge {
-      background: #0f1117;
-      border: 1px solid #2a2d3a;
-      border-radius: 5px;
-      padding: 0.15rem 0.5rem;
-      color: #4caf82;
-      font-weight: 600;
-      font-size: 0.82rem;
-      font-variant-numeric: tabular-nums;
+    .dual-range-input::-moz-range-thumb:hover {
+      transform: scale(1.2);
     }
 
-    .feed-range-badge {
+    /* Enum / select control row */
+    .enum-control-row {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      color: #fff;
+      justify-content: space-between;
+      gap: 0.75rem;
     }
 
-    .feed-range-badge .feed-range-subtext {
-      font-size: 0.75rem;
-      color: #777;
+    .enum-control-row select {
+      flex: 1;
     }
 
-    .btn-save   { background: #4caf82; color: #000; font-weight: 600; }
+    /* Dialog styling for custom loader */
+    dialog {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      color: #e0e0e0;
+      padding: 1.5rem 2rem;
+      width: min(480px, 90vw);
+      margin: auto;
+    }
+
+    dialog::backdrop { background: rgba(0,0,0,0.7); }
+    .dialog-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+    .btn-save { background: #4caf82; color: #000; font-weight: 600; }
     .btn-cancel { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
-
-    .status {
-      font-size: 0.75rem;
-      color: #555;
-      text-align: center;
-    }
   </style>
 
   <script type="importmap">
@@ -370,30 +430,24 @@
   <h1>web-sonifier / demo <a href="https://github.com/grahamsw/web-sonifier" style="font-size: 0.8rem; color: #4caf82; text-decoration: none; margin-left: 0.5rem; vertical-align: middle;">[view source]</a></h1>
 
   <div class="card">
-    <div class="mode-nav" role="tablist" aria-label="Demo Mode">
-      <button class="mode-btn active" id="btn-mode-feed" type="button" role="tab" aria-selected="true">📊 Live Data Feed</button>
-      <button class="mode-btn" id="btn-mode-manual" type="button" role="tab" aria-selected="false">🎛 Manual Workbench</button>
+    <!-- Top Transport & Master Volume Panel -->
+    <div class="transport-bar">
+      <button class="btn-play" id="btn-play">▶ Play</button>
+      <button class="btn-stop" id="btn-stop" disabled>■ Stop</button>
+      <div class="status-badge" id="status">Stopped</div>
     </div>
 
-    <div id="feed-display-section">
-      <div class="price-display">
-        <div class="label">Data Feed</div>
-        <div class="value" id="price-value">—</div>
-        <div class="change" id="price-change">&nbsp;</div>
-      </div>
+    <div class="volume-row">
+      <label for="master-volume">Master volume</label>
+      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8">
+      <span class="vol-value" id="master-volume-display">0.80</span>
     </div>
 
-    <div id="manual-workbench-section" style="display: none; margin-bottom: 1.25rem;">
-      <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin-bottom: 0.75rem; font-weight: 600;">
-        Direct Parameter Controls
-      </div>
-      <div id="manual-params-container" style="display: flex; flex-direction: column; gap: 0.6rem;"></div>
-    </div>
-
-    <div class="setting-row" style="margin-bottom: 1rem; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-      <div>
-        <label style="margin-right: 0.5rem;">Sonifier:</label>
-        <select id="sonifier-select" style="background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.3rem 0.5rem;">
+    <!-- Sonifier & Feed Rate Selector Panel -->
+    <div class="sonifier-row">
+      <div class="sonifier-select-group">
+        <label for="sonifier-select">Sonifier:</label>
+        <select id="sonifier-select">
           <option value="tone">Continuous Tone</option>
           <option value="geiger">Geiger Counter</option>
           <option value="purr">Purr</option>
@@ -405,85 +459,31 @@
           <option value="rain">Rain</option>
           <option value="ocean">Ocean</option>
         </select>
-        <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.25rem 0.55rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer; margin-left: 0.35rem;">+ External</button>
+        <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.35rem 0.6rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer;">+ External</button>
       </div>
-      <div id="feed-rate-group">
-        <label style="margin-right: 0.5rem;">Feed Rate:</label>
-        <select id="feed-rate-select" style="background: #0f1117; border: 1px solid #2a2d3a; border-radius: 6px; color: #fff; padding: 0.3rem 0.5rem;">
+
+      <div class="feed-rate-group" id="feed-rate-group">
+        <label for="feed-rate-select">Feed Rate:</label>
+        <select id="feed-rate-select">
           <option value="1000">1 / sec</option>
+          <option value="500">2 / sec</option>
+          <option value="250">4 / sec</option>
+          <option value="5000">1 / 5s</option>
           <option value="10000">1 / 10s</option>
-          <option value="60000">1 / min</option>
-          <option value="300000">1 / 5m</option>
         </select>
       </div>
     </div>
 
-    <div class="controls">
-      <button class="btn-play"     id="btn-play">▶ Play</button>
-      <button class="btn-stop"     id="btn-stop"     disabled>■ Stop</button>
-      <button class="btn-settings" id="btn-settings" disabled>⚙ Settings</button>
+    <!-- Sonifier Parameters Panel -->
+    <div class="parameters-header">
+      <h2>Sonifier Parameters</h2>
+      <span class="hint">Check to sonify via live feed (0–100)</span>
     </div>
 
-    <div class="volume-row">
-      <label for="master-volume">Master volume</label>
-      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8">
-      <span class="vol-value" id="master-volume-display">0.80</span>
+    <div class="parameters-container" id="parameters-panel">
+      <!-- Dynamically populated per sonifier -->
     </div>
   </div>
-
-  <div class="status" id="status">Press Play to start (requires user gesture for audio)</div>
-
-  <!-- Settings dialog -->
-  <dialog id="settings-dialog">
-    <h2 id="settings-title">Sonifier settings</h2>
-
-    <div class="setting-group">
-      <h3>Mapping</h3>
-      <div class="setting-row">
-        <label for="mapped-param-select">Sonified parameter</label>
-        <select id="mapped-param-select" style="flex: 1;"></select>
-      </div>
-      <div class="setting-row">
-        <label>Input range (feed)</label>
-        <div class="feed-range-badge">
-          <span class="range-val-badge" id="feed-range-display">0 to 100</span>
-          <span class="feed-range-subtext">(dynamic feed)</span>
-        </div>
-      </div>
-      <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 0.4rem; margin-top: 0.75rem; margin-bottom: 0.75rem;">
-        <div style="display: flex; justify-content: space-between; align-items: baseline;">
-          <label id="output-range-label" style="width: auto;">Output range</label>
-          <div style="display: flex; align-items: center; gap: 0.35rem;">
-            <span class="range-val-badge" id="output-min-val">—</span>
-            <span style="color: #666; font-size: 0.8rem;">to</span>
-            <span class="range-val-badge" id="output-max-val">—</span>
-          </div>
-        </div>
-        <div class="dual-range-wrapper">
-          <div class="dual-range-track"></div>
-          <div class="dual-range-progress" id="range-progress"></div>
-          <input type="range" class="dual-range-input" id="range-slider-min" aria-label="Output range minimum">
-          <input type="range" class="dual-range-input" id="range-slider-max" aria-label="Output range maximum">
-        </div>
-      </div>
-      <div class="setting-row">
-        <label>Curve</label>
-        <select id="curve-select">
-          <option value="linear">Linear</option>
-          <option value="exponential">Exponential</option>
-          <option value="logarithmic">Logarithmic</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Dynamic parameters container -->
-    <div id="dynamic-params-container"></div>
-
-    <div class="dialog-actions">
-      <button class="btn-save"   id="btn-save">Save</button>
-      <button class="btn-cancel" id="btn-cancel">Cancel</button>
-    </div>
-  </dialog>
 
   <!-- External Sonifier Dialog -->
   <dialog id="custom-sonifier-dialog">
