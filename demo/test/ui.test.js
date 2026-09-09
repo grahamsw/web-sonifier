@@ -34,10 +34,14 @@ beforeEach(() => {
     <span id="status">Stopped</span>
     
     <dialog id="settings-dialog">
-      <input type="number" id="input-min">
-      <input type="number" id="input-max">
-      <input type="number" id="output-min">
-      <input type="number" id="output-max">
+      <div class="feed-range-badge">
+        <span class="range-val-badge" id="feed-range-display">0 to 100</span>
+      </div>
+      <span class="range-val-badge" id="output-min-val">—</span>
+      <span class="range-val-badge" id="output-max-val">—</span>
+      <div class="dual-range-progress" id="range-progress"></div>
+      <input type="range" class="dual-range-input" id="range-slider-min">
+      <input type="range" class="dual-range-input" id="range-slider-max">
       <select id="curve-select">
         <option value="linear">Linear</option>
         <option value="exponential">Exponential</option>
@@ -231,6 +235,99 @@ describe('Demo UI Live Updates', () => {
     slider.dispatchEvent(new Event('input'))
 
     expect(numberInput.value).toBe('880')
+    expect(localStorage.setItem).toHaveBeenCalled()
+  })
+
+  it('should initialize dual range slider with head and tail room when opening settings', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const feedDisplay = document.getElementById('feed-range-display')
+    expect(feedDisplay.textContent).toBe('0 to 100')
+
+    const sliderMin = document.getElementById('range-slider-min')
+    const sliderMax = document.getElementById('range-slider-max')
+    const minValBadge = document.getElementById('output-min-val')
+    const maxValBadge = document.getElementById('output-max-val')
+
+    // Tone frequency schema is [20, 2000].
+    // Head/tail room extends bounds: min is at least 20, max extends 25% to 2500
+    expect(parseFloat(sliderMin.min)).toBeLessThanOrEqual(20)
+    expect(parseFloat(sliderMax.max)).toBeGreaterThanOrEqual(2400)
+
+    // Initial default for tone is [110, 440]
+    expect(sliderMin.value).toBe('110')
+    expect(sliderMax.value).toBe('440')
+    expect(minValBadge.textContent).toContain('110')
+    expect(maxValBadge.textContent).toContain('440')
+  })
+
+  it('should update outputRange and live adapter settings when adjusting range sliders', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const sliderMin = document.getElementById('range-slider-min')
+    const sliderMax = document.getElementById('range-slider-max')
+    const minValBadge = document.getElementById('output-min-val')
+    const maxValBadge = document.getElementById('output-max-val')
+
+    // Change min slider
+    sliderMin.value = '300'
+    sliderMin.dispatchEvent(new Event('input'))
+
+    expect(minValBadge.textContent).toContain('300')
+    expect(localStorage.setItem).toHaveBeenCalled()
+
+    // Change max slider
+    sliderMax.value = '1200'
+    sliderMax.dispatchEvent(new Event('input'))
+
+    expect(maxValBadge.textContent).toContain('1200')
+    expect(localStorage.setItem).toHaveBeenCalled()
+  })
+
+  it('should enforce minVal <= maxVal when dragging dual range sliders past each other', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const sliderMin = document.getElementById('range-slider-min')
+    const sliderMax = document.getElementById('range-slider-max')
+
+    // Set max to 500
+    sliderMax.value = '500'
+    sliderMax.dispatchEvent(new Event('input'))
+
+    // Attempt to drag min above max (e.g. 600)
+    sliderMin.value = '600'
+    sliderMin.dispatchEvent(new Event('input'))
+
+    // Min slider should clamp to max (500)
+    expect(sliderMin.value).toBe('500')
+
+    // Attempt to drag max below min (e.g. 400)
+    sliderMax.value = '400'
+    sliderMax.dispatchEvent(new Event('input'))
+
+    // Max slider should clamp to min (500)
+    expect(sliderMax.value).toBe('500')
+  })
+
+  it('should update curve setting on select change', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const settingsBtn = document.getElementById('btn-settings')
+    settingsBtn.click()
+
+    const curveSelect = document.getElementById('curve-select')
+    curveSelect.value = 'exponential'
+    curveSelect.dispatchEvent(new Event('change'))
+
     expect(localStorage.setItem).toHaveBeenCalled()
   })
 })

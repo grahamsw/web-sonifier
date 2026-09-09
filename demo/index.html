@@ -242,6 +242,101 @@
       margin-top: 1.5rem;
     }
 
+    /* Dual range slider */
+    .dual-range-wrapper {
+      position: relative;
+      width: 100%;
+      height: 32px;
+      display: flex;
+      align-items: center;
+    }
+
+    .dual-range-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 3px;
+      z-index: 1;
+    }
+
+    .dual-range-progress {
+      position: absolute;
+      height: 6px;
+      background: #4caf82;
+      border-radius: 3px;
+      z-index: 2;
+    }
+
+    .dual-range-input {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 32px;
+      margin: 0;
+      background: none;
+      pointer-events: none;
+      -webkit-appearance: none;
+      appearance: none;
+      z-index: 3;
+    }
+
+    .dual-range-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4caf82;
+      cursor: pointer;
+      pointer-events: auto;
+      border: 2px solid #0f1117;
+      box-shadow: 0 0 5px rgba(0,0,0,0.6);
+      transition: transform 0.1s ease;
+    }
+
+    .dual-range-input::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    .dual-range-input::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4caf82;
+      cursor: pointer;
+      pointer-events: auto;
+      border: 2px solid #0f1117;
+      box-shadow: 0 0 5px rgba(0,0,0,0.6);
+    }
+
+    .range-val-badge {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 5px;
+      padding: 0.15rem 0.5rem;
+      color: #4caf82;
+      font-weight: 600;
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feed-range-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #fff;
+    }
+
+    .feed-range-badge .feed-range-subtext {
+      font-size: 0.75rem;
+      color: #777;
+    }
+
     .btn-save   { background: #4caf82; color: #000; font-weight: 600; }
     .btn-cancel { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
 
@@ -345,19 +440,26 @@
     <div class="setting-group">
       <h3>Mapping</h3>
       <div class="setting-row">
-        <label>Input range (data)</label>
-        <div class="dialog-range-row">
-          <input type="number" id="input-min" step="0.1">
-          <span>to</span>
-          <input type="number" id="input-max" step="0.1">
+        <label>Input range (feed)</label>
+        <div class="feed-range-badge">
+          <span class="range-val-badge" id="feed-range-display">0 to 100</span>
+          <span class="feed-range-subtext">(dynamic feed)</span>
         </div>
       </div>
-      <div class="setting-row">
-        <label id="output-range-label">Output range (Hz)</label>
-        <div class="dialog-range-row">
-          <input type="number" id="output-min" step="1">
-          <span>to</span>
-          <input type="number" id="output-max" step="1">
+      <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 0.4rem; margin-top: 0.75rem; margin-bottom: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <label id="output-range-label" style="width: auto;">Output range</label>
+          <div style="display: flex; align-items: center; gap: 0.35rem;">
+            <span class="range-val-badge" id="output-min-val">—</span>
+            <span style="color: #666; font-size: 0.8rem;">to</span>
+            <span class="range-val-badge" id="output-max-val">—</span>
+          </div>
+        </div>
+        <div class="dual-range-wrapper">
+          <div class="dual-range-track"></div>
+          <div class="dual-range-progress" id="range-progress"></div>
+          <input type="range" class="dual-range-input" id="range-slider-min" aria-label="Output range minimum">
+          <input type="range" class="dual-range-input" id="range-slider-max" aria-label="Output range maximum">
         </div>
       </div>
       <div class="setting-row">
