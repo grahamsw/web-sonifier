@@ -12,19 +12,21 @@ import { OceanSonifier } from '@web-sonifier/ocean'
 import { SettingsFormBuilder } from './SettingsFormBuilder.js'
 
 // ---------------------------------------------------------------------------
-// Mocked oil price feed — random walk, updates every 3 seconds
+// Simulated data feed — random walk between 0 and 100
 // ---------------------------------------------------------------------------
 
-let currentPrice = 100
-let previousPrice = 100
+let currentFeedValue = 50
+let previousFeedValue = 50
+const feedMin = 0
+const feedMax = 100
 
 function startFeed(onUpdate) {
-  onUpdate(currentPrice)
+  onUpdate(currentFeedValue)
   return setInterval(() => {
-    previousPrice = currentPrice
-    currentPrice += (Math.random() - 0.5) * 4
-    currentPrice = Math.max(70, Math.min(130, currentPrice)) // keep in bounds
-    onUpdate(currentPrice, previousPrice)
+    previousFeedValue = currentFeedValue
+    currentFeedValue += (Math.random() - 0.5) * 6
+    currentFeedValue = Math.max(feedMin, Math.min(feedMax, currentFeedValue))
+    onUpdate(currentFeedValue, previousFeedValue)
   }, settings.feedIntervalMs || 1000)
 }
 
@@ -44,13 +46,15 @@ const masterVolDispEl  = document.getElementById('master-volume-display')
 const statusEl         = document.getElementById('status')
 const dialog           = document.getElementById('settings-dialog')
 
-// Dialog mapping inputs (static)
-const inputMinEl         = document.getElementById('input-min')
-const inputMaxEl         = document.getElementById('input-max')
-const outputMinEl        = document.getElementById('output-min')
-const outputMaxEl        = document.getElementById('output-max')
-const curveSelectEl      = document.getElementById('curve-select')
-const outputRangeLabelEl = document.getElementById('output-range-label')
+// Dialog mapping inputs (dynamic feed and dual-ended range picker)
+const feedRangeDisplayEl   = document.getElementById('feed-range-display')
+const outputMinValEl       = document.getElementById('output-min-val')
+const outputMaxValEl       = document.getElementById('output-max-val')
+const rangeProgressEl      = document.getElementById('range-progress')
+const rangeSliderMinEl     = document.getElementById('range-slider-min')
+const rangeSliderMaxEl     = document.getElementById('range-slider-max')
+const curveSelectEl        = document.getElementById('curve-select')
+const outputRangeLabelEl   = document.getElementById('output-range-label')
 
 // Container for dynamic sonifier-specific inputs
 const dynamicContainer   = document.getElementById('dynamic-params-container')
@@ -258,20 +262,20 @@ const defaultSettings = {
   feedIntervalMs:  1000,
   masterVolume:    0.8,
   tone: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [110, 440],
     curve:           'exponential',
     waveform:        'sine',
     volume:          0.5
   },
   geiger: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [1, 50],
     curve:           'linear',
     volume:          0.7
   },
   purr: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [20, 150],
     curve:           'exponential',
     volume:          0.6,
@@ -280,7 +284,7 @@ const defaultSettings = {
     breath:          0.5
   },
   engine: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [20, 2000],
     curve:           'exponential',
     volume:          0.25,
@@ -289,7 +293,7 @@ const defaultSettings = {
     rolloff:         -96
   },
   liquid: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [20, 80],
     curve:           'linear',
     volume:          0.5,
@@ -297,7 +301,7 @@ const defaultSettings = {
     resonatorVolume: 0.5
   },
   mallet: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [0.5, 10],
     curve:           'linear',
     volume:          0.7,
@@ -307,7 +311,7 @@ const defaultSettings = {
     force:           0.7
   },
   drone: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [20, 200],
     curve:           'linear',
     volume:          0.5,
@@ -316,7 +320,7 @@ const defaultSettings = {
     pan:             0
   },
   vosc: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [100, 1000],
     curve:           'linear',
     volume:          0.5,
@@ -336,7 +340,7 @@ const defaultSettings = {
     waveSet:         0
   },
   rain: {
-    inputRange:      [85, 115],
+    inputRange:      [0, 100],
     outputRange:     [5, 120],
     curve:           'linear',
     volume:          0.5,
@@ -345,7 +349,7 @@ const defaultSettings = {
     spread:          0.8
   },
   ocean: {
-    inputRange:        [85, 115],
+    inputRange:        [0, 100],
     outputRange:       [15, 85],
     curve:             'linear',
     volume:            0.5,
@@ -370,6 +374,11 @@ function loadSettings() {
       if (typeof defaultSettings[key] === 'object' && defaultSettings[key] !== null) {
         if (loaded[key]) {
           settings[key] = { ...defaultSettings[key], ...loaded[key] }
+          // Migrate old 85..115 inputRange to [0, 100]
+          if (Array.isArray(settings[key].inputRange) && 
+              settings[key].inputRange[0] === 85 && settings[key].inputRange[1] === 115) {
+            settings[key].inputRange = [0, 100]
+          }
           // Migrate sonifierVolume -> volume
           if (loaded[key].sonifierVolume !== undefined) {
             settings[key].volume = loaded[key].sonifierVolume
@@ -767,27 +776,163 @@ if (btnModeFeed && btnModeManual) {
 }
 
 // ---------------------------------------------------------------------------
-// Settings dialog
+// Settings dialog & Dual-Ended Range Slider
 // ---------------------------------------------------------------------------
 
-function updateMappingFromUI() {
-  const type = sonifierSelectEl.value
-  const s = settings[type]
+function getOutputRangeBounds(schemaParam) {
+  if (!schemaParam || !schemaParam.range) {
+    return { min: 0, max: 1000, step: 1 }
+  }
+  const [sMin, sMax] = schemaParam.range
+  const span = sMax - sMin
+  // Add plenty of head and tail room (25% extension on each end)
+  const headTail = span * 0.25
+  let trackMin = sMin >= 0 ? Math.max(0, sMin - headTail) : (sMin - headTail)
+  let trackMax = sMax + headTail
 
-  s.inputRange  = [parseFloat(inputMinEl.value), parseFloat(inputMaxEl.value)]
-  s.outputRange = [parseFloat(outputMinEl.value), parseFloat(outputMaxEl.value)]
-  s.curve       = curveSelectEl.value
+  // For frequency ranges, keep minimum at a safe audible floor (e.g. 15-20 Hz)
+  if (schemaParam.name === 'frequency' && sMin >= 20) {
+    trackMin = Math.max(20, Math.floor(trackMin))
+    trackMax = Math.max(2500, Math.ceil(trackMax / 100) * 100)
+  } else if (trackMax >= 100) {
+    trackMin = Math.floor(trackMin)
+    trackMax = Math.ceil(trackMax / 10) * 10
+  }
+
+  let step = schemaParam.step
+  if (!step) {
+    const totalSpan = trackMax - trackMin
+    if (totalSpan <= 10) step = 0.1
+    else if (totalSpan <= 100) step = 0.5
+    else if (totalSpan <= 500) step = 1
+    else step = 5
+  }
+
+  return { min: trackMin, max: trackMax, step }
 }
 
-// Static mapping inputs listener for live updates
-const mappingInputs = [inputMinEl, inputMaxEl, outputMinEl, outputMaxEl, curveSelectEl]
-mappingInputs.forEach(el => {
-  el.addEventListener('input', () => {
-    updateMappingFromUI()
+function formatRangeValue(val) {
+  if (Number.isInteger(val)) return String(val)
+  const absVal = Math.abs(val)
+  if (absVal >= 100) return val.toFixed(0)
+  if (absVal >= 10) return val.toFixed(1)
+  return val.toFixed(2)
+}
+
+function updateRangeSliderUI(minVal, maxVal, trackMin, trackMax) {
+  if (!rangeProgressEl || !outputMinValEl || !outputMaxValEl) return
+  const span = trackMax - trackMin
+  if (span <= 0) return
+
+  const leftPercent = Math.max(0, Math.min(100, ((minVal - trackMin) / span) * 100))
+  const rightPercent = Math.max(0, Math.min(100, ((maxVal - trackMin) / span) * 100))
+
+  rangeProgressEl.style.left = `${leftPercent}%`
+  rangeProgressEl.style.width = `${Math.max(0, rightPercent - leftPercent)}%`
+
+  outputMinValEl.textContent = formatRangeValue(minVal)
+  outputMaxValEl.textContent = formatRangeValue(maxVal)
+}
+
+function setupRangeSlider(type) {
+  const s = settings[type]
+  const uiConfig = UI_CONFIGS[type]
+  if (!s || !uiConfig) return
+
+  let tempSonifierInstance = activeSonifier
+  let isTemp = false
+  if (!tempSonifierInstance || activeSonifierType !== type) {
+    tempSonifierInstance = runtime.create(type)
+    isTemp = true
+  }
+
+  const schema = typeof tempSonifierInstance.getParamSchema === 'function' ? tempSonifierInstance.getParamSchema() : []
+  const mappedEntry = schema.find(p => p.name === uiConfig.mappedParam)
+
+  if (mappedEntry && outputRangeLabelEl) {
+    outputRangeLabelEl.textContent = `Output range (${mappedEntry.label || uiConfig.mappedParam})`
+  }
+
+  const bounds = getOutputRangeBounds(mappedEntry)
+
+  if (feedRangeDisplayEl) {
+    feedRangeDisplayEl.textContent = `${feedMin} to ${feedMax}`
+  }
+
+  if (rangeSliderMinEl && rangeSliderMaxEl) {
+    rangeSliderMinEl.min = bounds.min
+    rangeSliderMinEl.max = bounds.max
+    rangeSliderMinEl.step = bounds.step
+
+    rangeSliderMaxEl.min = bounds.min
+    rangeSliderMaxEl.max = bounds.max
+    rangeSliderMaxEl.step = bounds.step
+
+    const curMin = s.outputRange ? s.outputRange[0] : bounds.min
+    const curMax = s.outputRange ? s.outputRange[1] : bounds.max
+
+    rangeSliderMinEl.value = curMin
+    rangeSliderMaxEl.value = curMax
+
+    updateRangeSliderUI(curMin, curMax, bounds.min, bounds.max)
+  }
+
+  if (curveSelectEl) {
+    curveSelectEl.value = s.curve || 'linear'
+  }
+
+  if (isTemp) {
+    runtime.destroy(type)
+  }
+}
+
+if (rangeSliderMinEl && rangeSliderMaxEl) {
+  const handleRangeInput = (source) => {
+    const type = sonifierSelectEl.value
+    const s = settings[type]
+    if (!s) return
+
+    let valMin = parseFloat(rangeSliderMinEl.value)
+    let valMax = parseFloat(rangeSliderMaxEl.value)
+    const trackMin = parseFloat(rangeSliderMinEl.min)
+    const trackMax = parseFloat(rangeSliderMinEl.max)
+
+    if (source === 'min') {
+      if (valMin > valMax) {
+        valMin = valMax
+        rangeSliderMinEl.value = valMin
+      }
+      rangeSliderMinEl.style.zIndex = '4'
+      rangeSliderMaxEl.style.zIndex = '3'
+    } else {
+      if (valMax < valMin) {
+        valMax = valMin
+        rangeSliderMaxEl.value = valMax
+      }
+      rangeSliderMaxEl.style.zIndex = '4'
+      rangeSliderMinEl.style.zIndex = '3'
+    }
+
+    s.outputRange = [valMin, valMax]
+    updateRangeSliderUI(valMin, valMax, trackMin, trackMax)
+    applySettings()
+    saveSettings(settings)
+  }
+
+  rangeSliderMinEl.addEventListener('input', () => handleRangeInput('min'))
+  rangeSliderMaxEl.addEventListener('input', () => handleRangeInput('max'))
+}
+
+if (curveSelectEl) {
+  curveSelectEl.addEventListener('change', () => {
+    const type = sonifierSelectEl.value
+    const s = settings[type]
+    if (!s) return
+    s.curve = curveSelectEl.value
     applySettings()
     saveSettings(settings)
   })
-})
+}
 
 btnSettings.addEventListener('click', () => {
   const type = sonifierSelectEl.value
@@ -797,25 +942,14 @@ btnSettings.addEventListener('click', () => {
   // Backup current settings for revert on cancel
   settingsBackup = JSON.parse(JSON.stringify(settings))
 
-  // Populate static mapping fields
-  inputMinEl.value    = s.inputRange[0]
-  inputMaxEl.value    = s.inputRange[1]
-  outputMinEl.value   = s.outputRange[0]
-  outputMaxEl.value   = s.outputRange[1]
-  curveSelectEl.value = s.curve
+  // Setup dynamic feed readout and dual-range picker
+  setupRangeSlider(type)
 
-  // Update output range label dynamically based on mapping parameter's schema label
   let tempSonifierInstance = activeSonifier
   let isTemp = false
   if (!tempSonifierInstance) {
     tempSonifierInstance = runtime.create(type)
     isTemp = true
-  }
-
-  const schema = tempSonifierInstance.getParamSchema()
-  const mappedEntry = schema.find(p => p.name === uiConfig.mappedParam)
-  if (mappedEntry) {
-    outputRangeLabelEl.textContent = `Output range (${mappedEntry.label || uiConfig.mappedParam})`
   }
 
   // Render dynamic setting controls
@@ -833,7 +967,6 @@ btnSettings.addEventListener('click', () => {
 })
 
 document.getElementById('btn-save').addEventListener('click', () => {
-  updateMappingFromUI()
   saveSettings(settings)
   applySettings()
   if (currentMode === 'manual') {
@@ -847,6 +980,7 @@ document.getElementById('btn-cancel').addEventListener('click', () => {
     settings = settingsBackup
     saveSettings(settings)
     applySettings()
+    setupRangeSlider(sonifierSelectEl.value)
     if (currentMode === 'manual') {
       renderManualWorkbench()
     }
