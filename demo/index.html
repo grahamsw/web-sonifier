@@ -28,22 +28,221 @@
       letter-spacing: 0.05em;
     }
 
-    .card {
+    /* 2-Column Responsive Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 980px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
       background: #1a1d27;
       border: 1px solid #2a2d3a;
       border-radius: 14px;
-      padding: 1.5rem 1.75rem;
-      width: 100%;
-      max-width: 580px;
+      padding: 1.25rem 1.5rem;
       box-shadow: 0 8px 32px rgba(0,0,0,0.35);
     }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .panel-header h2 {
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.04em;
+    }
+
+    /* Data Feeds Panel */
+    .btn-add-feed {
+      background: #232838;
+      border: 1px solid #363d54;
+      color: #4caf82;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.3rem 0.65rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-add-feed:hover {
+      background: #2b3246;
+      border-color: #4caf82;
+    }
+
+    .feeds-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    /* Feed Card */
+    .feed-card {
+      background: #13151f;
+      border: 1px solid #232635;
+      border-radius: 10px;
+      padding: 0.85rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      position: relative;
+      transition: border-color 0.15s ease;
+    }
+
+    .feed-card:hover {
+      border-color: #33384c;
+    }
+
+    .feed-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .feed-tag {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #fff;
+    }
+
+    .feed-badge-pill {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .feed-val-large {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .feed-meter-track {
+      width: 100%;
+      height: 5px;
+      background: #1b1e2c;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .feed-meter-bar {
+      height: 100%;
+      transition: width 0.12s ease-out;
+      border-radius: 3px;
+    }
+
+    .feed-controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      margin-top: 0.2rem;
+    }
+
+    .feed-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .feed-control-group label {
+      color: #777;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .feed-control-group select,
+    .feed-control-group input[type=number] {
+      background: #0d0f17;
+      border: 1px solid #232738;
+      border-radius: 5px;
+      color: #ddd;
+      padding: 0.25rem 0.35rem;
+      font-size: 0.78rem;
+    }
+
+    .feed-step-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .feed-step-row input[type=range] {
+      flex: 1;
+      height: 4px;
+      accent-color: #4caf82;
+    }
+
+    .feed-step-row input[type=number] {
+      width: 2.7rem;
+      text-align: right;
+    }
+
+    .feed-delete-btn {
+      position: absolute;
+      top: 0.45rem;
+      right: 0.45rem;
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 0.95rem;
+      padding: 0.2rem 0.35rem;
+      line-height: 1;
+      border-radius: 4px;
+      transition: color 0.15s ease;
+    }
+
+    .feed-delete-btn:hover {
+      color: #e05c5c;
+    }
+
+    /* Feed Themes */
+    .feed-theme-A .feed-badge-pill { background: #4caf82; }
+    .feed-theme-A .feed-val-large { color: #4caf82; }
+    .feed-theme-A .feed-meter-bar { background: #4caf82; }
+
+    .feed-theme-B .feed-badge-pill { background: #38bdf8; }
+    .feed-theme-B .feed-val-large { color: #38bdf8; }
+    .feed-theme-B .feed-meter-bar { background: #38bdf8; }
+
+    .feed-theme-C .feed-badge-pill { background: #fbbf24; }
+    .feed-theme-C .feed-val-large { color: #fbbf24; }
+    .feed-theme-C .feed-meter-bar { background: #fbbf24; }
+
+    .feed-theme-D .feed-badge-pill { background: #c084fc; }
+    .feed-theme-D .feed-val-large { color: #c084fc; }
+    .feed-theme-D .feed-meter-bar { background: #c084fc; }
+
+    .feed-theme-E .feed-badge-pill { background: #f472b6; }
+    .feed-theme-E .feed-val-large { color: #f472b6; }
+    .feed-theme-E .feed-meter-bar { background: #f472b6; }
 
     /* Top transport & volume bar */
     .transport-bar {
       display: flex;
       gap: 0.6rem;
       align-items: center;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.15rem;
     }
 
     button {
@@ -82,7 +281,7 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.15rem;
       background: #13151f;
       padding: 0.65rem 0.85rem;
       border-radius: 8px;
@@ -116,8 +315,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.75rem;
-      margin-bottom: 1.5rem;
-      padding-bottom: 1.25rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
       border-bottom: 1px solid #2a2d3a;
       flex-wrap: wrap;
     }
@@ -140,25 +339,14 @@
       border: 1px solid #2a2d3a;
       border-radius: 6px;
       color: #fff;
-      padding: 0.4rem 0.6rem;
+      padding: 0.35rem 0.6rem;
       font-size: 0.85rem;
+      outline: none;
       cursor: pointer;
     }
 
-    select:focus, input:focus {
-      outline: none;
+    select:focus {
       border-color: #4caf82;
-    }
-
-    .feed-rate-group {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .feed-rate-group label {
-      font-size: 0.82rem;
-      color: #777;
     }
 
     /* Parameters section */
@@ -211,6 +399,14 @@
       align-items: center;
       margin-bottom: 0.5rem;
       gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .param-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
     }
 
     .param-toggle-label {
@@ -231,11 +427,31 @@
       cursor: pointer;
     }
 
+    /* Feed Link Dropdown in Parameter Card */
+    .param-feed-link {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.78rem;
+      color: #888;
+    }
+
+    .param-feed-link select {
+      padding: 0.15rem 0.4rem;
+      font-size: 0.76rem;
+      border-radius: 4px;
+      background: #0d0f17;
+      border: 1px solid #232738;
+      color: #4caf82;
+      font-weight: 600;
+    }
+
     .param-readouts {
       display: flex;
       align-items: center;
       gap: 0.4rem;
       font-size: 0.8rem;
+      flex-wrap: wrap;
     }
 
     .param-feed-badge {
@@ -250,6 +466,48 @@
       display: flex;
       align-items: center;
       gap: 0.25rem;
+    }
+
+    .param-feed-badge.feed-theme-B {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+    }
+    .param-feed-badge.feed-theme-C {
+      background: rgba(251, 191, 36, 0.15);
+      border-color: rgba(251, 191, 36, 0.35);
+      color: #fbbf24;
+    }
+    .param-feed-badge.feed-theme-D {
+      background: rgba(192, 132, 252, 0.15);
+      border-color: rgba(192, 132, 252, 0.35);
+      color: #c084fc;
+    }
+    .param-feed-badge.feed-theme-E {
+      background: rgba(244, 114, 182, 0.15);
+      border-color: rgba(244, 114, 182, 0.35);
+      color: #f472b6;
+    }
+
+    .param-mapped-badge {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #e0e0e0;
+      border-radius: 5px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .param-mapped-badge .mapped-label {
+      color: #888;
+      font-weight: 400;
+      font-size: 0.7rem;
+      text-transform: uppercase;
     }
 
     .badge-static {
@@ -286,6 +544,17 @@
       height: 24px;
     }
 
+    .single-slider-wrapper input[type=number] {
+      width: 5rem;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      color: #fff;
+      padding: 0.25rem 0.4rem;
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
     /* Dual range slider */
     .dual-range-wrapper {
       position: relative;
@@ -300,10 +569,9 @@
       left: 0;
       right: 0;
       height: 8px;
-      background: #0f1117;
-      border: 1px solid #2a2d3a;
+      background: #1b1e2c;
       border-radius: 4px;
-      z-index: 1;
+      pointer-events: none;
     }
 
     .dual-range-progress {
@@ -328,26 +596,23 @@
 
     .dual-range-progress:active {
       cursor: grabbing;
-      background: #6fcf9f;
+      background: #5cd09c;
     }
 
     .dual-range-input {
       position: absolute;
       left: 0;
-      top: 0;
+      right: 0;
       width: 100%;
-      height: 32px;
-      margin: 0;
-      background: none;
-      pointer-events: none;
+      height: 8px;
       -webkit-appearance: none;
-      appearance: none;
-      z-index: 3;
+      background: transparent;
+      pointer-events: none;
+      margin: 0;
     }
 
     .dual-range-input::-webkit-slider-thumb {
       -webkit-appearance: none;
-      appearance: none;
       width: 18px;
       height: 18px;
       border-radius: 50%;
@@ -429,59 +694,62 @@
 
   <h1>web-sonifier / demo <a href="https://github.com/grahamsw/web-sonifier" style="font-size: 0.8rem; color: #4caf82; text-decoration: none; margin-left: 0.5rem; vertical-align: middle;">[view source]</a></h1>
 
-  <div class="card">
-    <!-- Top Transport & Master Volume Panel -->
-    <div class="transport-bar">
-      <button class="btn-play" id="btn-play">▶ Play</button>
-      <button class="btn-stop" id="btn-stop" disabled>■ Stop</button>
-      <div class="status-badge" id="status">Stopped</div>
-    </div>
-
-    <div class="volume-row">
-      <label for="master-volume">Master volume</label>
-      <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8">
-      <span class="vol-value" id="master-volume-display">0.80</span>
-    </div>
-
-    <!-- Sonifier & Feed Rate Selector Panel -->
-    <div class="sonifier-row">
-      <div class="sonifier-select-group">
-        <label for="sonifier-select">Sonifier:</label>
-        <select id="sonifier-select">
-          <option value="tone">Continuous Tone</option>
-          <option value="geiger">Geiger Counter</option>
-          <option value="purr">Purr</option>
-          <option value="engine">Engine</option>
-          <option value="liquid">Liquid Resonator</option>
-          <option value="mallet">Mallet</option>
-          <option value="drone">Drone</option>
-          <option value="vosc">VOSC Player</option>
-          <option value="rain">Rain</option>
-          <option value="ocean">Ocean</option>
-        </select>
-        <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.35rem 0.6rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer;">+ External</button>
+  <div class="app-layout">
+    <!-- Left Panel: Data Feeds -->
+    <div class="panel feeds-panel">
+      <div class="panel-header">
+        <h2>Data Feeds</h2>
+        <button type="button" id="btn-add-feed" class="btn-add-feed" title="Add another data feed">+ Add Feed</button>
       </div>
-
-      <div class="feed-rate-group" id="feed-rate-group">
-        <label for="feed-rate-select">Feed Rate:</label>
-        <select id="feed-rate-select">
-          <option value="1000">1 / sec</option>
-          <option value="500">2 / sec</option>
-          <option value="250">4 / sec</option>
-          <option value="5000">1 / 5s</option>
-          <option value="10000">1 / 10s</option>
-        </select>
+      <div class="feeds-container" id="feeds-container">
+        <!-- Dynamically generated feed cards (Feed A, Feed B, ...) -->
       </div>
     </div>
 
-    <!-- Sonifier Parameters Panel -->
-    <div class="parameters-header">
-      <h2>Sonifier Parameters</h2>
-      <span class="hint">Check to sonify via live feed (0–100)</span>
-    </div>
+    <!-- Right Panel: Sonifier Console -->
+    <div class="panel sonifier-panel">
+      <!-- Top Transport & Master Volume Panel -->
+      <div class="transport-bar">
+        <button class="btn-play" id="btn-play">▶ Play</button>
+        <button class="btn-stop" id="btn-stop" disabled>■ Stop</button>
+        <div class="status-badge" id="status">Stopped</div>
+      </div>
 
-    <div class="parameters-container" id="parameters-panel">
-      <!-- Dynamically populated per sonifier -->
+      <div class="volume-row">
+        <label for="master-volume">Master volume</label>
+        <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.8">
+        <span class="vol-value" id="master-volume-display">0.80</span>
+      </div>
+
+      <!-- Sonifier Selector Panel -->
+      <div class="sonifier-row">
+        <div class="sonifier-select-group">
+          <label for="sonifier-select">Sonifier:</label>
+          <select id="sonifier-select">
+            <option value="tone">Continuous Tone</option>
+            <option value="geiger">Geiger Counter</option>
+            <option value="purr">Purr</option>
+            <option value="engine">Engine</option>
+            <option value="liquid">Liquid Resonator</option>
+            <option value="mallet">Mallet</option>
+            <option value="drone">Drone</option>
+            <option value="vosc">VOSC Player</option>
+            <option value="rain">Rain</option>
+            <option value="ocean">Ocean</option>
+          </select>
+          <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.35rem 0.6rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer;">+ External</button>
+        </div>
+      </div>
+
+      <!-- Sonifier Parameters Panel -->
+      <div class="parameters-header">
+        <h2>Sonifier Parameters</h2>
+        <span class="hint">Check to sonify via linked feed (0–100)</span>
+      </div>
+
+      <div class="parameters-container" id="parameters-panel">
+        <!-- Dynamically populated per sonifier -->
+      </div>
     </div>
   </div>
 
