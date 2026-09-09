@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
+  if (typeof window !== 'undefined' && window.location) {
+    window.location.hash = ''
+  }
 
   // Build the mock DOM matching index.html with dual panels
   document.body.innerHTML = `
@@ -116,22 +119,40 @@ class MockAdapter {
   }
 }
 
+const toneSchema = [
+  { name: 'frequency', type: 'number', range: [20, 2000], default: 220, label: 'Frequency' },
+  { name: 'waveform', type: 'enum', values: ['sine', 'square'], default: 'sine', label: 'Waveform' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume' }
+]
+
+const geigerSchema = [
+  { name: 'rate', type: 'number', range: [1, 50], default: 10, label: 'Click Rate' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.7, label: 'Volume' }
+]
+
+class MockToneSonifier {
+  getParamSchema() { return toneSchema }
+}
+class MockGeigerSonifier {
+  getParamSchema() { return geigerSchema }
+}
+
 vi.mock('@web-sonifier/core', () => ({
   Runtime: vi.fn(function() { return mockRuntimeInstance }),
   Adapter: vi.fn(function(config) { return new MockAdapter(config) }),
   SonifierBase: class {}
 }))
 
-vi.mock('@web-sonifier/tone', () => ({ ToneSonifier: vi.fn() }))
-vi.mock('@web-sonifier/geiger', () => ({ GeigerSonifier: vi.fn() }))
-vi.mock('@web-sonifier/purr', () => ({ PurrSonifier: vi.fn() }))
-vi.mock('@web-sonifier/liquid', () => ({ LiquidSonifier: vi.fn() }))
-vi.mock('@web-sonifier/mallet', () => ({ MalletSonifier: vi.fn() }))
-vi.mock('@web-sonifier/engine', () => ({ EngineSonifier: vi.fn() }))
-vi.mock('@web-sonifier/drone', () => ({ DroneSonifier: class {} }))
-vi.mock('@web-sonifier/vosc', () => ({ VoscSonifier: class {} }))
-vi.mock('@web-sonifier/rain', () => ({ RainSonifier: class {} }))
-vi.mock('@web-sonifier/ocean', () => ({ OceanSonifier: class {} }))
+vi.mock('@web-sonifier/tone', () => ({ ToneSonifier: MockToneSonifier }))
+vi.mock('@web-sonifier/geiger', () => ({ GeigerSonifier: MockGeigerSonifier }))
+vi.mock('@web-sonifier/purr', () => ({ PurrSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/liquid', () => ({ LiquidSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/mallet', () => ({ MalletSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/engine', () => ({ EngineSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/drone', () => ({ DroneSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/vosc', () => ({ VoscSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/rain', () => ({ RainSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/ocean', () => ({ OceanSonifier: class { getParamSchema() { return [] } } }))
 
 describe('Multi-Feed Panel & Parameter Linking', () => {
   it('should render Feed A and Feed B cards on load with rate and step size controls', async () => {
@@ -419,5 +440,74 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     sonifierSelect.dispatchEvent(new Event('change'))
 
     expect(document.getElementById('param-card-frequency')).toBeNull()
+  })
+
+  it('should render parameter cards immediately on load before Play is clicked', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    // activeSonifier is null because Play was never clicked
+    expect(main.activeSonifier).toBeNull()
+
+    // Tone parameters should already be rendered
+    const freqCard = document.getElementById('param-card-frequency')
+    const volCard = document.getElementById('param-card-volume')
+    const waveCard = document.getElementById('param-card-waveform')
+    expect(freqCard).not.toBeNull()
+    expect(volCard).not.toBeNull()
+    expect(waveCard).not.toBeNull()
+  })
+
+  it('should immediately render new parameter cards when switching sonifier before Play is clicked', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    expect(main.activeSonifier).toBeNull()
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'geiger'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    // Frequency should be gone; Geiger's rate and volume should be rendered
+    expect(document.getElementById('param-card-frequency')).toBeNull()
+    expect(document.getElementById('param-card-rate')).not.toBeNull()
+    expect(document.getElementById('param-card-volume')).not.toBeNull()
+  })
+
+  it('should serialize state into URL hash on parameter and feed adjustments', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    // Update volume slider
+    const masterVol = document.getElementById('master-volume')
+    masterVol.value = '0.65'
+    masterVol.dispatchEvent(new Event('input'))
+
+    expect(window.location.hash).toContain('sonifier=tone')
+    expect(window.location.hash).toContain('vol=0.65')
+    expect(window.location.hash).toContain('feeds=')
+  })
+
+  it('should parse and restore state from URL hash on initialization', async () => {
+    // Set URL hash prior to loading module
+    window.location.hash = '#sonifier=geiger&vol=0.42&feeds=A:500:12,B:4000:3&rate=B:5-45&volume=0.35'
+
+    const main = await import('../main.js?t=' + Date.now())
+
+    expect(main.settings.sonifierType).toBe('geiger')
+    expect(main.settings.masterVolume).toBe(0.42)
+    expect(main.settings.geiger.sonifiedParams).toContain('rate')
+    expect(main.settings.geiger.paramFeeds.rate).toBe('B')
+    expect(main.settings.geiger.paramRanges.rate).toEqual([5, 45])
+    expect(main.settings.geiger.volume).toBe(0.35)
+
+    const feedA = main.feeds.get('A')
+    const feedB = main.feeds.get('B')
+    expect(feedA.rateMs).toBe(500)
+    expect(feedA.stepSize).toBe(12)
+    expect(feedB.rateMs).toBe(4000)
+    expect(feedB.stepSize).toBe(3)
+
+    // DOM should reflect restored state
+    expect(document.getElementById('sonifier-select').value).toBe('geiger')
+    expect(document.getElementById('master-volume-display').textContent).toBe('0.42')
+    expect(document.getElementById('param-card-rate')).not.toBeNull()
   })
 })

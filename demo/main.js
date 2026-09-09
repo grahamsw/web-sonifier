@@ -117,6 +117,41 @@ const feedsContainer   = document.getElementById('feeds-container')
 const btnAddFeed       = document.getElementById('btn-add-feed')
 
 // ---------------------------------------------------------------------------
+// Sonifier Registry & Schema Inspection (AudioContext-free)
+// ---------------------------------------------------------------------------
+
+export const SONIFIER_CLASSES = {
+  tone: ToneSonifier,
+  geiger: GeigerSonifier,
+  purr: PurrSonifier,
+  engine: EngineSonifier,
+  liquid: LiquidSonifier,
+  mallet: MalletSonifier,
+  drone: DroneSonifier,
+  vosc: VoscSonifier,
+  rain: RainSonifier,
+  ocean: OceanSonifier
+}
+
+export function getSonifierSchema(type) {
+  if (activeSonifier && activeSonifierType === type && typeof activeSonifier.getParamSchema === 'function') {
+    return activeSonifier.getParamSchema()
+  }
+  const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+  if (SonifierClass) {
+    try {
+      const temp = new SonifierClass()
+      if (typeof temp.getParamSchema === 'function') {
+        return temp.getParamSchema()
+      }
+    } catch (e) {
+      console.warn('Could not inspect schema for sonifier:', type, e)
+    }
+  }
+  return []
+}
+
+// ---------------------------------------------------------------------------
 // Default Settings & UI Facet Configurations
 // ---------------------------------------------------------------------------
 
@@ -412,7 +447,133 @@ export const feeds = new Map()          // Map<feedId, DataFeed>
 
 const STORAGE_KEY = 'web-sonify-demo-settings'
 
+// ---------------------------------------------------------------------------
+// URL Serialization & Deserialization (Deep Linking)
+// ---------------------------------------------------------------------------
+
+export function parseUrlState() {
+  if (typeof window === 'undefined' || !window.location) return null
+  const hash = (window.location.hash && window.location.hash.startsWith('#'))
+    ? window.location.hash.slice(1)
+    : ((window.location.search && window.location.search.startsWith('?')) ? window.location.search.slice(1) : '')
+
+  if (!hash) return null
+
+  const params = new URLSearchParams(hash)
+  if (!params.has('sonifier')) return null
+
+  const type = params.get('sonifier')
+  const parsedSettings = JSON.parse(JSON.stringify(defaultSettings))
+  parsedSettings.sonifierType = type
+
+  if (params.has('vol')) {
+    parsedSettings.masterVolume = Math.max(0, Math.min(1, parseFloat(params.get('vol')) || 0.8))
+  }
+
+  if (params.has('feeds')) {
+    const feedDefs = params.get('feeds').split(',')
+    const parsedFeeds = []
+    for (const def of feedDefs) {
+      const [id, rate, step] = def.split(':')
+      if (id) {
+        parsedFeeds.push({
+          id,
+          label: `Feed ${id}`,
+          rateMs: parseInt(rate, 10) || 1000,
+          stepSize: parseInt(step, 10) || 6,
+          value: 50
+        })
+      }
+    }
+    if (parsedFeeds.length > 0) {
+      parsedSettings.feeds = parsedFeeds
+    }
+  }
+
+  if (!parsedSettings[type]) {
+    parsedSettings[type] = {
+      sonifiedParams: [],
+      paramFeeds: {},
+      paramRanges: {}
+    }
+  }
+
+  const sonifierSettings = parsedSettings[type]
+  sonifierSettings.sonifiedParams = []
+  if (!sonifierSettings.paramFeeds) sonifierSettings.paramFeeds = {}
+  if (!sonifierSettings.paramRanges) sonifierSettings.paramRanges = {}
+
+  const schema = getSonifierSchema(type)
+  for (const param of schema) {
+    if (params.has(param.name)) {
+      const rawVal = params.get(param.name)
+      if (rawVal.includes(':')) {
+        const [feedId, rangeStr] = rawVal.split(':')
+        const rangeParts = rangeStr.split('-').map(Number)
+        sonifierSettings.sonifiedParams.push(param.name)
+        sonifierSettings.paramFeeds[param.name] = feedId || 'A'
+        if (rangeParts.length === 2 && !isNaN(rangeParts[0]) && !isNaN(rangeParts[1])) {
+          sonifierSettings.paramRanges[param.name] = [rangeParts[0], rangeParts[1]]
+        }
+      } else {
+        const num = Number(rawVal)
+        sonifierSettings[param.name] = isNaN(num) ? rawVal : num
+      }
+    }
+  }
+
+  return parsedSettings
+}
+
+export function updateUrlState() {
+  if (typeof window === 'undefined' || !window.history || !window.location) return
+
+  const currentType = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
+  const s = settings[currentType] || {}
+  const schema = getSonifierSchema(currentType)
+
+  const searchParams = new URLSearchParams()
+  searchParams.set('sonifier', currentType)
+  searchParams.set('vol', (settings.masterVolume ?? 0.8).toFixed(2))
+
+  // Feeds format: A:1000:6,B:2000:4
+  const feedList = Array.from(feeds.values()).map(f => `${f.id}:${f.rateMs}:${f.stepSize}`)
+  searchParams.set('feeds', feedList.join(','))
+
+  const sonifiedSet = new Set(s.sonifiedParams || [])
+
+  for (const param of schema) {
+    if (sonifiedSet.has(param.name)) {
+      const feedId = s.paramFeeds?.[param.name] || 'A'
+      const bounds = getOutputRangeBounds(param)
+      const range = s.paramRanges?.[param.name] || [bounds.min, bounds.max]
+      searchParams.set(param.name, `${feedId}:${formatRangeValue(range[0])}-${formatRangeValue(range[1])}`)
+    } else {
+      const val = s[param.name] !== undefined ? s[param.name] : param.default
+      if (val !== undefined) {
+        searchParams.set(param.name, typeof val === 'number' ? formatRangeValue(val) : val)
+      }
+    }
+  }
+
+  const newHash = '#' + searchParams.toString()
+  try {
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, '', newHash)
+    }
+  } catch (e) {
+    console.warn('Could not update URL state:', e)
+  }
+}
+
 export function loadSettings() {
+  // 1. Check URL state first
+  const urlState = parseUrlState()
+  if (urlState) {
+    return urlState
+  }
+
+  // 2. Fall back to localStorage
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) return JSON.parse(JSON.stringify(defaultSettings))
@@ -462,19 +623,18 @@ export function loadSettings() {
 
 export function saveSettings(s) {
   try {
-    // Include current feed state
     s.feeds = Array.from(feeds.values()).map(f => f.toJSON())
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
   } catch (e) {
     console.warn('Could not save settings to localStorage:', e)
   }
+  updateUrlState()
 }
 
 export let settings = loadSettings()
 
 // Initialize feeds
-function initFeedsFromSettings() {
-  // Clear any existing feeds
+export function initFeedsFromSettings() {
   for (const f of feeds.values()) {
     f.stop()
   }
@@ -534,19 +694,15 @@ export function handleFeedUpdate(feed) {
   for (const paramName of sonifiedList) {
     const linkedFeedId = paramFeeds[paramName] || 'A'
     if (linkedFeedId === feed.id) {
-      // Update parameter feed value readout
       const paramFeedValEl = document.getElementById(`feed-val-${paramName}`)
       if (paramFeedValEl) paramFeedValEl.textContent = feed.value.toFixed(1)
 
-      // Map value through adapter
       const adapter = activeAdapters.get(paramName)
       const mappedVal = adapter ? adapter.map(feed.value) : feed.value
 
-      // Update parameter mapped readout
       const mappedValEl = document.getElementById(`mapped-val-${paramName}`)
       if (mappedValEl) mappedValEl.textContent = formatRangeValue(mappedVal)
 
-      // Audio modulation
       if (activeSonifier) {
         activeSonifier.setParam(paramName, mappedVal)
       }
@@ -565,7 +721,6 @@ export function applySettings() {
 
   const sonifiedSet = new Set(s.sonifiedParams || [])
 
-  // Synchronize active adapter output ranges and curves
   for (const [paramName, adapter] of activeAdapters.entries()) {
     const range = s.paramRanges?.[paramName] || [0, 100]
     adapter.setConfig({
@@ -576,7 +731,6 @@ export function applySettings() {
     })
   }
 
-  // Synchronize non-sonified static parameters to active sonifier
   if (activeSonifier) {
     const schema = typeof activeSonifier.getParamSchema === 'function' ? activeSonifier.getParamSchema() : []
     for (const param of schema) {
@@ -620,7 +774,6 @@ export async function startSonifier() {
     })
     activeAdapters.set(paramName, adapter)
 
-    // Map initial value from linked feed immediately
     const linkedFeedId = paramFeeds[paramName] || 'A'
     const feed = feeds.get(linkedFeedId) || feeds.get('A')
     const feedVal = feed ? feed.value : 50
@@ -987,7 +1140,6 @@ function renderParamControls(param, s, type, card, isSonified) {
   if (isSonified) {
     card.classList.add('sonified')
 
-    // Determine linked feed
     if (!s.paramFeeds) s.paramFeeds = {}
     let linkedFeedId = s.paramFeeds[param.name]
     if (!linkedFeedId || !feeds.has(linkedFeedId)) {
@@ -998,7 +1150,6 @@ function renderParamControls(param, s, type, card, isSonified) {
     const linkedFeed = feeds.get(linkedFeedId)
     const currentFeedVal = linkedFeed ? linkedFeed.value : 50
 
-    // Render Feed Link Selector
     if (feedLinkContainer) {
       const feedLinkWrap = document.createElement('div')
       feedLinkWrap.className = 'param-feed-link'
@@ -1023,7 +1174,6 @@ function renderParamControls(param, s, type, card, isSonified) {
         s.paramFeeds[param.name] = newFeedId
         saveSettings(settings)
 
-        // Update theme class on feed badge
         const badge = document.getElementById(`feed-badge-${param.name}`)
         if (badge) {
           badge.className = `param-feed-badge feed-theme-${newFeedId}`
@@ -1031,7 +1181,6 @@ function renderParamControls(param, s, type, card, isSonified) {
           if (labelSpan) labelSpan.textContent = `${newFeedId}:`
         }
 
-        // Immediately map value from newly selected feed
         const newFeed = feeds.get(newFeedId)
         if (newFeed) {
           const adapter = activeAdapters.get(param.name)
@@ -1052,20 +1201,17 @@ function renderParamControls(param, s, type, card, isSonified) {
       feedLinkContainer.appendChild(feedLinkWrap)
     }
 
-    // Feed readout badge (color coded to linked feed)
     const feedBadge = document.createElement('div')
     feedBadge.className = `param-feed-badge feed-theme-${linkedFeedId}`
     feedBadge.id = `feed-badge-${param.name}`
     feedBadge.innerHTML = `<span class="feed-label">${linkedFeedId}:</span><span class="feed-val" id="feed-val-${param.name}">${currentFeedVal.toFixed(1)}</span>`
     readouts.appendChild(feedBadge)
 
-    // Ensure range exists
     if (!s.paramRanges[param.name]) {
       s.paramRanges[param.name] = [param.range ? param.range[0] : bounds.min, param.range ? param.range[1] : bounds.max]
     }
     const [curMin, curMax] = s.paramRanges[param.name]
 
-    // Adapter for mapping
     const adapter = new Adapter({
       param: param.name,
       inputRange: [0, 100],
@@ -1078,21 +1224,18 @@ function renderParamControls(param, s, type, card, isSonified) {
 
     const mappedVal = adapter.map(currentFeedVal)
 
-    // Mapped value readout badge
     const mappedBadge = document.createElement('div')
     mappedBadge.className = 'param-mapped-badge'
     mappedBadge.id = `mapped-badge-${param.name}`
     mappedBadge.innerHTML = `<span class="mapped-label">Mapped:</span><span class="mapped-val" id="mapped-val-${param.name}">${formatRangeValue(mappedVal)}</span>`
     readouts.appendChild(mappedBadge)
 
-    // Range readout badge
     const rangeBadge = document.createElement('div')
     rangeBadge.className = 'param-range-badge badge-range'
     rangeBadge.id = `range-badge-${param.name}`
     rangeBadge.textContent = `${formatRangeValue(curMin)} – ${formatRangeValue(curMax)}`
     readouts.appendChild(rangeBadge)
 
-    // Dual-ended range slider
     const dualSlider = createDualRangeSlider(param, bounds, [curMin, curMax], (newRange) => {
       s.paramRanges[param.name] = newRange
       rangeBadge.textContent = `${formatRangeValue(newRange[0])} – ${formatRangeValue(newRange[1])}`
@@ -1117,14 +1260,12 @@ function renderParamControls(param, s, type, card, isSonified) {
     const currentVal = s[param.name] !== undefined ? s[param.name] : (param.default !== undefined ? param.default : bounds.min)
     s[param.name] = currentVal
 
-    // Static value readout badge
     const valueBadge = document.createElement('div')
     valueBadge.className = 'badge-static'
     valueBadge.id = `value-badge-${param.name}`
     valueBadge.textContent = formatRangeValue(currentVal)
     readouts.appendChild(valueBadge)
 
-    // Single slider
     const singleSlider = createSingleSlider(param, bounds, currentVal, (newVal) => {
       s[param.name] = newVal
       valueBadge.textContent = formatRangeValue(newVal)
@@ -1169,7 +1310,6 @@ function createParamCard(param, s, type) {
   toggleLabel.appendChild(labelSpan)
   titleGroup.appendChild(toggleLabel)
 
-  // Container for dynamic feed link selector
   const feedLinkContainer = document.createElement('div')
   feedLinkContainer.className = 'param-feed-link-container'
   titleGroup.appendChild(feedLinkContainer)
@@ -1235,24 +1375,10 @@ export function renderParametersPanel() {
   const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   const s = settings[type] || {}
 
-  let tempInstance = activeSonifier
-  let isTemp = false
-  if (!tempInstance || activeSonifierType !== type) {
-    try {
-      tempInstance = runtime.create(type)
-      isTemp = true
-    } catch (e) {
-      console.warn('Could not inspect schema for sonifier:', type, e)
-    }
-  }
-
-  const schema = (tempInstance && typeof tempInstance.getParamSchema === 'function')
-    ? tempInstance.getParamSchema()
-    : []
+  const schema = getSonifierSchema(type)
 
   if (schema.length === 0) {
     parametersPanel.innerHTML = '<div style="color: #777; font-size: 0.85rem; padding: 1rem; text-align: center;">No parameters available for this sonifier.</div>'
-    if (isTemp) runtime.destroy(type)
     return
   }
 
@@ -1263,10 +1389,6 @@ export function renderParametersPanel() {
   for (const param of schema) {
     const card = createParamCard(param, s, type)
     parametersPanel.appendChild(card)
-  }
-
-  if (isTemp) {
-    runtime.destroy(type)
   }
 }
 
@@ -1411,7 +1533,6 @@ function createFeedCard(feed) {
 }
 
 export function addFeed() {
-  // Find next unused uppercase letter
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   let nextId = null
   for (let i = 0; i < alphabet.length; i++) {
@@ -1453,7 +1574,6 @@ export function removeFeed(feedId) {
     feeds.delete(feedId)
   }
 
-  // Re-link any parameter using this feed back to 'A'
   for (const key of Object.keys(settings)) {
     if (settings[key]?.paramFeeds) {
       for (const [paramName, id] of Object.entries(settings[key].paramFeeds)) {
@@ -1571,6 +1691,7 @@ if (btnOpenLoadCustom && customDialog) {
           }
         }
 
+        SONIFIER_CLASSES[name] = SonifierClass
         runtime.register(name, SonifierClass)
 
         if (sonifierSelectEl) {
@@ -1610,11 +1731,34 @@ if (btnOpenLoadCustom && customDialog) {
 }
 
 // ---------------------------------------------------------------------------
+// Hashchange Listener (History & Back/Forward)
+// ---------------------------------------------------------------------------
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    const urlState = parseUrlState()
+    if (urlState) {
+      settings = urlState
+      if (sonifierSelectEl) sonifierSelectEl.value = settings.sonifierType
+      if (masterVolumeEl) masterVolumeEl.value = settings.masterVolume
+      if (masterVolDispEl) masterVolDispEl.textContent = settings.masterVolume.toFixed(2)
+      initFeedsFromSettings()
+      renderFeedsPanel()
+      renderParametersPanel()
+      if (activeSonifier) {
+        applySettings()
+      }
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Initialization
 // ---------------------------------------------------------------------------
 
 renderFeedsPanel()
 renderParametersPanel()
+updateUrlState()
 
 // Start all feeds
 for (const feed of feeds.values()) {

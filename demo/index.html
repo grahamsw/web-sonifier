@@ -31,14 +31,14 @@
     /* 2-Column Responsive Layout */
     .app-layout {
       display: grid;
-      grid-template-columns: 310px 1fr;
+      grid-template-columns: 360px 1fr;
       gap: 1.5rem;
       width: 100%;
-      max-width: 980px;
+      max-width: 1080px;
       align-items: start;
     }
 
-    @media (max-width: 860px) {
+    @media (max-width: 880px) {
       .app-layout {
         grid-template-columns: 1fr;
       }
@@ -150,51 +150,63 @@
     }
 
     .feed-controls-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.5rem;
-      font-size: 0.78rem;
-      margin-top: 0.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      font-size: 0.8rem;
+      margin-top: 0.3rem;
     }
 
     .feed-control-group {
       display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
     }
 
     .feed-control-group label {
-      color: #777;
-      font-size: 0.7rem;
+      color: #888;
+      font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
+      min-width: 5.5rem;
     }
 
-    .feed-control-group select,
-    .feed-control-group input[type=number] {
+    .feed-control-group select {
+      flex: 1;
+      background: #0d0f17;
+      border: 1px solid #232738;
+      border-radius: 5px;
+      color: #ddd;
+      padding: 0.25rem 0.4rem;
+      font-size: 0.8rem;
+    }
+
+    .feed-step-row {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .feed-step-row input[type=range] {
+      flex: 1;
+      height: 6px;
+      accent-color: #4caf82;
+      min-width: 80px;
+    }
+
+    .feed-step-row input[type=number] {
+      width: 3.2rem;
       background: #0d0f17;
       border: 1px solid #232738;
       border-radius: 5px;
       color: #ddd;
       padding: 0.25rem 0.35rem;
-      font-size: 0.78rem;
-    }
-
-    .feed-step-row {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .feed-step-row input[type=range] {
-      flex: 1;
-      height: 4px;
-      accent-color: #4caf82;
-    }
-
-    .feed-step-row input[type=number] {
-      width: 2.7rem;
+      font-size: 0.8rem;
       text-align: right;
+      box-sizing: border-box;
     }
 
     .feed-delete-btn {
