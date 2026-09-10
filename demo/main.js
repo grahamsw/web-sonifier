@@ -9,6 +9,31 @@ import { DroneSonifier } from '@web-sonifier/drone'
 import { VoscSonifier } from '@web-sonifier/vosc'
 import { RainSonifier } from '@web-sonifier/rain'
 import { OceanSonifier } from '@web-sonifier/ocean'
+import {
+  renderAutomatedEditor,
+  getOutputRangeBounds,
+  formatRangeValue,
+  createDualRangeSlider,
+  createSingleSlider,
+  createDiscreteParamCard,
+  createBooleanParamCard,
+  createContinuousParamCard,
+  isDiscreteParam,
+  isBooleanParam
+} from './AutomatedParameterEditor.js'
+
+export {
+  renderAutomatedEditor,
+  getOutputRangeBounds,
+  formatRangeValue,
+  createDualRangeSlider,
+  createSingleSlider,
+  createDiscreteParamCard,
+  createBooleanParamCard,
+  createContinuousParamCard,
+  isDiscreteParam,
+  isBooleanParam
+}
 
 // ---------------------------------------------------------------------------
 // Rate Options
@@ -502,19 +527,24 @@ export function parseUrlState() {
   sonifierSettings.sonifiedParams = []
   if (!sonifierSettings.paramFeeds) sonifierSettings.paramFeeds = {}
   if (!sonifierSettings.paramRanges) sonifierSettings.paramRanges = {}
+  if (!sonifierSettings.paramInverts) sonifierSettings.paramInverts = {}
 
   const schema = getSonifierSchema(type)
   for (const param of schema) {
     if (params.has(param.name)) {
       const rawVal = params.get(param.name)
       if (rawVal.includes(':')) {
-        const [feedId, rangeStr] = rawVal.split(':')
+        const parts = rawVal.split(':')
+        const feedId = parts[0]
+        const rangeStr = parts[1]
+        const isInv = parts.length > 2 && parts[2] === 'inv'
         const rangeParts = rangeStr.split('-').map(Number)
         sonifierSettings.sonifiedParams.push(param.name)
         sonifierSettings.paramFeeds[param.name] = feedId || 'A'
         if (rangeParts.length === 2 && !isNaN(rangeParts[0]) && !isNaN(rangeParts[1])) {
           sonifierSettings.paramRanges[param.name] = [rangeParts[0], rangeParts[1]]
         }
+        sonifierSettings.paramInverts[param.name] = isInv
       } else {
         const num = Number(rawVal)
         sonifierSettings[param.name] = isNaN(num) ? rawVal : num
@@ -547,7 +577,8 @@ export function updateUrlState() {
       const feedId = s.paramFeeds?.[param.name] || 'A'
       const bounds = getOutputRangeBounds(param)
       const range = s.paramRanges?.[param.name] || [bounds.min, bounds.max]
-      searchParams.set(param.name, `${feedId}:${formatRangeValue(range[0])}-${formatRangeValue(range[1])}`)
+      const invFlag = s.paramInverts?.[param.name] ? ':inv' : ''
+      searchParams.set(param.name, `${feedId}:${formatRangeValue(range[0])}-${formatRangeValue(range[1])}${invFlag}`)
     } else {
       const val = s[param.name] !== undefined ? s[param.name] : param.default
       if (val !== undefined) {
@@ -720,19 +751,23 @@ export function applySettings() {
   if (!s) return
 
   const sonifiedSet = new Set(s.sonifiedParams || [])
+  const schema = getSonifierSchema(type)
+  const schemaMap = new Map(schema.map(p => [p.name, p]))
 
   for (const [paramName, adapter] of activeAdapters.entries()) {
     const range = s.paramRanges?.[paramName] || [0, 100]
+    const pDef = schemaMap.get(paramName) || { name: paramName }
+    const isInverted = Boolean(s.paramInverts?.[paramName])
     adapter.setConfig({
       param: paramName,
       inputRange: [0, 100],
       outputRange: range,
-      curve: s.curve || 'linear'
+      curve: pDef.curve || s.curve || 'linear',
+      invert: isInverted
     })
   }
 
   if (activeSonifier) {
-    const schema = typeof activeSonifier.getParamSchema === 'function' ? activeSonifier.getParamSchema() : []
     for (const param of schema) {
       if (!sonifiedSet.has(param.name)) {
         if (s[param.name] !== undefined) {
@@ -762,15 +797,20 @@ export async function startSonifier() {
 
   const sonifiedList = s.sonifiedParams || []
   const paramFeeds = s.paramFeeds || {}
+  const schema = getSonifierSchema(type)
+  const schemaMap = new Map(schema.map(p => [p.name, p]))
 
   for (const paramName of sonifiedList) {
-    const bounds = getOutputRangeBounds({ name: paramName })
+    const paramDef = schemaMap.get(paramName) || { name: paramName }
+    const bounds = getOutputRangeBounds(paramDef)
     const range = s.paramRanges?.[paramName] || [bounds.min, bounds.max]
+    const isInverted = Boolean(s.paramInverts?.[paramName])
     const adapter = new Adapter({
       param: paramName,
       inputRange: [0, 100],
       outputRange: range,
-      curve: s.curve || 'linear'
+      curve: paramDef.curve || s.curve || 'linear',
+      invert: isInverted
     })
     activeAdapters.set(paramName, adapter)
 
@@ -781,7 +821,9 @@ export async function startSonifier() {
     activeSonifier.setParam(paramName, mapped)
 
     const mappedValEl = document.getElementById(`mapped-val-${paramName}`)
-    if (mappedValEl) mappedValEl.textContent = formatRangeValue(mapped)
+    if (mappedValEl) {
+      mappedValEl.textContent = `${formatRangeValue(mapped)}${paramDef.unit ? ' ' + paramDef.unit : ''}`
+    }
   }
 
   applySettings()
@@ -847,549 +889,101 @@ if (masterVolumeEl) {
 }
 
 // ---------------------------------------------------------------------------
-// Range Calculations & Formatting
+// Parameters Panel Rendering (Automated Editor)
 // ---------------------------------------------------------------------------
-
-export function getOutputRangeBounds(schemaParam) {
-  if (!schemaParam || !schemaParam.range) {
-    return { min: 0, max: 1000, step: 1 }
-  }
-  const [sMin, sMax] = schemaParam.range
-  const span = sMax - sMin
-  const headTail = span * 0.25
-  let trackMin = sMin >= 0 ? Math.max(0, sMin - headTail) : (sMin - headTail)
-  let trackMax = sMax + headTail
-
-  if ((schemaParam.name === 'frequency' || schemaParam.name === 'pitch') && sMin >= 20) {
-    trackMin = Math.max(20, Math.floor(trackMin))
-    trackMax = Math.max(2500, Math.ceil(trackMax / 100) * 100)
-  } else if (sMax <= 1 && sMin >= 0) {
-    trackMin = 0
-    trackMax = 1.0
-  } else if (trackMax >= 100) {
-    trackMin = Math.floor(trackMin)
-    trackMax = Math.ceil(trackMax / 10) * 10
-  }
-
-  let step = schemaParam.step
-  if (!step) {
-    const totalSpan = trackMax - trackMin
-    if (totalSpan <= 1.5) step = 0.01
-    else if (totalSpan <= 10) step = 0.1
-    else if (totalSpan <= 100) step = 0.5
-    else if (totalSpan <= 500) step = 1
-    else step = 5
-  }
-
-  return { min: trackMin, max: trackMax, step }
-}
-
-export function formatRangeValue(val) {
-  if (typeof val !== 'number' || isNaN(val)) return String(val)
-  if (Number.isInteger(val)) return String(val)
-  const absVal = Math.abs(val)
-  if (absVal >= 100) return val.toFixed(0)
-  if (absVal >= 10) return val.toFixed(1)
-  return val.toFixed(2)
-}
-
-// ---------------------------------------------------------------------------
-// Slider Control Builders
-// ---------------------------------------------------------------------------
-
-export function createDualRangeSlider(param, bounds, currentRange, onRangeChange) {
-  const wrapper = document.createElement('div')
-  wrapper.className = 'dual-range-wrapper'
-  wrapper.id = `dual-slider-${param.name}`
-
-  const track = document.createElement('div')
-  track.className = 'dual-range-track'
-
-  const progress = document.createElement('div')
-  progress.className = 'dual-range-progress'
-  progress.id = `progress-${param.name}`
-  track.appendChild(progress)
-  wrapper.appendChild(track)
-
-  const sliderMin = document.createElement('input')
-  sliderMin.type = 'range'
-  sliderMin.className = 'dual-range-input slider-min'
-  sliderMin.id = `range-slider-min-${param.name}`
-  sliderMin.min = bounds.min
-  sliderMin.max = bounds.max
-  sliderMin.step = bounds.step
-  sliderMin.value = currentRange[0]
-  sliderMin.style.zIndex = '3'
-
-  const sliderMax = document.createElement('input')
-  sliderMax.type = 'range'
-  sliderMax.className = 'dual-range-input slider-max'
-  sliderMax.id = `range-slider-max-${param.name}`
-  sliderMax.min = bounds.min
-  sliderMax.max = bounds.max
-  sliderMax.step = bounds.step
-  sliderMax.value = currentRange[1]
-  sliderMax.style.zIndex = '3'
-
-  wrapper.appendChild(sliderMin)
-  wrapper.appendChild(sliderMax)
-
-  const boundsSpan = bounds.max - bounds.min
-
-  const updateProgress = (minVal, maxVal) => {
-    if (boundsSpan <= 0) return
-    const leftPercent = Math.max(0, Math.min(100, ((minVal - bounds.min) / boundsSpan) * 100))
-    const rightPercent = Math.max(0, Math.min(100, ((maxVal - bounds.min) / boundsSpan) * 100))
-    progress.style.left = `${leftPercent}%`
-    progress.style.width = `${Math.max(0, rightPercent - leftPercent)}%`
-  }
-
-  updateProgress(currentRange[0], currentRange[1])
-
-  const handleInput = (source) => {
-    let minVal = parseFloat(sliderMin.value)
-    let maxVal = parseFloat(sliderMax.value)
-
-    if (source === 'min') {
-      if (minVal > maxVal) {
-        minVal = maxVal
-        sliderMin.value = minVal
-      }
-      sliderMin.style.zIndex = '4'
-      sliderMax.style.zIndex = '3'
-    } else {
-      if (maxVal < minVal) {
-        maxVal = minVal
-        sliderMax.value = maxVal
-      }
-      sliderMax.style.zIndex = '4'
-      sliderMin.style.zIndex = '3'
-    }
-
-    updateProgress(minVal, maxVal)
-    onRangeChange([minVal, maxVal])
-  }
-
-  sliderMin.addEventListener('input', () => handleInput('min'))
-  sliderMax.addEventListener('input', () => handleInput('max'))
-
-  let isDraggingMiddle = false
-  let dragStartX = 0
-  let dragStartMin = 0
-  let dragStartMax = 0
-  let dragSpan = 0
-
-  progress.addEventListener('pointerdown', (e) => {
-    e.preventDefault()
-    if (e.button !== 0 && e.button !== undefined) return
-    isDraggingMiddle = true
-    dragStartX = e.clientX
-    dragStartMin = parseFloat(sliderMin.value)
-    dragStartMax = parseFloat(sliderMax.value)
-    dragSpan = dragStartMax - dragStartMin
-
-    if (typeof progress.setPointerCapture === 'function' && e.pointerId) {
-      try {
-        progress.setPointerCapture(e.pointerId)
-      } catch {}
-    }
-  })
-
-  progress.addEventListener('pointermove', (e) => {
-    if (!isDraggingMiddle) return
-    const rect = wrapper.getBoundingClientRect()
-    const trackWidth = rect.width > 0 ? rect.width : 200
-    const deltaX = e.clientX - dragStartX
-    const deltaValue = (deltaX / trackWidth) * boundsSpan
-
-    let newMin = dragStartMin + deltaValue
-    let newMax = newMin + dragSpan
-
-    if (newMin < bounds.min) {
-      newMin = bounds.min
-      newMax = newMin + dragSpan
-    } else if (newMax > bounds.max) {
-      newMax = bounds.max
-      newMin = newMax - dragSpan
-    }
-
-    if (bounds.step) {
-      newMin = Math.round((newMin - bounds.min) / bounds.step) * bounds.step + bounds.min
-      newMax = newMin + dragSpan
-    }
-
-    sliderMin.value = newMin
-    sliderMax.value = newMax
-    updateProgress(newMin, newMax)
-    onRangeChange([newMin, newMax])
-  })
-
-  const endDrag = (e) => {
-    if (isDraggingMiddle) {
-      isDraggingMiddle = false
-      if (typeof progress.releasePointerCapture === 'function' && e && e.pointerId) {
-        try {
-          progress.releasePointerCapture(e.pointerId)
-        } catch {}
-      }
-    }
-  }
-
-  progress.addEventListener('pointerup', endDrag)
-  progress.addEventListener('pointercancel', endDrag)
-
-  return wrapper
-}
-
-export function createSingleSlider(param, bounds, currentValue, onValueChange) {
-  const wrapper = document.createElement('div')
-  wrapper.className = 'single-slider-wrapper'
-  wrapper.id = `single-control-${param.name}`
-
-  const slider = document.createElement('input')
-  slider.type = 'range'
-  slider.id = `single-slider-${param.name}`
-  slider.min = bounds.min
-  slider.max = bounds.max
-  slider.step = bounds.step
-  slider.value = currentValue
-
-  const numberInput = document.createElement('input')
-  numberInput.type = 'number'
-  numberInput.id = `single-input-${param.name}`
-  numberInput.min = bounds.min
-  numberInput.max = bounds.max
-  numberInput.step = bounds.step
-  numberInput.value = currentValue
-
-  const update = (val) => {
-    let num = parseFloat(val)
-    if (isNaN(num)) return
-    num = Math.max(bounds.min, Math.min(bounds.max, num))
-    slider.value = num
-    numberInput.value = num
-    onValueChange(num)
-  }
-
-  slider.addEventListener('input', () => update(slider.value))
-  numberInput.addEventListener('input', () => update(numberInput.value))
-
-  wrapper.appendChild(slider)
-  wrapper.appendChild(numberInput)
-  return wrapper
-}
-
-// ---------------------------------------------------------------------------
-// Parameter Card Rendering & Feed Linking
-// ---------------------------------------------------------------------------
-
-function createEnumParamCard(param, s, type) {
-  const card = document.createElement('div')
-  card.className = 'param-card'
-  card.id = `param-card-${param.name}`
-
-  const header = document.createElement('div')
-  header.className = 'param-header'
-
-  const label = document.createElement('label')
-  label.className = 'param-toggle-label'
-  label.style.cursor = 'default'
-  label.textContent = param.label || param.name
-  header.appendChild(label)
-  card.appendChild(header)
-
-  const enumRow = document.createElement('div')
-  enumRow.className = 'enum-control-row'
-
-  const select = document.createElement('select')
-  select.id = `select-${param.name}`
-  const options = param.values || param.options || []
-  for (const opt of options) {
-    const optEl = document.createElement('option')
-    optEl.value = opt
-    optEl.textContent = opt
-    if (String(s[param.name]) === String(opt) || (s[param.name] === undefined && String(param.default) === String(opt))) {
-      optEl.selected = true
-    }
-    select.appendChild(optEl)
-  }
-
-  select.addEventListener('change', () => {
-    s[param.name] = select.value
-    if (activeSonifier && activeSonifierType === type) {
-      activeSonifier.setParam(param.name, select.value)
-    }
-    saveSettings(settings)
-  })
-
-  enumRow.appendChild(select)
-  card.appendChild(enumRow)
-  return card
-}
-
-function renderParamControls(param, s, type, card, isSonified) {
-  const readouts = card.querySelector('.param-readouts')
-  const controlContainer = card.querySelector('.param-control-container')
-  const feedLinkContainer = card.querySelector('.param-feed-link-container')
-  readouts.innerHTML = ''
-  controlContainer.innerHTML = ''
-  if (feedLinkContainer) feedLinkContainer.innerHTML = ''
-
-  const bounds = getOutputRangeBounds(param)
-
-  if (isSonified) {
-    card.classList.add('sonified')
-
-    if (!s.paramFeeds) s.paramFeeds = {}
-    let linkedFeedId = s.paramFeeds[param.name]
-    if (!linkedFeedId || !feeds.has(linkedFeedId)) {
-      linkedFeedId = feeds.has('A') ? 'A' : Array.from(feeds.keys())[0] || 'A'
-      s.paramFeeds[param.name] = linkedFeedId
-    }
-
-    const linkedFeed = feeds.get(linkedFeedId)
-    const currentFeedVal = linkedFeed ? linkedFeed.value : 50
-
-    if (feedLinkContainer) {
-      const feedLinkWrap = document.createElement('div')
-      feedLinkWrap.className = 'param-feed-link'
-
-      const linkLabel = document.createElement('span')
-      linkLabel.textContent = 'Feed:'
-
-      const feedSelect = document.createElement('select')
-      feedSelect.id = `param-feed-select-${param.name}`
-      feedSelect.className = 'param-feed-select'
-
-      for (const f of feeds.values()) {
-        const opt = document.createElement('option')
-        opt.value = f.id
-        opt.textContent = f.label || `Feed ${f.id}`
-        if (f.id === linkedFeedId) opt.selected = true
-        feedSelect.appendChild(opt)
-      }
-
-      feedSelect.addEventListener('change', () => {
-        const newFeedId = feedSelect.value
-        s.paramFeeds[param.name] = newFeedId
-        saveSettings(settings)
-
-        const badge = document.getElementById(`feed-badge-${param.name}`)
-        if (badge) {
-          badge.className = `param-feed-badge feed-theme-${newFeedId}`
-          const labelSpan = badge.querySelector('.feed-label')
-          if (labelSpan) labelSpan.textContent = `${newFeedId}:`
-        }
-
-        const newFeed = feeds.get(newFeedId)
-        if (newFeed) {
-          const adapter = activeAdapters.get(param.name)
-          const mapped = adapter ? adapter.map(newFeed.value) : newFeed.value
-          const mappedEl = document.getElementById(`mapped-val-${param.name}`)
-          if (mappedEl) mappedEl.textContent = formatRangeValue(mapped)
-          const feedValEl = document.getElementById(`feed-val-${param.name}`)
-          if (feedValEl) feedValEl.textContent = newFeed.value.toFixed(1)
-
-          if (activeSonifier && activeSonifierType === type) {
-            activeSonifier.setParam(param.name, mapped)
-          }
-        }
-      })
-
-      feedLinkWrap.appendChild(linkLabel)
-      feedLinkWrap.appendChild(feedSelect)
-      feedLinkContainer.appendChild(feedLinkWrap)
-    }
-
-    const feedBadge = document.createElement('div')
-    feedBadge.className = `param-feed-badge feed-theme-${linkedFeedId}`
-    feedBadge.id = `feed-badge-${param.name}`
-    feedBadge.innerHTML = `<span class="feed-label">${linkedFeedId}:</span><span class="feed-val" id="feed-val-${param.name}">${currentFeedVal.toFixed(1)}</span>`
-    readouts.appendChild(feedBadge)
-
-    if (!s.paramRanges[param.name]) {
-      s.paramRanges[param.name] = [param.range ? param.range[0] : bounds.min, param.range ? param.range[1] : bounds.max]
-    }
-    const [curMin, curMax] = s.paramRanges[param.name]
-
-    const adapter = new Adapter({
-      param: param.name,
-      inputRange: [0, 100],
-      outputRange: [curMin, curMax],
-      curve: s.curve || 'linear'
-    })
-    if (activeSonifier && activeSonifierType === type) {
-      activeAdapters.set(param.name, adapter)
-    }
-
-    const mappedVal = adapter.map(currentFeedVal)
-
-    const mappedBadge = document.createElement('div')
-    mappedBadge.className = 'param-mapped-badge'
-    mappedBadge.id = `mapped-badge-${param.name}`
-    mappedBadge.innerHTML = `<span class="mapped-label">Mapped:</span><span class="mapped-val" id="mapped-val-${param.name}">${formatRangeValue(mappedVal)}</span>`
-    readouts.appendChild(mappedBadge)
-
-    const rangeBadge = document.createElement('div')
-    rangeBadge.className = 'param-range-badge badge-range'
-    rangeBadge.id = `range-badge-${param.name}`
-    rangeBadge.textContent = `${formatRangeValue(curMin)} – ${formatRangeValue(curMax)}`
-    readouts.appendChild(rangeBadge)
-
-    const dualSlider = createDualRangeSlider(param, bounds, [curMin, curMax], (newRange) => {
-      s.paramRanges[param.name] = newRange
-      rangeBadge.textContent = `${formatRangeValue(newRange[0])} – ${formatRangeValue(newRange[1])}`
-      adapter.setConfig({ outputRange: newRange })
-
-      const curFeed = feeds.get(s.paramFeeds[param.name] || 'A')
-      const curVal = curFeed ? curFeed.value : 50
-      const newMapped = adapter.map(curVal)
-      const mappedEl = document.getElementById(`mapped-val-${param.name}`)
-      if (mappedEl) mappedEl.textContent = formatRangeValue(newMapped)
-
-      if (activeSonifier && activeSonifierType === type) {
-        activeSonifier.setParam(param.name, newMapped)
-      }
-      saveSettings(settings)
-    })
-    controlContainer.appendChild(dualSlider)
-
-  } else {
-    card.classList.remove('sonified')
-
-    const currentVal = s[param.name] !== undefined ? s[param.name] : (param.default !== undefined ? param.default : bounds.min)
-    s[param.name] = currentVal
-
-    const valueBadge = document.createElement('div')
-    valueBadge.className = 'badge-static'
-    valueBadge.id = `value-badge-${param.name}`
-    valueBadge.textContent = formatRangeValue(currentVal)
-    readouts.appendChild(valueBadge)
-
-    const singleSlider = createSingleSlider(param, bounds, currentVal, (newVal) => {
-      s[param.name] = newVal
-      valueBadge.textContent = formatRangeValue(newVal)
-      if (activeSonifier && activeSonifierType === type) {
-        activeSonifier.setParam(param.name, newVal)
-      }
-      saveSettings(settings)
-    })
-    controlContainer.appendChild(singleSlider)
-  }
-}
-
-function createParamCard(param, s, type) {
-  const isEnum = param.type === 'enum' || Array.isArray(param.values || param.options)
-  if (isEnum) {
-    return createEnumParamCard(param, s, type)
-  }
-
-  const card = document.createElement('div')
-  card.className = 'param-card'
-  card.id = `param-card-${param.name}`
-
-  const header = document.createElement('div')
-  header.className = 'param-header'
-
-  const titleGroup = document.createElement('div')
-  titleGroup.className = 'param-title-group'
-
-  const toggleLabel = document.createElement('label')
-  toggleLabel.className = 'param-toggle-label'
-
-  const checkbox = document.createElement('input')
-  checkbox.type = 'checkbox'
-  checkbox.id = `checkbox-${param.name}`
-  const isSonified = Array.isArray(s.sonifiedParams) && s.sonifiedParams.includes(param.name)
-  checkbox.checked = isSonified
-
-  const labelSpan = document.createElement('span')
-  labelSpan.textContent = param.label || param.name
-
-  toggleLabel.appendChild(checkbox)
-  toggleLabel.appendChild(labelSpan)
-  titleGroup.appendChild(toggleLabel)
-
-  const feedLinkContainer = document.createElement('div')
-  feedLinkContainer.className = 'param-feed-link-container'
-  titleGroup.appendChild(feedLinkContainer)
-
-  header.appendChild(titleGroup)
-
-  const readouts = document.createElement('div')
-  readouts.className = 'param-readouts'
-  header.appendChild(readouts)
-  card.appendChild(header)
-
-  const controlContainer = document.createElement('div')
-  controlContainer.className = 'param-control-container'
-  card.appendChild(controlContainer)
-
-  renderParamControls(param, s, type, card, checkbox.checked)
-
-  checkbox.addEventListener('change', () => {
-    const checked = checkbox.checked
-    if (!Array.isArray(s.sonifiedParams)) s.sonifiedParams = []
-
-    if (checked) {
-      if (!s.sonifiedParams.includes(param.name)) {
-        s.sonifiedParams.push(param.name)
-      }
-      if (activeSonifier && activeSonifierType === type) {
-        const bounds = getOutputRangeBounds(param)
-        const range = s.paramRanges[param.name] || [bounds.min, bounds.max]
-        const adapter = new Adapter({
-          param: param.name,
-          inputRange: [0, 100],
-          outputRange: range,
-          curve: s.curve || 'linear'
-        })
-        activeAdapters.set(param.name, adapter)
-
-        const linkedFeedId = s.paramFeeds?.[param.name] || 'A'
-        const feed = feeds.get(linkedFeedId) || feeds.get('A')
-        const val = feed ? feed.value : 50
-        activeSonifier.setParam(param.name, adapter.map(val))
-      }
-    } else {
-      s.sonifiedParams = s.sonifiedParams.filter(p => p !== param.name)
-      if (activeAdapters.has(param.name)) {
-        activeAdapters.delete(param.name)
-      }
-      if (activeSonifier && activeSonifierType === type) {
-        const staticVal = s[param.name] !== undefined ? s[param.name] : (param.default !== undefined ? param.default : 0)
-        activeSonifier.setParam(param.name, staticVal)
-      }
-    }
-    saveSettings(settings)
-    renderParamControls(param, s, type, card, checked)
-  })
-
-  return card
-}
 
 export function renderParametersPanel() {
   if (!parametersPanel) return
-  parametersPanel.innerHTML = ''
-
   const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
-  const s = settings[type] || {}
-
   const schema = getSonifierSchema(type)
+  const schemaMap = new Map(schema.map(p => [p.name, p]))
 
-  if (schema.length === 0) {
-    parametersPanel.innerHTML = '<div style="color: #777; font-size: 0.85rem; padding: 1rem; text-align: center;">No parameters available for this sonifier.</div>'
-    return
-  }
-
-  if (!s.sonifiedParams) s.sonifiedParams = []
-  if (!s.paramRanges) s.paramRanges = {}
-  if (!s.paramFeeds) s.paramFeeds = {}
-
-  for (const param of schema) {
-    const card = createParamCard(param, s, type)
-    parametersPanel.appendChild(card)
-  }
+  renderAutomatedEditor({
+    container: parametersPanel,
+    schema,
+    settings,
+    sonifierType: type,
+    feeds,
+    callbacks: {
+      onParamChange: (paramName, newVal) => {
+        if (activeSonifier && activeSonifierType === type) {
+          activeSonifier.setParam(paramName, newVal)
+        }
+        saveSettings(settings)
+      },
+      onSonifyToggle: (paramName, isSonified) => {
+        const s = settings[type]
+        if (activeSonifier && activeSonifierType === type) {
+          if (isSonified) {
+            const paramDef = schemaMap.get(paramName) || { name: paramName }
+            const bounds = getOutputRangeBounds(paramDef)
+            const range = s.paramRanges[paramName] || [bounds.min, bounds.max]
+            const isInverted = Boolean(s.paramInverts?.[paramName])
+            const adapter = new Adapter({
+              param: paramName,
+              inputRange: [0, 100],
+              outputRange: range,
+              curve: paramDef.curve || 'linear',
+              invert: isInverted
+            })
+            activeAdapters.set(paramName, adapter)
+            const linkedFeedId = s.paramFeeds?.[paramName] || 'A'
+            const feed = feeds.get(linkedFeedId)
+            if (feed) handleFeedUpdate(feed)
+          } else {
+            activeAdapters.delete(paramName)
+            const staticVal = s[paramName] !== undefined ? s[paramName] : 0
+            activeSonifier.setParam(paramName, staticVal)
+          }
+        }
+        saveSettings(settings)
+      },
+      onFeedLinkChange: (paramName, newFeedId) => {
+        saveSettings(settings)
+        if (activeSonifier && activeSonifierType === type) {
+          const newFeed = feeds.get(newFeedId)
+          if (newFeed) {
+            const adapter = activeAdapters.get(paramName)
+            if (adapter) {
+              const mapped = adapter.map(newFeed.value)
+              activeSonifier.setParam(paramName, mapped)
+              const mappedValEl = document.getElementById(`mapped-val-${paramName}`)
+              if (mappedValEl) {
+                const paramDef = schemaMap.get(paramName) || {}
+                mappedValEl.textContent = `${formatRangeValue(mapped)}${paramDef.unit ? ' ' + paramDef.unit : ''}`
+              }
+            }
+          }
+        }
+      },
+      onRangeChange: (paramName, newRange) => {
+        saveSettings(settings)
+        const adapter = activeAdapters.get(paramName)
+        if (adapter) {
+          adapter.setConfig({ outputRange: newRange })
+          if (activeSonifier && activeSonifierType === type) {
+            const s = settings[type]
+            const linkedFeedId = s.paramFeeds?.[paramName] || 'A'
+            const feed = feeds.get(linkedFeedId)
+            if (feed) handleFeedUpdate(feed)
+          }
+        }
+      },
+      onInvertToggle: (paramName, isInverted) => {
+        saveSettings(settings)
+        const adapter = activeAdapters.get(paramName)
+        if (adapter) {
+          adapter.setConfig({ invert: isInverted })
+          if (activeSonifier && activeSonifierType === type) {
+            const s = settings[type]
+            const linkedFeedId = s.paramFeeds?.[paramName] || 'A'
+            const feed = feeds.get(linkedFeedId)
+            if (feed) handleFeedUpdate(feed)
+          }
+        }
+      }
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------

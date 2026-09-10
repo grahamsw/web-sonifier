@@ -6,7 +6,9 @@ class TestSonifier extends SonifierBase {
   getParamSchema() {
     return [
       { name: 'num',  type: 'number', range: [0, 100], default: 50 },
+      { name: 'int',  type: 'integer', range: [1, 10], default: 5 },
       { name: 'opt',  type: 'enum',   values: ['a', 'b'], default: 'a' },
+      { name: 'optObj', type: 'enum', options: [{ label: 'First', value: 10 }, { label: 'Second', value: 20 }], default: 10 },
       { name: 'bool', type: 'boolean', default: false }
     ]
   }
@@ -49,6 +51,29 @@ describe('SonifierBase', () => {
     // Invalid value should fall back to default
     sonifier.setParam('opt', 'invalid')
     expect(sonifier.getParam('opt')).toBe('a')
+  })
+
+  it('validates and rounds integer values', () => {
+    sonifier.setParam('int', 7.4)
+    expect(sonifier.getParam('int')).toBe(7)
+
+    sonifier.setParam('int', 7.6)
+    expect(sonifier.getParam('int')).toBe(8)
+
+    // Clamps to range
+    sonifier.setParam('int', 15)
+    expect(sonifier.getParam('int')).toBe(10)
+
+    sonifier.setParam('int', -5)
+    expect(sonifier.getParam('int')).toBe(1)
+  })
+
+  it('validates enum values with options objects', () => {
+    sonifier.setParam('optObj', 20)
+    expect(sonifier.getParam('optObj')).toBe(20)
+
+    sonifier.setParam('optObj', 999)
+    expect(sonifier.getParam('optObj')).toBe(10) // default
   })
 
   it('coerces booleans', () => {

@@ -84,19 +84,12 @@ const mockRuntimeInstance = {
     if (type === 'geiger') {
       return {
         setParam: vi.fn(),
-        getParamSchema: () => [
-          { name: 'rate', type: 'number', range: [1, 50], default: 10, label: 'Click Rate' },
-          { name: 'volume', type: 'number', range: [0, 1], default: 0.7, label: 'Volume' }
-        ]
+        getParamSchema: () => geigerSchema
       }
     }
     return {
       setParam: vi.fn(),
-      getParamSchema: () => [
-        { name: 'frequency', type: 'number', range: [20, 2000], default: 220, label: 'Frequency' },
-        { name: 'waveform', type: 'enum', values: ['sine', 'square'], default: 'sine', label: 'Waveform' },
-        { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume' }
-      ]
+      getParamSchema: () => toneSchema
     }
   }),
   setMasterVolume: vi.fn(),
@@ -109,25 +102,28 @@ class MockAdapter {
     this.inputRange = config.inputRange
     this.outputRange = config.outputRange
     this.curve = config.curve
+    this.invert = config.invert || false
     this.setConfig = vi.fn((c) => Object.assign(this, c))
     this.map = vi.fn((val) => {
       const [inMin, inMax] = this.inputRange || [0, 100]
       const [outMin, outMax] = this.outputRange || [0, 1]
-      const t = (val - inMin) / (inMax - inMin)
+      let t = (val - inMin) / (inMax - inMin)
+      if (this.invert) t = 1 - t
       return outMin + t * (outMax - outMin)
     })
   }
 }
 
 const toneSchema = [
-  { name: 'frequency', type: 'number', range: [20, 2000], default: 220, label: 'Frequency' },
-  { name: 'waveform', type: 'enum', values: ['sine', 'square'], default: 'sine', label: 'Waveform' },
-  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume' }
+  { name: 'frequency', type: 'number', range: [20, 2000], default: 220, label: 'Frequency', unit: 'Hz', curve: 'exponential', group: 'Tone & Pitch' },
+  { name: 'waveform', type: 'enum', values: ['sine', 'square'], default: 'sine', label: 'Waveform', group: 'Tone & Pitch' },
+  { name: 'harmonics', type: 'integer', range: [1, 5], default: 1, label: 'Harmonics', group: 'Tone & Pitch' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
 ]
 
 const geigerSchema = [
-  { name: 'rate', type: 'number', range: [1, 50], default: 10, label: 'Click Rate' },
-  { name: 'volume', type: 'number', range: [0, 1], default: 0.7, label: 'Volume' }
+  { name: 'rate', type: 'number', range: [1, 50], default: 10, label: 'Click Rate', unit: 'clicks/s', curve: 'exponential', group: 'Activity' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.7, label: 'Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
 ]
 
 class MockToneSonifier {
@@ -509,5 +505,118 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(document.getElementById('sonifier-select').value).toBe('geiger')
     expect(document.getElementById('master-volume-display').textContent).toBe('0.42')
     expect(document.getElementById('param-card-rate')).not.toBeNull()
+  })
+
+  it('should organize parameters into visual groups with headers', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const groups = document.querySelectorAll('.param-group')
+    expect(groups.length).toBe(2)
+
+    const headers = Array.from(document.querySelectorAll('.param-group-header')).map(h => h.textContent.trim())
+    expect(headers).toContain('Tone & Pitch')
+    expect(headers).toContain('Output')
+
+    // Tone & Pitch group should contain frequency, waveform, and harmonics
+    const toneGroup = Array.from(groups).find(g => g.querySelector('.param-group-header').textContent.includes('Tone & Pitch'))
+    expect(toneGroup.querySelector('#param-card-frequency')).not.toBeNull()
+    expect(toneGroup.querySelector('#param-card-waveform')).not.toBeNull()
+    expect(toneGroup.querySelector('#param-card-harmonics')).not.toBeNull()
+
+    // Output group should contain volume
+    const outputGroup = Array.from(groups).find(g => g.querySelector('.param-group-header').textContent.includes('Output'))
+    expect(outputGroup.querySelector('#param-card-volume')).not.toBeNull()
+  })
+
+  it('should render discrete parameters (enum and integer) strictly as dropdowns without sonify options or sliders', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    // 1. Enum param: waveform
+    const waveformCard = document.getElementById('param-card-waveform')
+    expect(waveformCard).not.toBeNull()
+    expect(waveformCard.classList.contains('discrete-param-card')).toBe(true)
+
+    // No sonify checkbox or sliders
+    expect(document.getElementById('checkbox-waveform')).toBeNull()
+    expect(document.getElementById('dual-slider-waveform')).toBeNull()
+    expect(document.getElementById('single-slider-waveform')).toBeNull()
+
+    // Rendered as a <select> dropdown
+    const waveformSelect = document.getElementById(`select-waveform`)
+    expect(waveformSelect).not.toBeNull()
+    expect(waveformSelect.tagName).toBe('SELECT')
+    expect(waveformSelect.options.length).toBe(2)
+    expect(waveformSelect.options[0].value).toBe('sine')
+    expect(waveformSelect.options[1].value).toBe('square')
+
+    // 2. Integer param: harmonics
+    const harmonicsCard = document.getElementById('param-card-harmonics')
+    expect(harmonicsCard).not.toBeNull()
+    expect(harmonicsCard.classList.contains('discrete-param-card')).toBe(true)
+
+    // No sonify checkbox or sliders
+    expect(document.getElementById('checkbox-harmonics')).toBeNull()
+    expect(document.getElementById('dual-slider-harmonics')).toBeNull()
+    expect(document.getElementById('single-slider-harmonics')).toBeNull()
+
+    // Rendered as a <select> dropdown with options 1 through 5
+    const harmonicsSelect = document.getElementById(`select-harmonics`)
+    expect(harmonicsSelect).not.toBeNull()
+    expect(harmonicsSelect.tagName).toBe('SELECT')
+    expect(harmonicsSelect.options.length).toBe(5)
+    expect(harmonicsSelect.options[0].value).toBe('1')
+    expect(harmonicsSelect.options[4].value).toBe('5')
+
+    // Changing dropdown updates settings
+    harmonicsSelect.value = '3'
+    harmonicsSelect.dispatchEvent(new Event('change'))
+    expect(main.settings.tone.harmonics).toBe(3)
+  })
+
+  it('should support inverting sonified parameters with invert button and URL serialization', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    // Frequency is sonified by default
+    const invertBtn = document.getElementById('btn-invert-frequency')
+    expect(invertBtn).not.toBeNull()
+    expect(invertBtn.classList.contains('inverted')).toBe(false)
+
+    // Click invert button
+    invertBtn.click()
+
+    // Button should show active inverted state
+    expect(invertBtn.classList.contains('inverted')).toBe(true)
+    expect(main.settings.tone.paramInverts.frequency).toBe(true)
+
+    // Range badge should show reverse direction arrow
+    const rangeBadge = document.getElementById('range-badge-frequency')
+    expect(rangeBadge.textContent).toContain('➔')
+
+    // URL hash should contain :inv flag
+    expect(decodeURIComponent(window.location.hash)).toContain('frequency=A:110-440:inv')
+
+    // Click invert button again to toggle back
+    invertBtn.click()
+    expect(invertBtn.classList.contains('inverted')).toBe(false)
+    expect(main.settings.tone.paramInverts.frequency).toBe(false)
+    expect(decodeURIComponent(window.location.hash)).not.toContain(':inv')
+  })
+
+  it('should restore inverted parameters from URL hash on initialization', async () => {
+    window.location.hash = '#sonifier=tone&vol=0.50&feeds=A:1000:6,B:2000:4&frequency=A:220-880:inv&waveform=sine&harmonics=2&volume=0.5'
+
+    const main = await import('../main.js?t=' + Date.now())
+
+    expect(main.settings.tone.sonifiedParams).toContain('frequency')
+    expect(main.settings.tone.paramInverts.frequency).toBe(true)
+    expect(main.settings.tone.paramRanges.frequency).toEqual([220, 880])
+    expect(main.settings.tone.harmonics).toBe(2)
+
+    const invertBtn = document.getElementById('btn-invert-frequency')
+    expect(invertBtn).not.toBeNull()
+    expect(invertBtn.classList.contains('inverted')).toBe(true)
+
+    const rangeBadge = document.getElementById('range-badge-frequency')
+    expect(rangeBadge.textContent).toBe('880 ➔ 220')
   })
 })

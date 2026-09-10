@@ -14,34 +14,42 @@ export class PurrSonifier extends SonifierBase {
         type: 'number',
         range: [20, 800],
         default: 40,
-        group: 'purr',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Voice & Pitch',
         label: 'Base Frequency',
         description: 'Fundamental frequency of the resonance (pitch)'
-      },
-      {
-        name: 'rate',
-        type: 'number',
-        range: [10, 100],
-        default: 28,
-        group: 'purr',
-        label: 'Purr Rate',
-        description: 'Repetition rate of the purr cycle (speed)'
       },
       {
         name: 'intensity',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'purr',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Voice & Pitch',
         label: 'Intensity',
         description: 'Energy level and spectral presence'
+      },
+      {
+        name: 'rate',
+        type: 'number',
+        range: [10, 100],
+        default: 28,
+        unit: 'Hz',
+        curve: 'linear',
+        group: 'Rhythm & Motion',
+        label: 'Purr Rate',
+        description: 'Repetition rate of the purr cycle (speed)'
       },
       {
         name: 'arousal',
         type: 'number',
         range: [0, 1],
         default: 0.2,
-        group: 'purr',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Rhythm & Motion',
         label: 'Arousal',
         description: 'Temporal character and breathing modulation'
       },
@@ -50,16 +58,20 @@ export class PurrSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'purr',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Rhythm & Motion',
         label: 'Jitter',
-        description: 'Frequency instability (purr "rasp")'
+        description: 'Frequency instability (purr rasp)'
       },
       {
         name: 'rumble',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'purr',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Rhythm & Motion',
         label: 'Rumble',
         description: 'Low-end body resonance'
       },
@@ -68,7 +80,9 @@ export class PurrSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'purr',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Rhythm & Motion',
         label: 'Breath',
         description: 'Breathing modulation depth'
       },
@@ -77,7 +91,9 @@ export class PurrSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'purr',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Volume',
         description: 'Master volume of the purr'
       }

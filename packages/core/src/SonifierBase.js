@@ -132,10 +132,28 @@ export class SonifierBase {
       return n
     }
 
+    if (schema.type === 'integer') {
+      const n = Number(value)
+      if (isNaN(n)) {
+        console.warn(`[web-sonify] Param "${schema.name}" expected an integer, got ${value}`)
+        return schema.default ?? 0
+      }
+      let rounded = Math.round(n)
+      if (schema.range) {
+        const [min, max] = schema.range
+        if (rounded < min || rounded > max) {
+          console.warn(`[web-sonify] Param "${schema.name}" value ${rounded} clamped to [${min}, ${max}]`)
+          rounded = Math.min(max, Math.max(min, rounded))
+        }
+      }
+      return rounded
+    }
+
     if (schema.type === 'enum') {
-      if (!schema.values.includes(value)) {
+      const allowed = schema.values || (Array.isArray(schema.options) ? schema.options.map(o => (typeof o === 'object' && o !== null && 'value' in o ? o.value : o)) : [])
+      if (!allowed.includes(value)) {
         console.warn(`[web-sonify] Param "${schema.name}" invalid value "${value}", using default`)
-        return schema.default ?? schema.values[0]
+        return schema.default ?? allowed[0]
       }
       return value
     }
@@ -151,11 +169,16 @@ export class SonifierBase {
 /**
  * @typedef {Object} ParamSchema
  * @property {string} name
- * @property {'number'|'enum'|'boolean'} type
- * @property {[number, number]} [range]   - for type 'number'
- * @property {string[]} [values]          - for type 'enum'
+ * @property {'number'|'integer'|'enum'|'boolean'} type
+ * @property {[number, number]} [range]   - for type 'number' or 'integer'
+ * @property {number} [step]              - step increment
+ * @property {Array<string|number>} [values] - for type 'enum'
+ * @property {Array<{label: string, value: any}>|Array<string|number>} [options] - for type 'enum' or discrete options
  * @property {*} [default]
- * @property {string} [group]
- * @property {string} [label]
- * @property {string} [description]
+ * @property {string} [group]             - semantic group (e.g. 'Tone & Pitch', 'Swell Dynamics', 'Output')
+ * @property {string} [label]             - human readable title
+ * @property {string} [description]       - description or tooltip
+ * @property {string} [unit]              - unit string (e.g. 'Hz', 'dB', 'gain', 's', 'norm')
+ * @property {'linear'|'exponential'|'logarithmic'} [curve] - suggested mapping transfer curve
+ * @property {boolean} [invert]           - suggested inversion hint for data mapping
  */

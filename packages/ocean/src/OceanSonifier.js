@@ -30,7 +30,9 @@ export class OceanSonifier extends SonifierBase {
         type: 'number',
         range: [0, 100],
         default: 50,
-        group: 'ocean',
+        unit: '%',
+        curve: 'linear',
+        group: 'Acoustic Character',
         label: 'Wave Intensity',
         description: 'Wave surge power and swell amplitude'
       },
@@ -39,17 +41,32 @@ export class OceanSonifier extends SonifierBase {
         type: 'number',
         range: [80, 2500],
         default: 500,
-        group: 'ocean',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Acoustic Character',
         label: 'Spectral Depth',
         description: 'Resonant depth and filter cutoff frequency'
+      },
+      {
+        name: 'foam',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Acoustic Character',
+        label: 'Foam & Spray',
+        description: 'High-frequency foam and spray intensity'
       },
       {
         name: 'swellPeriod',
         type: 'number',
         range: [0, 20.0],
         default: 8.0,
-        group: 'ocean',
-        label: 'Swell Period Mean (s)',
+        unit: 's',
+        curve: 'linear',
+        group: 'Swell Dynamics',
+        label: 'Swell Period',
         description: 'Mean duration of one rolling wave cycle'
       },
       {
@@ -57,8 +74,10 @@ export class OceanSonifier extends SonifierBase {
         type: 'number',
         range: [0, 5.0],
         default: 1.5,
-        group: 'ocean',
-        label: 'Swell Period Std Dev (s)',
+        unit: 's',
+        curve: 'linear',
+        group: 'Swell Dynamics',
+        label: 'Period Variation',
         description: 'Variation in seconds between wave cycles'
       },
       {
@@ -66,8 +85,10 @@ export class OceanSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1.0],
         default: 0.7,
-        group: 'ocean',
-        label: 'Swell Depth Mean',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Swell Dynamics',
+        label: 'Swell Depth',
         description: 'Mean volume dynamic range between trough and crest'
       },
       {
@@ -75,25 +96,20 @@ export class OceanSonifier extends SonifierBase {
         type: 'number',
         range: [0, 0.5],
         default: 0.15,
-        group: 'ocean',
-        label: 'Swell Depth Std Dev',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Swell Dynamics',
+        label: 'Depth Variation',
         description: 'Variation in swell volume depth from wave to wave'
-      },
-      {
-        name: 'foam',
-        type: 'number',
-        range: [0, 1],
-        default: 0.5,
-        group: 'ocean',
-        label: 'Foam & Spray',
-        description: 'High-frequency foam and spray intensity'
       },
       {
         name: 'volume',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'ocean',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Volume',
         description: 'Master gain of the ocean sonifier'
       }
