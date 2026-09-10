@@ -667,6 +667,70 @@
       flex: 1;
     }
 
+    /* Parameter Grouping */
+    .param-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .param-group-header {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #7982a9;
+      font-weight: 700;
+      padding: 0.25rem 0.25rem 0.15rem;
+      border-bottom: 1px solid #1f2334;
+      margin-bottom: 0.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    /* Unit tag */
+    .param-unit-tag {
+      font-size: 0.72rem;
+      color: #6b7280;
+      font-weight: 400;
+      margin-left: 0.25rem;
+    }
+
+    /* Invert button */
+    .btn-invert {
+      background: #181b28;
+      border: 1px solid #2a2f44;
+      color: #888;
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.8rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-invert:hover {
+      background: #23273b;
+      color: #fff;
+      border-color: #434a66;
+    }
+
+    .btn-invert.inverted {
+      background: rgba(251, 191, 36, 0.18);
+      border-color: rgba(251, 191, 36, 0.5);
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    /* Discrete parameter card */
+    .discrete-desc {
+      font-size: 0.74rem;
+      color: #71717a;
+      margin-top: 0.35rem;
+      line-height: 1.3;
+    }
+
     /* Dialog styling for custom loader */
     dialog {
       background: #1a1d27;

@@ -25,7 +25,9 @@ export class RainSonifier extends SonifierBase {
         type: 'number',
         range: [0, 500],
         default: 30,
-        group: 'rain',
+        unit: 'drops/s',
+        curve: 'exponential',
+        group: 'Rainfall Character',
         label: 'Rain Intensity',
         description: 'Droplet arrival rate and ambient shower swell'
       },
@@ -34,7 +36,9 @@ export class RainSonifier extends SonifierBase {
         type: 'number',
         range: [200, 4000],
         default: 1200,
-        group: 'rain',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Rainfall Character',
         label: 'Rain Pitch',
         description: 'Spectral brightness of droplets and rain wash'
       },
@@ -43,7 +47,9 @@ export class RainSonifier extends SonifierBase {
         type: 'number',
         range: [0.1, 2.0],
         default: 1.0,
-        group: 'rain',
+        unit: 'scale',
+        curve: 'linear',
+        group: 'Rainfall Character',
         label: 'Droplet Size',
         description: 'Droplet spatter weight and duration'
       },
@@ -52,7 +58,9 @@ export class RainSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.8,
-        group: 'rain',
+        unit: 'pan',
+        curve: 'linear',
+        group: 'Acoustic Space',
         label: 'Stereo Spread',
         description: 'Stereo panning dispersion'
       },
@@ -61,7 +69,9 @@ export class RainSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'rain',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Acoustic Space',
         label: 'Volume',
         description: 'Master gain of the rain sonifier'
       }

@@ -14,16 +14,35 @@ export class EngineSonifier extends SonifierBase {
         type: 'number',
         range: [20, 2000],
         default: 300,
-        group: 'engine',
-        label: 'Pitch (Hz)',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Resonance & Pitch',
+        label: 'Pitch',
         description: 'Fundamental frequency of the engine resonance'
+      },
+      {
+        name: 'rolloff',
+        type: 'enum',
+        options: [
+          { label: '-12 dB/octave', value: -12 },
+          { label: '-24 dB/octave', value: -24 },
+          { label: '-48 dB/octave', value: -48 },
+          { label: '-96 dB/octave', value: -96 }
+        ],
+        values: [-12, -24, -48, -96],
+        default: -96,
+        group: 'Resonance & Pitch',
+        label: 'Filter Rolloff',
+        description: 'Steepness of the bandpass filters'
       },
       {
         name: 'rate',
         type: 'number',
         range: [0.1, 60],
         default: 25,
-        group: 'engine',
+        unit: 'Hz',
+        curve: 'linear',
+        group: 'Modulation / Throttle',
         label: 'Volatility / Rate',
         description: 'Speed of the volume modulation (LFO)'
       },
@@ -32,25 +51,20 @@ export class EngineSonifier extends SonifierBase {
         type: 'number',
         range: [0, 0.5],
         default: 0.1,
-        group: 'engine',
+        unit: 'depth',
+        curve: 'linear',
+        group: 'Modulation / Throttle',
         label: 'Throttle Depth',
         description: 'Depth of the volume modulation'
-      },
-      {
-        name: 'rolloff',
-        type: 'number',
-        range: [-96, -12], // We'll map internally to -12, -24, -48, -96
-        default: -96,
-        group: 'engine',
-        label: 'Filter Rolloff',
-        description: 'Steepness of the bandpass filters (-12 to -96 dB/octave)'
       },
       {
         name: 'volume',
         type: 'number',
         range: [0, 1],
         default: 0.25,
-        group: 'engine',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Master Volume',
         description: 'Overall volume of the engine'
       }

@@ -15,34 +15,20 @@ export class MalletSonifier extends SonifierBase {
         type: 'number',
         range: [0.1, 20],
         default: 1.0,
-        group: 'mallet',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Striking',
         label: 'Strike Rate',
         description: 'How often the mallet strikes (Hz)'
-      },
-      {
-        name: 'boxSize',
-        type: 'number',
-        range: [0.5, 2.0],
-        default: 1.0,
-        group: 'mallet',
-        label: 'Box Size',
-        description: 'Size of the resonant body'
-      },
-      {
-        name: 'resonance',
-        type: 'number',
-        range: [0, 1],
-        default: 0.4,
-        group: 'mallet',
-        label: 'Resonance',
-        description: 'Q factor of the resonant bank'
       },
       {
         name: 'force',
         type: 'number',
         range: [0, 1],
         default: 0.7,
-        group: 'mallet',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Striking',
         label: 'Force',
         description: 'Impact strength'
       },
@@ -51,16 +37,43 @@ export class MalletSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'mallet',
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Striking',
         label: 'Hardness',
         description: 'Hardness of the mallet head'
+      },
+      {
+        name: 'boxSize',
+        type: 'number',
+        range: [0.5, 2.0],
+        default: 1.0,
+        unit: 'scale',
+        curve: 'linear',
+        invert: true,
+        group: 'Resonant Body',
+        label: 'Box Size',
+        description: 'Size of the resonant body (larger = deeper resonance)'
+      },
+      {
+        name: 'resonance',
+        type: 'number',
+        range: [0, 1],
+        default: 0.4,
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Resonant Body',
+        label: 'Resonance',
+        description: 'Q factor of the resonant bank'
       },
       {
         name: 'volume',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'mallet',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Volume',
         description: 'Master volume'
       }

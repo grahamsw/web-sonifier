@@ -73,6 +73,33 @@ describe('Adapter', () => {
       expect(adapter.map(0)).toBe(0)
       expect(adapter.map(100)).toBe(1)
     })
+
+    it('inverts linear mapping when invert is true', () => {
+      const adapter = new Adapter({
+        param: 'vol',
+        inputRange: [0, 100],
+        outputRange: [0, 0.5],
+        curve: 'linear',
+        invert: true
+      })
+      expect(adapter.map(0)).toBe(0.5)
+      expect(adapter.map(50)).toBe(0.25)
+      expect(adapter.map(100)).toBe(0)
+    })
+
+    it('inverts exponential mapping when invert is true', () => {
+      const adapter = new Adapter({
+        param: 'freq',
+        inputRange: [0, 100],
+        outputRange: [100, 1600],
+        curve: 'exponential',
+        invert: true
+      })
+      // Inverted: input 0 -> t_norm=1 -> 1600; input 100 -> t_norm=0 -> 100
+      expect(adapter.map(0)).toBe(1600)
+      expect(adapter.map(50)).toBe(400)
+      expect(adapter.map(100)).toBe(100)
+    })
   })
 
   describe('Auto-ranging', () => {
@@ -158,10 +185,14 @@ describe('Adapter', () => {
         outputRange: [100, 1000],
         inputRange: [0, 100],
         curve: 'exponential',
+        invert: false,
         autoRange: null
       }
       const adapter = new Adapter(config)
       expect(adapter.getConfig()).toEqual(config)
+
+      adapter.setConfig({ invert: true })
+      expect(adapter.getConfig().invert).toBe(true)
     })
   })
 })

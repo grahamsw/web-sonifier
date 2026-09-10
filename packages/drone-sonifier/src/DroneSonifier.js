@@ -14,25 +14,30 @@ export class DroneSonifier extends SonifierBase {
         type: 'number',
         range: [20, 200],
         default: 40,
-        group: 'drone',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Tone & Harmonics',
         label: 'Frequency',
         description: 'Base frequency of the drone'
       },
       {
         name: 'nharm',
-        type: 'number',
-        range: [1, 50],
+        type: 'integer',
+        range: [1, 32],
+        step: 1,
         default: 12,
-        group: 'drone',
+        group: 'Tone & Harmonics',
         label: 'Harmonics',
-        description: 'Number of harmonics'
+        description: 'Number of overtone harmonics (discrete count)'
       },
       {
         name: 'detune',
         type: 'number',
         range: [0, 2],
         default: 0.2,
-        group: 'drone',
+        unit: 'semitones',
+        curve: 'linear',
+        group: 'Tone & Harmonics',
         label: 'Detune',
         description: 'Detuning amount in semitones'
       },
@@ -41,16 +46,20 @@ export class DroneSonifier extends SonifierBase {
         type: 'number',
         range: [-1, 1],
         default: 0,
-        group: 'drone',
+        unit: 'pan',
+        curve: 'linear',
+        group: 'Spatial & Output',
         label: 'Pan',
-        description: 'Stereo balance'
+        description: 'Stereo balance (-1 left to +1 right)'
       },
       {
         name: 'volume',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'drone',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Spatial & Output',
         label: 'Volume',
         description: 'Master volume'
       }

@@ -20,6 +20,7 @@ export class Adapter {
    * @param {[number, number]} config.outputRange - [min, max] in the sonifier's param space
    * @param {[number, number]} [config.inputRange] - fixed input range; omit to use autoRange
    * @param {'linear'|'exponential'|'logarithmic'} [config.curve='linear']
+   * @param {boolean} [config.invert=false]    - if true, inverts normalized input (0 -> 1, 1 -> 0)
    * @param {Object} [config.autoRange]        - if present, input range is derived dynamically
    * @param {number} [config.autoRange.windowSize=100] - number of recent values to track
    * @param {number} [config.autoRange.padding=0.05]   - fractional padding added to derived range
@@ -28,6 +29,7 @@ export class Adapter {
     this.param = config.param
     this.outputRange = config.outputRange
     this.curve = config.curve ?? 'linear'
+    this.invert = config.invert ?? false
     this._fixedInputRange = config.inputRange ?? null
     this._autoRange = config.autoRange ?? null
 
@@ -50,7 +52,10 @@ export class Adapter {
       // Not enough data yet to derive a range
       return this.outputRange[0]
     }
-    const normalised = this._normalise(rawValue, inputRange)
+    let normalised = this._normalise(rawValue, inputRange)
+    if (this.invert) {
+      normalised = 1 - normalised
+    }
     const curved = this._applyCurve(normalised)
     return this._scale(curved, this.outputRange)
   }
@@ -77,6 +82,7 @@ export class Adapter {
       outputRange: [...this.outputRange],
       inputRange: this._fixedInputRange ? [...this._fixedInputRange] : null,
       curve: this.curve,
+      invert: this.invert,
       autoRange: this._autoRange ? { windowSize: this._windowSize, padding: this._padding } : null
     }
   }
@@ -90,6 +96,7 @@ export class Adapter {
     if (config.outputRange) this.outputRange = config.outputRange
     if (config.inputRange)  this._fixedInputRange = config.inputRange
     if (config.curve)       this.curve = config.curve
+    if (config.invert !== undefined) this.invert = Boolean(config.invert)
     if (config.autoRange) {
       this._autoRange = config.autoRange
       this._windowSize = config.autoRange.windowSize ?? this._windowSize

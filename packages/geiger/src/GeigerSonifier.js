@@ -20,7 +20,9 @@ export class GeigerSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1000],
         default: 10,
-        group: 'geiger',
+        unit: 'clicks/s',
+        curve: 'exponential',
+        group: 'Activity',
         label: 'Rate',
         description: 'Average clicks per second'
       },
@@ -29,7 +31,9 @@ export class GeigerSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'geiger',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Volume',
         description: 'Volume of the clicks'
       }

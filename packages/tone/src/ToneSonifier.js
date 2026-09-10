@@ -23,27 +23,31 @@ export class ToneSonifier extends SonifierBase {
         type: 'number',
         range: [20, 2000],
         default: 220,
-        group: 'tone',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Tone & Pitch',
         label: 'Frequency',
         description: 'Oscillator frequency in Hz'
-      },
-      {
-        name: 'volume',
-        type: 'number',
-        range: [0, 1],
-        default: 0.5,
-        group: 'tone',
-        label: 'Volume',
-        description: 'Volume of this sonifier (0 to 1)'
       },
       {
         name: 'waveform',
         type: 'enum',
         values: ['sine', 'square', 'sawtooth', 'triangle'],
         default: 'sine',
-        group: 'tone',
+        group: 'Tone & Pitch',
         label: 'Waveform',
         description: 'Oscillator waveform shape'
+      },
+      {
+        name: 'volume',
+        type: 'number',
+        range: [0, 1],
+        default: 0.5,
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
+        label: 'Volume',
+        description: 'Volume of this sonifier (0 to 1)'
       }
     ]
   }

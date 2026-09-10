@@ -14,7 +14,9 @@ export class LiquidSonifier extends SonifierBase {
         type: 'number',
         range: [10, 100],
         default: 40,
-        group: 'liquid',
+        unit: 'Hz',
+        curve: 'exponential',
+        group: 'Resonance & Tone',
         label: 'Frequency',
         description: 'Excitation frequency of the resonator'
       },
@@ -23,16 +25,21 @@ export class LiquidSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'liquid',
+        unit: 'norm',
+        curve: 'linear',
+        invert: true,
+        group: 'Fluid Physics',
         label: 'Viscosity',
-        description: 'Thickness of the liquid'
+        description: 'Thickness of the liquid (damps high frequencies)'
       },
       {
         name: 'resonatorVolume',
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'liquid',
+        unit: 'scale',
+        curve: 'linear',
+        group: 'Fluid Physics',
         label: 'Resonator Volume',
         description: 'Physical size of the liquid container'
       },
@@ -41,7 +48,9 @@ export class LiquidSonifier extends SonifierBase {
         type: 'number',
         range: [0, 1],
         default: 0.5,
-        group: 'liquid',
+        unit: 'gain',
+        curve: 'logarithmic',
+        group: 'Output',
         label: 'Volume',
         description: 'Master volume of the resonator'
       }
