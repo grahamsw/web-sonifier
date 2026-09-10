@@ -482,14 +482,32 @@ export function createContinuousParamCard(param, bounds, s, sonifierType, feeds,
       btnInvert.id = `btn-invert-${param.name}`
       btnInvert.textContent = '⇄'
       btnInvert.title = 'Invert mapping polarity (higher data = lower parameter)'
-      btnInvert.addEventListener('click', () => {
-        isInverted = !isInverted
-        s.paramInverts[param.name] = isInverted
-        btnInvert.classList.toggle('inverted', isInverted)
-        callbacks.onInvertToggle(param.name, isInverted)
-        updateRangeReadout()
-      })
       feedLinkWrap.appendChild(btnInvert)
+
+      // Curve selector dropdown beside invert button
+      const curveSelect = document.createElement('select')
+      curveSelect.className = 'param-curve-select'
+      curveSelect.id = `curve-select-${param.name}`
+      curveSelect.title = 'Mapping transfer curve'
+
+      const CURVE_OPTIONS = [
+        { value: 'linear', label: 'Linear' },
+        { value: 'exponential', label: 'Exponential' },
+        { value: 'logarithmic', label: 'Logarithmic' }
+      ]
+
+      if (!s.paramCurves) s.paramCurves = {}
+      const currentCurve = s.paramCurves[param.name] || param.curve || 'linear'
+      s.paramCurves[param.name] = currentCurve
+
+      for (const opt of CURVE_OPTIONS) {
+        const optEl = document.createElement('option')
+        optEl.value = opt.value
+        optEl.textContent = opt.label
+        if (opt.value === currentCurve) optEl.selected = true
+        curveSelect.appendChild(optEl)
+      }
+      feedLinkWrap.appendChild(curveSelect)
       feedLinkContainer.appendChild(feedLinkWrap)
 
       // Feed readout badge
@@ -510,8 +528,40 @@ export function createContinuousParamCard(param, bounds, s, sonifierType, feeds,
         param: param.name,
         inputRange: [0, 100],
         outputRange: [curMin, curMax],
-        curve: param.curve || 'linear',
+        curve: currentCurve,
         invert: isInverted
+      })
+
+      btnInvert.addEventListener('click', () => {
+        isInverted = !isInverted
+        s.paramInverts[param.name] = isInverted
+        btnInvert.classList.toggle('inverted', isInverted)
+        adapter.setConfig({ invert: isInverted })
+        callbacks.onInvertToggle(param.name, isInverted)
+        updateRangeReadout()
+        const curFeed = feeds.get(s.paramFeeds[param.name] || 'A')
+        const curVal = curFeed ? curFeed.value : 50
+        const newMapped = adapter.map(curVal)
+        const mappedEl = document.getElementById(`mapped-val-${param.name}`)
+        if (mappedEl) {
+          mappedEl.textContent = `${formatRangeValue(newMapped)}${param.unit ? ' ' + param.unit : ''}`
+        }
+      })
+
+      curveSelect.addEventListener('change', () => {
+        const newCurve = curveSelect.value
+        s.paramCurves[param.name] = newCurve
+        adapter.setConfig({ curve: newCurve })
+        if (callbacks.onCurveChange) {
+          callbacks.onCurveChange(param.name, newCurve)
+        }
+        const curFeed = feeds.get(s.paramFeeds[param.name] || 'A')
+        const curVal = curFeed ? curFeed.value : 50
+        const newMapped = adapter.map(curVal)
+        const mappedEl = document.getElementById(`mapped-val-${param.name}`)
+        if (mappedEl) {
+          mappedEl.textContent = `${formatRangeValue(newMapped)}${param.unit ? ' ' + param.unit : ''}`
+        }
       })
 
       const mappedVal = adapter.map(currentFeedVal)

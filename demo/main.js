@@ -528,6 +528,7 @@ export function parseUrlState() {
   if (!sonifierSettings.paramFeeds) sonifierSettings.paramFeeds = {}
   if (!sonifierSettings.paramRanges) sonifierSettings.paramRanges = {}
   if (!sonifierSettings.paramInverts) sonifierSettings.paramInverts = {}
+  if (!sonifierSettings.paramCurves) sonifierSettings.paramCurves = {}
 
   const schema = getSonifierSchema(type)
   for (const param of schema) {
@@ -537,14 +538,29 @@ export function parseUrlState() {
         const parts = rawVal.split(':')
         const feedId = parts[0]
         const rangeStr = parts[1]
-        const isInv = parts.length > 2 && parts[2] === 'inv'
         const rangeParts = rangeStr.split('-').map(Number)
         sonifierSettings.sonifiedParams.push(param.name)
         sonifierSettings.paramFeeds[param.name] = feedId || 'A'
         if (rangeParts.length === 2 && !isNaN(rangeParts[0]) && !isNaN(rangeParts[1])) {
           sonifierSettings.paramRanges[param.name] = [rangeParts[0], rangeParts[1]]
         }
+
+        let isInv = false
+        let curveVal = param.curve || 'linear'
+        for (let i = 2; i < parts.length; i++) {
+          const token = parts[i].toLowerCase()
+          if (token === 'inv') {
+            isInv = true
+          } else if (token === 'lin' || token === 'linear') {
+            curveVal = 'linear'
+          } else if (token === 'exp' || token === 'exponential') {
+            curveVal = 'exponential'
+          } else if (token === 'log' || token === 'logarithmic') {
+            curveVal = 'logarithmic'
+          }
+        }
         sonifierSettings.paramInverts[param.name] = isInv
+        sonifierSettings.paramCurves[param.name] = curveVal
       } else {
         const num = Number(rawVal)
         sonifierSettings[param.name] = isNaN(num) ? rawVal : num
@@ -578,7 +594,8 @@ export function updateUrlState() {
       const bounds = getOutputRangeBounds(param)
       const range = s.paramRanges?.[param.name] || [bounds.min, bounds.max]
       const invFlag = s.paramInverts?.[param.name] ? ':inv' : ''
-      searchParams.set(param.name, `${feedId}:${formatRangeValue(range[0])}-${formatRangeValue(range[1])}${invFlag}`)
+      const curve = s.paramCurves?.[param.name] || param.curve || 'linear'
+      searchParams.set(param.name, `${feedId}:${formatRangeValue(range[0])}-${formatRangeValue(range[1])}:${curve}${invFlag}`)
     } else {
       const val = s[param.name] !== undefined ? s[param.name] : param.default
       if (val !== undefined) {
@@ -628,12 +645,18 @@ export function loadSettings() {
             }
           }
 
-          // Ensure paramRanges and paramFeeds exist
+          // Ensure paramRanges, paramFeeds, paramInverts, and paramCurves exist
           if (!settings[key].paramRanges) {
             settings[key].paramRanges = { ...(defaultSettings[key].paramRanges || {}) }
           }
           if (!settings[key].paramFeeds) {
             settings[key].paramFeeds = { ...(defaultSettings[key].paramFeeds || {}) }
+          }
+          if (!settings[key].paramInverts) {
+            settings[key].paramInverts = { ...(defaultSettings[key].paramInverts || {}) }
+          }
+          if (!settings[key].paramCurves) {
+            settings[key].paramCurves = { ...(defaultSettings[key].paramCurves || {}) }
           }
 
           if (settings[key].outputRange && settings[key].mappedParam && !settings[key].paramRanges[settings[key].mappedParam]) {
@@ -758,11 +781,12 @@ export function applySettings() {
     const range = s.paramRanges?.[paramName] || [0, 100]
     const pDef = schemaMap.get(paramName) || { name: paramName }
     const isInverted = Boolean(s.paramInverts?.[paramName])
+    const curve = s.paramCurves?.[paramName] || pDef.curve || s.curve || 'linear'
     adapter.setConfig({
       param: paramName,
       inputRange: [0, 100],
       outputRange: range,
-      curve: pDef.curve || s.curve || 'linear',
+      curve,
       invert: isInverted
     })
   }
@@ -805,11 +829,12 @@ export async function startSonifier() {
     const bounds = getOutputRangeBounds(paramDef)
     const range = s.paramRanges?.[paramName] || [bounds.min, bounds.max]
     const isInverted = Boolean(s.paramInverts?.[paramName])
+    const curve = s.paramCurves?.[paramName] || paramDef.curve || s.curve || 'linear'
     const adapter = new Adapter({
       param: paramName,
       inputRange: [0, 100],
       outputRange: range,
-      curve: paramDef.curve || s.curve || 'linear',
+      curve,
       invert: isInverted
     })
     activeAdapters.set(paramName, adapter)
@@ -919,11 +944,12 @@ export function renderParametersPanel() {
             const bounds = getOutputRangeBounds(paramDef)
             const range = s.paramRanges[paramName] || [bounds.min, bounds.max]
             const isInverted = Boolean(s.paramInverts?.[paramName])
+            const curve = s.paramCurves?.[paramName] || paramDef.curve || 'linear'
             const adapter = new Adapter({
               param: paramName,
               inputRange: [0, 100],
               outputRange: range,
-              curve: paramDef.curve || 'linear',
+              curve,
               invert: isInverted
             })
             activeAdapters.set(paramName, adapter)
@@ -974,6 +1000,19 @@ export function renderParametersPanel() {
         const adapter = activeAdapters.get(paramName)
         if (adapter) {
           adapter.setConfig({ invert: isInverted })
+          if (activeSonifier && activeSonifierType === type) {
+            const s = settings[type]
+            const linkedFeedId = s.paramFeeds?.[paramName] || 'A'
+            const feed = feeds.get(linkedFeedId)
+            if (feed) handleFeedUpdate(feed)
+          }
+        }
+      },
+      onCurveChange: (paramName, newCurve) => {
+        saveSettings(settings)
+        const adapter = activeAdapters.get(paramName)
+        if (adapter) {
+          adapter.setConfig({ curve: newCurve })
           if (activeSonifier && activeSonifierType === type) {
             const s = settings[type]
             const linkedFeedId = s.paramFeeds?.[paramName] || 'A'
@@ -1275,6 +1314,8 @@ if (btnOpenLoadCustom && customDialog) {
             sonifiedParams: [mappedParam],
             paramFeeds:     { [mappedParam]: 'A' },
             paramRanges:    {},
+            paramInverts:   {},
+            paramCurves:    {},
             curve:          'linear',
             volume:         0.5
           }
