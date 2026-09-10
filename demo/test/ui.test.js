@@ -593,7 +593,7 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(rangeBadge.textContent).toContain('➔')
 
     // URL hash should contain :inv flag
-    expect(decodeURIComponent(window.location.hash)).toContain('frequency=A:110-440:inv')
+    expect(decodeURIComponent(window.location.hash)).toContain('frequency=A:110-440:exponential:inv')
 
     // Click invert button again to toggle back
     invertBtn.click()
@@ -618,5 +618,48 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
 
     const rangeBadge = document.getElementById('range-badge-frequency')
     expect(rangeBadge.textContent).toBe('880 ➔ 220')
+  })
+
+  it('should render curve dropdown beside invert button and allow changing between linear, exponential, and logarithmic', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    const curveSelect = document.getElementById('curve-select-frequency')
+    expect(curveSelect).not.toBeNull()
+    expect(curveSelect.tagName).toBe('SELECT')
+    expect(curveSelect.options.length).toBe(3)
+    expect(curveSelect.options[0].value).toBe('linear')
+    expect(curveSelect.options[1].value).toBe('exponential')
+    expect(curveSelect.options[2].value).toBe('logarithmic')
+
+    // Initial value from schema (exponential for frequency)
+    expect(curveSelect.value).toBe('exponential')
+
+    // Switch to logarithmic
+    curveSelect.value = 'logarithmic'
+    curveSelect.dispatchEvent(new Event('change'))
+
+    expect(main.settings.tone.paramCurves.frequency).toBe('logarithmic')
+    expect(decodeURIComponent(window.location.hash)).toContain('frequency=A:110-440:logarithmic')
+
+    // Switch to linear
+    curveSelect.value = 'linear'
+    curveSelect.dispatchEvent(new Event('change'))
+
+    expect(main.settings.tone.paramCurves.frequency).toBe('linear')
+    expect(decodeURIComponent(window.location.hash)).toContain('frequency=A:110-440:linear')
+  })
+
+  it('should parse and restore per-parameter curve from URL hash on initialization', async () => {
+    window.location.hash = '#sonifier=tone&vol=0.50&feeds=A:1000:6,B:2000:4&frequency=A:220-880:logarithmic:inv&waveform=sine&harmonics=2&volume=0.5'
+
+    const main = await import('../main.js?t=' + Date.now())
+
+    expect(main.settings.tone.sonifiedParams).toContain('frequency')
+    expect(main.settings.tone.paramInverts.frequency).toBe(true)
+    expect(main.settings.tone.paramCurves.frequency).toBe('logarithmic')
+
+    const curveSelect = document.getElementById('curve-select-frequency')
+    expect(curveSelect).not.toBeNull()
+    expect(curveSelect.value).toBe('logarithmic')
   })
 })
