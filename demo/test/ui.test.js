@@ -710,4 +710,36 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(groupHeaders).toContain('Distortion & Texture')
     expect(groupHeaders).toContain('Output')
   })
+
+  it('should include all @web-sonifier packages imported by main.js in index.html importmap', async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+
+    const htmlPath = path.resolve(__dirname, '../index.html')
+    const mainPath = path.resolve(__dirname, '../main.js')
+
+    const htmlContent = fs.readFileSync(htmlPath, 'utf8')
+    const mainContent = fs.readFileSync(mainPath, 'utf8')
+
+    // Extract importmap JSON
+    const importmapMatch = htmlContent.match(/<script type="importmap">\s*([\s\S]*?)\s*<\/script>/)
+    expect(importmapMatch).not.toBeNull()
+    const importmap = JSON.parse(importmapMatch[1])
+    const imports = importmap.imports || {}
+
+    // Extract @web-sonifier imports from main.js
+    const importRegex = /from\s+['"](@web-sonifier\/[^'"]+)['"]/g
+    const foundPackages = new Set()
+    let match
+    while ((match = importRegex.exec(mainContent)) !== null) {
+      foundPackages.add(match[1])
+    }
+
+    expect(foundPackages.size).toBeGreaterThan(0)
+    for (const pkg of foundPackages) {
+      expect(imports[pkg], `Missing importmap entry in demo/index.html for ${pkg}`).toBeDefined()
+      expect(imports[pkg].startsWith('/packages/')).toBe(true)
+    }
+  })
 })
+
