@@ -36,11 +36,12 @@ beforeEach(() => {
 
         <div class="sonifier-row">
           <div class="sonifier-select-group">
-            <select id="sonifier-select">
-              <option value="tone">Tone</option>
-              <option value="geiger">Geiger</option>
-              <option value="purr">Purr</option>
-            </select>
+              <select id="sonifier-select">
+                <option value="tone">Tone</option>
+                <option value="geiger">Geiger</option>
+                <option value="purr">Purr</option>
+                <option value="metal-machine">Metal Machine</option>
+              </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
         </div>
@@ -87,6 +88,12 @@ const mockRuntimeInstance = {
         getParamSchema: () => geigerSchema
       }
     }
+    if (type === 'metal-machine') {
+      return {
+        setParam: vi.fn(),
+        getParamSchema: () => metalMachineSchema
+      }
+    }
     return {
       setParam: vi.fn(),
       getParamSchema: () => toneSchema
@@ -126,11 +133,27 @@ const geigerSchema = [
   { name: 'volume', type: 'number', range: [0, 1], default: 0.7, label: 'Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
 ]
 
+const metalMachineSchema = [
+  { name: 'frequency', type: 'number', range: [40, 300], default: 110, label: 'Base Frequency', unit: 'Hz', curve: 'exponential', group: 'Feedback & Overtones' },
+  { name: 'feedback', type: 'number', range: [0.5, 1.3], default: 0.98, label: 'Loop Gain', unit: 'gain', curve: 'linear', group: 'Feedback & Overtones' },
+  { name: 'screech', type: 'number', range: [0, 1], default: 0.5, label: 'Harmonic Screech', unit: 'norm', curve: 'exponential', group: 'Feedback & Overtones' },
+  { name: 'rate', type: 'number', range: [0.5, 25], default: 7, label: 'Tremolo Speed', unit: 'Hz', curve: 'exponential', group: 'Modulation & Tremolo' },
+  { name: 'clash', type: 'number', range: [0, 1], default: 0.35, label: 'Tremolo Clash', unit: 'ratio', curve: 'linear', group: 'Modulation & Tremolo' },
+  { name: 'depth', type: 'number', range: [0, 1], default: 0.7, label: 'Tremolo Depth', unit: 'norm', curve: 'linear', group: 'Modulation & Tremolo' },
+  { name: 'drive', type: 'number', range: [1, 50], default: 15, label: 'Fuzz Drive', unit: 'gain', curve: 'exponential', group: 'Distortion & Texture' },
+  { name: 'instability', type: 'number', range: [0, 1], default: 0.3, label: 'Chaos / Drift', unit: 'norm', curve: 'linear', group: 'Distortion & Texture' },
+  { name: 'spread', type: 'number', range: [0, 1], default: 0.85, label: 'Stereo Spread', unit: 'stereo', curve: 'linear', group: 'Output' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Master Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
+]
+
 class MockToneSonifier {
   getParamSchema() { return toneSchema }
 }
 class MockGeigerSonifier {
   getParamSchema() { return geigerSchema }
+}
+class MockMetalMachineSonifier {
+  getParamSchema() { return metalMachineSchema }
 }
 
 vi.mock('@web-sonifier/core', () => ({
@@ -149,6 +172,7 @@ vi.mock('@web-sonifier/drone', () => ({ DroneSonifier: class { getParamSchema() 
 vi.mock('@web-sonifier/vosc', () => ({ VoscSonifier: class { getParamSchema() { return [] } } }))
 vi.mock('@web-sonifier/rain', () => ({ RainSonifier: class { getParamSchema() { return [] } } }))
 vi.mock('@web-sonifier/ocean', () => ({ OceanSonifier: class { getParamSchema() { return [] } } }))
+vi.mock('@web-sonifier/metal-machine', () => ({ MetalMachineSonifier: MockMetalMachineSonifier }))
 
 describe('Multi-Feed Panel & Parameter Linking', () => {
   it('should render Feed A and Feed B cards on load with rate and step size controls', async () => {
@@ -661,5 +685,29 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     const curveSelect = document.getElementById('curve-select-frequency')
     expect(curveSelect).not.toBeNull()
     expect(curveSelect.value).toBe('logarithmic')
+  })
+
+  it('should render Lou Reed Metal Machine Music parameter cards and groups when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'metal-machine'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    // Check feedback loop cards exist
+    expect(document.getElementById('param-card-feedback')).not.toBeNull()
+    expect(document.getElementById('param-card-frequency')).not.toBeNull()
+    expect(document.getElementById('param-card-screech')).not.toBeNull()
+    expect(document.getElementById('param-card-rate')).not.toBeNull()
+    expect(document.getElementById('param-card-clash')).not.toBeNull()
+    expect(document.getElementById('param-card-drive')).not.toBeNull()
+    expect(document.getElementById('param-card-instability')).not.toBeNull()
+
+    // Check group headers exist
+    const groupHeaders = Array.from(document.querySelectorAll('.param-group-header')).map(h => h.textContent.trim())
+    expect(groupHeaders).toContain('Feedback & Overtones')
+    expect(groupHeaders).toContain('Modulation & Tremolo')
+    expect(groupHeaders).toContain('Distortion & Texture')
+    expect(groupHeaders).toContain('Output')
   })
 })

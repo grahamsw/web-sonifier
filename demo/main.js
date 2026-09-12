@@ -9,6 +9,7 @@ import { DroneSonifier } from '@web-sonifier/drone'
 import { VoscSonifier } from '@web-sonifier/vosc'
 import { RainSonifier } from '@web-sonifier/rain'
 import { OceanSonifier } from '@web-sonifier/ocean'
+import { MetalMachineSonifier } from '@web-sonifier/metal-machine'
 import {
   renderAutomatedEditor,
   getOutputRangeBounds,
@@ -155,7 +156,8 @@ export const SONIFIER_CLASSES = {
   drone: DroneSonifier,
   vosc: VoscSonifier,
   rain: RainSonifier,
-  ocean: OceanSonifier
+  ocean: OceanSonifier,
+  'metal-machine': MetalMachineSonifier
 }
 
 export function getSonifierSchema(type) {
@@ -446,6 +448,23 @@ export const defaultSettings = {
     swellDepth:        0.7,
     swellDepthStdDev:  0.15,
     foam:              0.5
+  },
+  'metal-machine': {
+    sonifiedParams:    ['feedback'],
+    paramFeeds:        { feedback: 'A', rate: 'B', frequency: 'A', drive: 'B', volume: 'A' },
+    paramRanges:       { feedback: [0.7, 1.25], rate: [2, 16], frequency: [60, 220], drive: [5, 40], volume: [0.1, 0.9] },
+    paramCurves:       {},
+    paramInverts:      {},
+    frequency:         110,
+    feedback:          0.98,
+    screech:           0.5,
+    rate:              7,
+    clash:             0.35,
+    depth:             0.7,
+    drive:             15,
+    instability:       0.3,
+    spread:            0.85,
+    volume:            0.5
   }
 }
 
@@ -464,6 +483,7 @@ runtime.register('drone', DroneSonifier)
 runtime.register('vosc', VoscSonifier)
 runtime.register('rain', RainSonifier)
 runtime.register('ocean', OceanSonifier)
+runtime.register('metal-machine', MetalMachineSonifier)
 
 export let activeSonifier = null
 export let activeSonifierType = null
