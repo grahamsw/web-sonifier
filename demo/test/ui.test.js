@@ -42,6 +42,7 @@ beforeEach(() => {
                 <option value="purr">Purr</option>
                 <option value="metal-machine">Metal Machine</option>
                 <option value="mmm2">MMM2</option>
+                <option value="mmm-lab">Metal Machine Lab</option>
               </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
@@ -174,6 +175,29 @@ class MockMMM2Sonifier {
   getParamSchema() { return mmm2Schema }
 }
 
+const mmmlabSchema = [
+  { name: 'ampHum', type: 'number', range: [0, 1], default: 0.35, label: 'Transformer Hum', unit: 'gain', curve: 'linear', group: '1. Idling Amp Floor' },
+  { name: 'ampHiss', type: 'number', range: [0, 1], default: 0.20, label: 'Thermal Hiss', unit: 'gain', curve: 'linear', group: '1. Idling Amp Floor' },
+  { name: 'tuningPreset', type: 'enum', default: 'ostrich-d', label: 'String Tuning', group: '2. Guitar Strings & Tunings', options: [{ label: 'Ostrich D', value: 'ostrich-d' }] },
+  { name: 'basePitch', type: 'number', range: [40, 150], default: 73.416, label: 'Base Pitch (D1)', unit: 'Hz', curve: 'exponential', group: '2. Guitar Strings & Tunings' },
+  { name: 'detuneSpread', type: 'number', range: [-50, 50], default: 6, label: 'Detune Spread', unit: 'cents', curve: 'linear', group: '2. Guitar Strings & Tunings' },
+  { name: 'stringDamping', type: 'number', range: [0, 1], default: 0.25, label: 'String Damping', unit: 'norm', curve: 'linear', group: '2. Guitar Strings & Tunings' },
+  { name: 'feedbackGain', type: 'number', range: [0, 1.3], default: 0.98, label: 'Feedback Gain', unit: 'gain', curve: 'linear', group: '3. Acoustic Feedback Loop' },
+  { name: 'couplingDistance', type: 'number', range: [1, 25], default: 4, label: 'Distance Delay', unit: 'ms', curve: 'linear', group: '3. Acoustic Feedback Loop' },
+  { name: 'sagThreshold', type: 'number', range: [0.15, 1], default: 0.65, label: 'Sag Threshold', unit: 'thresh', curve: 'linear', group: '4. Power Amp Sag & Choke' },
+  { name: 'sagDepth', type: 'number', range: [0, 1], default: 0.8, label: 'Choke Depth', unit: 'depth', curve: 'linear', group: '4. Power Amp Sag & Choke' },
+  { name: 'sagRecovery', type: 'number', range: [20, 500], default: 160, label: 'Recovery Time', unit: 'ms', curve: 'exponential', group: '4. Power Amp Sag & Choke' },
+  { name: 'harmonicShriek', type: 'number', range: [0, 1], default: 0.4, label: 'Harmonic Shriek', unit: 'gain', curve: 'linear', group: '5. Shriek & Harmonic Bending' },
+  { name: 'pickupAngle', type: 'number', range: [0, 1], default: 0.3, label: 'Pickup Angle / Bend', unit: 'phase', curve: 'linear', group: '5. Shriek & Harmonic Bending' },
+  { name: 'cabinetThump', type: 'number', range: [0, 1], default: 0.5, label: 'Cabinet Thump', unit: 'gain', curve: 'linear', group: '6. Low Rumble & Cabinet Resonance' },
+  { name: 'subBeating', type: 'number', range: [0, 1], default: 0.4, label: 'Sub-Harmonic Beating', unit: 'depth', curve: 'linear', group: '6. Low Rumble & Cabinet Resonance' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Master Volume', unit: 'gain', curve: 'logarithmic', group: '7. Output' }
+]
+
+class MockMMMLabSonifier {
+  getParamSchema() { return mmmlabSchema }
+}
+
 vi.mock('@web-sonifier/core', () => ({
   Runtime: vi.fn(function() { return mockRuntimeInstance }),
   Adapter: vi.fn(function(config) { return new MockAdapter(config) }),
@@ -192,6 +216,7 @@ vi.mock('@web-sonifier/rain', () => ({ RainSonifier: class { getParamSchema() { 
 vi.mock('@web-sonifier/ocean', () => ({ OceanSonifier: class { getParamSchema() { return [] } } }))
 vi.mock('@web-sonifier/metal-machine', () => ({ MetalMachineSonifier: MockMetalMachineSonifier }))
 vi.mock('@web-sonifier/mmm2', () => ({ MMM2Sonifier: MockMMM2Sonifier }))
+vi.mock('@web-sonifier/mmm-lab', () => ({ MMMLabSonifier: MockMMMLabSonifier }))
 
 describe('Multi-Feed Panel & Parameter Linking', () => {
   it('should render Feed A and Feed B cards on load with rate and step size controls', async () => {
@@ -757,6 +782,42 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(groupHeaders).toContain('Chaos & Modulation')
     expect(groupHeaders).toContain('Cabinet & Room Resonance')
     expect(groupHeaders).toContain('Output')
+  })
+
+  it('should render MMMLab parameter cards and all 7 progressive groups when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm-lab'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    // Check parameter cards exist across all 7 progressive groups
+    expect(document.getElementById('param-card-ampHum')).not.toBeNull()
+    expect(document.getElementById('param-card-ampHiss')).not.toBeNull()
+    expect(document.getElementById('param-card-tuningPreset')).not.toBeNull()
+    expect(document.getElementById('param-card-basePitch')).not.toBeNull()
+    expect(document.getElementById('param-card-detuneSpread')).not.toBeNull()
+    expect(document.getElementById('param-card-stringDamping')).not.toBeNull()
+    expect(document.getElementById('param-card-feedbackGain')).not.toBeNull()
+    expect(document.getElementById('param-card-couplingDistance')).not.toBeNull()
+    expect(document.getElementById('param-card-sagThreshold')).not.toBeNull()
+    expect(document.getElementById('param-card-sagDepth')).not.toBeNull()
+    expect(document.getElementById('param-card-sagRecovery')).not.toBeNull()
+    expect(document.getElementById('param-card-harmonicShriek')).not.toBeNull()
+    expect(document.getElementById('param-card-pickupAngle')).not.toBeNull()
+    expect(document.getElementById('param-card-cabinetThump')).not.toBeNull()
+    expect(document.getElementById('param-card-subBeating')).not.toBeNull()
+    expect(document.getElementById('param-card-volume')).not.toBeNull()
+
+    // Check all 7 group headers exist
+    const groupHeaders = Array.from(document.querySelectorAll('.param-group-header')).map(h => h.textContent.trim())
+    expect(groupHeaders).toContain('1. Idling Amp Floor')
+    expect(groupHeaders).toContain('2. Guitar Strings & Tunings')
+    expect(groupHeaders).toContain('3. Acoustic Feedback Loop')
+    expect(groupHeaders).toContain('4. Power Amp Sag & Choke')
+    expect(groupHeaders).toContain('5. Shriek & Harmonic Bending')
+    expect(groupHeaders).toContain('6. Low Rumble & Cabinet Resonance')
+    expect(groupHeaders).toContain('7. Output')
   })
 
   it('should include all @web-sonifier packages imported by main.js in index.html importmap', async () => {

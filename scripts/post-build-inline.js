@@ -27,6 +27,12 @@ const targets = [
     processorPath: 'packages/mmm2/src/MMM2Processor.js',
     distDir: 'packages/mmm2/dist',
     targetString: '/packages/mmm2/src/MMM2Processor.js',
+  },
+  {
+    name: 'mmm-lab',
+    processorPath: 'packages/mmm-lab/src/MMMLabProcessor.js',
+    distDir: 'packages/mmm-lab/dist',
+    targetString: '/packages/mmm-lab/src/MMMLabProcessor.js',
   }
 ];
 
