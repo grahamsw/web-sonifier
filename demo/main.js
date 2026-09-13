@@ -11,6 +11,7 @@ import { RainSonifier } from '@web-sonifier/rain'
 import { OceanSonifier } from '@web-sonifier/ocean'
 import { MetalMachineSonifier } from '@web-sonifier/metal-machine'
 import { MMM2Sonifier } from '@web-sonifier/mmm2'
+import { MMMLabSonifier } from '@web-sonifier/mmm-lab'
 import {
   renderAutomatedEditor,
   getOutputRangeBounds,
@@ -159,7 +160,8 @@ export const SONIFIER_CLASSES = {
   rain: RainSonifier,
   ocean: OceanSonifier,
   'metal-machine': MetalMachineSonifier,
-  mmm2: MMM2Sonifier
+  mmm2: MMM2Sonifier,
+  'mmm-lab': MMMLabSonifier
 }
 
 export function getSonifierSchema(type) {
@@ -485,6 +487,29 @@ export const defaultSettings = {
     modalResonance:    0.6,
     allpassShear:      0.5,
     volume:            0.5
+  },
+  'mmm-lab': {
+    sonifiedParams:    ['feedbackGain'],
+    paramFeeds:        { feedbackGain: 'A', harmonicShriek: 'B', cabinetThump: 'A', ampHum: 'B', volume: 'A' },
+    paramRanges:       { feedbackGain: [0.80, 1.15], harmonicShriek: [0, 1], cabinetThump: [0, 1], ampHum: [0.1, 0.8], volume: [0.1, 0.8] },
+    paramCurves:       {},
+    paramInverts:      {},
+    ampHum:            0.35,
+    ampHiss:           0.20,
+    tuningPreset:      'ostrich-d',
+    basePitch:         73.416,
+    detuneSpread:      6,
+    stringDamping:     0.25,
+    feedbackGain:      0.98,
+    couplingDistance:  4.0,
+    sagThreshold:      0.65,
+    sagDepth:          0.80,
+    sagRecovery:       160.0,
+    harmonicShriek:    0.40,
+    pickupAngle:       0.30,
+    cabinetThump:      0.50,
+    subBeating:        0.40,
+    volume:            0.5
   }
 }
 
@@ -505,6 +530,7 @@ runtime.register('rain', RainSonifier)
 runtime.register('ocean', OceanSonifier)
 runtime.register('metal-machine', MetalMachineSonifier)
 runtime.register('mmm2', MMM2Sonifier)
+runtime.register('mmm-lab', MMMLabSonifier)
 
 export let activeSonifier = null
 export let activeSonifierType = null
