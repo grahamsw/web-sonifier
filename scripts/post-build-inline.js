@@ -21,6 +21,12 @@ const targets = [
     processorPath: 'packages/vosc/src/VoscProcessor.js',
     distDir: 'packages/vosc/dist',
     targetString: '/packages/vosc/src/VoscProcessor.js',
+  },
+  {
+    name: 'mmm2',
+    processorPath: 'packages/mmm2/src/MMM2Processor.js',
+    distDir: 'packages/mmm2/dist',
+    targetString: '/packages/mmm2/src/MMM2Processor.js',
   }
 ];
 

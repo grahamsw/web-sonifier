@@ -41,6 +41,7 @@ beforeEach(() => {
                 <option value="geiger">Geiger</option>
                 <option value="purr">Purr</option>
                 <option value="metal-machine">Metal Machine</option>
+                <option value="mmm2">MMM2</option>
               </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
@@ -146,6 +147,20 @@ const metalMachineSchema = [
   { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Master Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
 ]
 
+const mmm2Schema = [
+  { name: 'feedback', type: 'number', range: [0.7, 1.15], default: 0.995, label: 'Loop Feedback', unit: 'gain', curve: 'linear', group: 'Feedback & Loops' },
+  { name: 'droneFreq', type: 'number', range: [30, 400], default: 82, label: 'Drone Frequency', unit: 'Hz', curve: 'exponential', group: 'Feedback & Loops' },
+  { name: 'freqShift', type: 'number', range: [0, 40], default: 7.3, label: 'Frequency Shift', unit: 'Hz', curve: 'linear', group: 'Feedback & Loops' },
+  { name: 'drive', type: 'number', range: [1, 25], default: 4, label: 'In-Loop Drive', unit: 'gain', curve: 'exponential', group: 'Distortion & Wavefolding' },
+  { name: 'wavefold', type: 'number', range: [0, 1], default: 0.3, label: 'Wavefolding', unit: 'depth', curve: 'linear', group: 'Distortion & Wavefolding' },
+  { name: 'chaosSpeed', type: 'number', range: [0.01, 2], default: 0.2, label: 'Lorenz Speed', unit: 'rate', curve: 'exponential', group: 'Chaos & Modulation' },
+  { name: 'chaosDepth', type: 'number', range: [0, 1], default: 0.4, label: 'Chaos Depth', unit: 'depth', curve: 'linear', group: 'Chaos & Modulation' },
+  { name: 'flutter', type: 'number', range: [0, 1], default: 0.25, label: 'Tape Flutter', unit: 'depth', curve: 'linear', group: 'Chaos & Modulation' },
+  { name: 'modalResonance', type: 'number', range: [0, 1], default: 0.6, label: 'Cabinet Modes', unit: 'gain', curve: 'linear', group: 'Cabinet & Room Resonance' },
+  { name: 'allpassShear', type: 'number', range: [0, 1], default: 0.5, label: 'Phase Shear', unit: 'depth', curve: 'linear', group: 'Cabinet & Room Resonance' },
+  { name: 'volume', type: 'number', range: [0, 1], default: 0.5, label: 'Volume', unit: 'gain', curve: 'logarithmic', group: 'Output' }
+]
+
 class MockToneSonifier {
   getParamSchema() { return toneSchema }
 }
@@ -154,6 +169,9 @@ class MockGeigerSonifier {
 }
 class MockMetalMachineSonifier {
   getParamSchema() { return metalMachineSchema }
+}
+class MockMMM2Sonifier {
+  getParamSchema() { return mmm2Schema }
 }
 
 vi.mock('@web-sonifier/core', () => ({
@@ -173,6 +191,7 @@ vi.mock('@web-sonifier/vosc', () => ({ VoscSonifier: class { getParamSchema() { 
 vi.mock('@web-sonifier/rain', () => ({ RainSonifier: class { getParamSchema() { return [] } } }))
 vi.mock('@web-sonifier/ocean', () => ({ OceanSonifier: class { getParamSchema() { return [] } } }))
 vi.mock('@web-sonifier/metal-machine', () => ({ MetalMachineSonifier: MockMetalMachineSonifier }))
+vi.mock('@web-sonifier/mmm2', () => ({ MMM2Sonifier: MockMMM2Sonifier }))
 
 describe('Multi-Feed Panel & Parameter Linking', () => {
   it('should render Feed A and Feed B cards on load with rate and step size controls', async () => {
@@ -708,6 +727,35 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(groupHeaders).toContain('Feedback & Overtones')
     expect(groupHeaders).toContain('Modulation & Tremolo')
     expect(groupHeaders).toContain('Distortion & Texture')
+    expect(groupHeaders).toContain('Output')
+  })
+
+  it('should render MMM2 Drone Ecology parameter cards and groups when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm2'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    // Check feedback & loops cards exist
+    expect(document.getElementById('param-card-feedback')).not.toBeNull()
+    expect(document.getElementById('param-card-droneFreq')).not.toBeNull()
+    expect(document.getElementById('param-card-freqShift')).not.toBeNull()
+    expect(document.getElementById('param-card-drive')).not.toBeNull()
+    expect(document.getElementById('param-card-wavefold')).not.toBeNull()
+    expect(document.getElementById('param-card-chaosSpeed')).not.toBeNull()
+    expect(document.getElementById('param-card-chaosDepth')).not.toBeNull()
+    expect(document.getElementById('param-card-flutter')).not.toBeNull()
+    expect(document.getElementById('param-card-modalResonance')).not.toBeNull()
+    expect(document.getElementById('param-card-allpassShear')).not.toBeNull()
+    expect(document.getElementById('param-card-volume')).not.toBeNull()
+
+    // Check group headers exist
+    const groupHeaders = Array.from(document.querySelectorAll('.param-group-header')).map(h => h.textContent.trim())
+    expect(groupHeaders).toContain('Feedback & Loops')
+    expect(groupHeaders).toContain('Distortion & Wavefolding')
+    expect(groupHeaders).toContain('Chaos & Modulation')
+    expect(groupHeaders).toContain('Cabinet & Room Resonance')
     expect(groupHeaders).toContain('Output')
   })
 
