@@ -231,17 +231,17 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const rawNoise = (Math.random() * 2 - 1)
       this.hissState += 0.28 * (rawNoise - this.hissState)
 
-      const ampFloor = (humSig * 0.08 * ampHum) + (this.hissState * 0.045 * ampHiss)
+      const ampFloor = (humSig * 0.07 * ampHum) + (this.hissState * 0.035 * ampHiss)
 
-      // 2. Read Acoustic Feedback Loop
+      // 2. Read Acoustic Feedback from Speaker Propagation Delay
       const readProp = (this.propWriteIndex - propDelaySamples + this.propBufferSize * 4) % this.propBufferSize
       const intProp = Math.floor(readProp)
       const fracProp = readProp - intProp
       const nextProp = (intProp + 1) & this.propBufferMask
-      const acousticFeedback = (this.propBuffer[intProp] * (1 - fracProp) + this.propBuffer[nextProp] * fracProp) * feedbackGain
+      const rawSpeakerAcoustic = this.propBuffer[intProp] * (1 - fracProp) + this.propBuffer[nextProp] * fracProp
+      const acousticFeedback = rawSpeakerAcoustic * feedbackGain
 
-      // 3. Shriek High-Harmonic Peaking Node
-      // Filter acoustic feedback through 2.2 kHz bandpass
+      // 3. Shriek High-Harmonic Peaking Node (2.2 kHz overtone resonance)
       const shriekIn = acousticFeedback
       const shriekBand = this.sb0 * shriekIn + this.sb1 * this.shriekX1 + this.sb2 * this.shriekX2
         - this.sa1 * this.shriekY1 - this.sa2 * this.shriekY2
@@ -251,10 +251,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.shriekY1 = shriekBand
 
       // High frequency overtone emphasis injected back into strings
-      const feedbackWithShriek = acousticFeedback + (shriekBand * harmonicShriek * 1.8)
+      const feedbackWithShriek = acousticFeedback + (shriekBand * harmonicShriek * 3.0)
 
-      // Total excitation driving the guitar strings
-      const stringExcitation = ampFloor + feedbackWithShriek
+      // Total excitation driving the guitar strings:
+      // Hum drives strings continuously; acoustic feedback drives strings into runaway resonance
+      const stringExcitation = (ampFloor * 0.35) + (feedbackWithShriek * 1.15)
 
       // 4. Update 6-String Karplus-Strong Resonator Bank
       let sumStringL = 0.0
@@ -273,15 +274,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         const nextPos = (intPos + 1) & this.stringBufferMask
         const delayedSample = buf[intPos] * (1 - frac) + buf[nextPos] * frac
 
-        // One-pole loop damping filter
-        const dampAlpha = Math.min(0.75, Math.max(0.05, 1.0 - stringDamping * 0.55))
+        // One-pole loop damping filter (lower damping = brighter, longer ring)
+        const dampAlpha = Math.min(0.85, Math.max(0.08, 1.0 - stringDamping * 0.45))
         this.stringFilterStates[s] = delayedSample * dampAlpha + this.stringFilterStates[s] * (1 - dampAlpha)
         const stringOut = this.stringFilterStates[s]
 
-        // Write excitation + loop feedback into string delay line
-        // Each string picks up excitation according to its physical coupling
-        const loopLoss = 0.998 // natural mechanical decay
-        buf[wIdx] = (stringOut * loopLoss) + (stringExcitation * 0.35)
+        // Per-period string sustain
+        const stringSustain = 0.9992
+        buf[wIdx] = (stringOut * stringSustain) + (stringExcitation * 0.75)
         this.stringWriteIndices[s] = (wIdx + 1) & this.stringBufferMask
 
         // Sum into stereo mix
@@ -291,32 +291,37 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         if (s === 0) lowStringSignal = stringOut
       }
 
-      // 5. Power Amp Sag & Choking Model ("The Valve On/Off")
-      const totalRawAmpSignal = (sumStringL + sumStringR) * 0.5 + ampFloor
-      const absSig = Math.abs(totalRawAmpSignal)
+      // 5. Guitar Pickups & Cranked Amplifier Preamp
+      const pickupSignal = (sumStringL + sumStringR) * 0.5
+      // Preamp boosts guitar signal into power amp
+      const ampInput = (pickupSignal * (1.8 + feedbackGain * 2.2)) + ampFloor
+      const absSig = Math.abs(ampInput)
 
-      // Tube grid conducts under overload
-      if (absSig > sagThreshold) {
-        this.sagCharge += (absSig - sagThreshold) * 0.009
+      // 6. Power Amp Sag & Choking Model ("The Valve On/Off")
+      // Bounded grid capacitor with fast attack (~8ms) and variable bleed recovery
+      const overload = Math.max(0.0, absSig - sagThreshold)
+      const targetCharge = Math.min(1.0, overload * 1.5)
+      if (targetCharge > this.sagCharge) {
+        this.sagCharge += (targetCharge - this.sagCharge) * 0.004
+      } else {
+        this.sagCharge *= sagBleed
       }
-      // Bleed off through virtual grid resistor
-      this.sagCharge *= sagBleed
 
       // Dynamic tube gain reduction from bias shift
-      const sagGainReduction = Math.max(0.0, 1.0 - this.sagCharge * sagDepth)
+      const sagGainReduction = Math.max(0.05, 1.0 - this.sagCharge * sagDepth)
 
-      // Non-linear power-tube saturation
-      const overdriven = Math.tanh(totalRawAmpSignal * 2.2) * sagGainReduction
+      // Non-linear tube overdrive / saturation
+      const overdriven = Math.tanh(ampInput * 1.9) * sagGainReduction
 
-      // 6. Write Saturated Output into Speaker Propagation Delay
+      // 7. Write Saturated Output into Speaker Propagation Delay
       this.propBuffer[this.propWriteIndex] = overdriven
       this.propWriteIndex = (this.propWriteIndex + 1) & this.propBufferMask
 
-      // 7. Low Rumble & Cabinet Thump
-      // Heterodyne difference product between 60Hz hum and low string
-      const subProduct = humSig * lowStringSignal * subBeating * 1.5
+      // 8. Low Rumble & Cabinet Thump
+      // Intermodulation difference product between 60Hz hum and low string
+      const subProduct = humSig * lowStringSignal * subBeating * 2.0
 
-      // Pass through 76Hz resonant cabinet air-cavity filter
+      // 76Hz resonant cabinet air-cavity filter
       const thumpIn = overdriven + subProduct
       const thumpResonance = this.tb0 * thumpIn + this.tb1 * this.thumpX1 + this.tb2 * this.thumpX2
         - this.ta1 * this.thumpY1 - this.ta2 * this.thumpY2
@@ -325,11 +330,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.thumpY2 = this.thumpY1
       this.thumpY1 = thumpResonance
 
-      const rumbleSignal = thumpResonance * cabinetThump * 0.85
+      const rumbleSignal = thumpResonance * cabinetThump * 0.9
 
-      // 8. Final Stereo Output
-      left[i] = (sumStringL * sagGainReduction) + (rumbleSignal * 0.5) + (ampFloor * 0.3)
-      right[i] = (sumStringR * sagGainReduction) + (rumbleSignal * 0.5) + (ampFloor * 0.3)
+      // 9. Output to Speakers (the overdriven amp sound + cabinet thump + ambient room hum)
+      left[i] = (overdriven * 0.70 + sumStringL * 0.30 + rumbleSignal * 0.55 + ampFloor * 0.25)
+      right[i] = (overdriven * 0.70 + sumStringR * 0.30 + rumbleSignal * 0.55 + ampFloor * 0.25)
     }
 
     return true
