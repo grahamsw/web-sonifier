@@ -268,6 +268,9 @@ export class MMMLabSonifier extends SonifierBase {
 
     // 6. Apply Schema Defaults
     this.applyDefaults()
+    for (const [k, v] of Object.entries(this._paramValues)) {
+      this.onParam(k, v)
+    }
     this._initialized = true
   }
 

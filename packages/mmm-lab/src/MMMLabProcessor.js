@@ -95,6 +95,12 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.thumpY2 = 0
     this._initThumpFilter(76, 4.0)
 
+    // DC Blocking state for strings and pickup
+    this.stringDcX = new Float32Array(6)
+    this.stringDcY = new Float32Array(6)
+    this.pickupX1 = 0
+    this.pickupY1 = 0
+
     // Port messages
     this.port.onmessage = (event) => {
       const data = event.data
@@ -181,9 +187,10 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const cabinetThump = parameters.cabinetThump ? parameters.cabinetThump[0] : 0.50
     const subBeating = parameters.subBeating ? parameters.subBeating[0] : 0.40
 
-    // Sag recovery bleed coefficient
+    // Sag recovery bleed and dynamic attack coefficients
     const recoverySec = Math.max(0.015, sagRecovery / 1000.0)
     const sagBleed = Math.exp(-1.0 / (this.sampleRate * recoverySec))
+    const sagAttack = 1.0 - Math.exp(-1.0 / (this.sampleRate * 0.035))
 
     // Compute period in samples for each string with microtonal detuning spread
     const stringPeriods = new Float32Array(6)
@@ -203,9 +210,9 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     }
 
     // Acoustic distance delay in samples + pickup micro-angle
-    const propDelaySamples = Math.max(2.0, Math.min(this.propBufferSize - 2,
-      (couplingDistance / 1000.0) * this.sampleRate + (pickupAngle * 0.0012 * this.sampleRate)
-    ))
+    // ~1ms to 25ms delay (approx 1ft to 25ft acoustic room coupling)
+    const angleOffset = Math.sin(pickupAngle * Math.PI) * 8.0
+    const propDelaySamples = Math.max(4.0, (couplingDistance * 0.001 * this.sampleRate) + angleOffset)
 
     // String stereo panning positions (from string 0 left to string 5 right)
     const panWeights = [
@@ -278,8 +285,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         const dampAlpha = Math.min(0.85, Math.max(0.08, 1.0 - stringDamping * 0.45))
         this.stringFilterStates[s] = delayedSample * dampAlpha + this.stringFilterStates[s] * (1 - dampAlpha)
 
+        // DC block inside string: strings are anchored at nut and bridge (cannot sustain DC displacement)
+        const lpOut = this.stringFilterStates[s]
+        const dcBlocked = lpOut - this.stringDcX[s] + 0.995 * this.stringDcY[s]
+        this.stringDcX[s] = lpOut
+        this.stringDcY[s] = dcBlocked
+
         // Physical string displacement saturation: steel strings softly saturate under high amplitude
-        const stringOut = Math.tanh(this.stringFilterStates[s] * 1.2) / 1.2
+        const stringOut = Math.tanh(dcBlocked * 1.2) / 1.2
 
         // Per-period string sustain
         const stringSustain = 0.9992
@@ -294,23 +307,28 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       }
 
       // 5. Guitar Pickups & Cranked Amplifier Preamp
-      const pickupSignal = (sumStringL + sumStringR) * 0.5
+      const rawPickup = (sumStringL + sumStringR) * 0.5
+      // DC-block pickup signal (coupling cap between inductive pickup and preamp, removes DC latching)
+      const pickupSignal = rawPickup - this.pickupX1 + 0.995 * this.pickupY1
+      this.pickupX1 = rawPickup
+      this.pickupY1 = pickupSignal
+
       // Preamp boosts guitar signal into power amp
       const ampInput = (pickupSignal * (1.8 + feedbackGain * 2.2)) + ampFloor
       const absSig = Math.abs(ampInput)
 
       // 6. Power Amp Sag & Choking Model ("The Valve On/Off")
-      // Bounded grid capacitor with fast attack (~8ms) and variable bleed recovery
+      // Bounded grid capacitor with dynamic attack (~35ms) and variable bleed recovery
       const overload = Math.max(0.0, absSig - sagThreshold)
       const targetCharge = Math.min(1.0, overload * 1.5)
       if (targetCharge > this.sagCharge) {
-        this.sagCharge += (targetCharge - this.sagCharge) * 0.004
+        this.sagCharge += (targetCharge - this.sagCharge) * sagAttack
       } else {
         this.sagCharge *= sagBleed
       }
 
       // Dynamic tube gain reduction from bias shift
-      const sagGainReduction = Math.max(0.05, 1.0 - this.sagCharge * sagDepth)
+      const sagGainReduction = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
 
       // Non-linear tube overdrive / saturation
       const overdriven = Math.tanh(ampInput * 1.9) * sagGainReduction
@@ -335,8 +353,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const rumbleSignal = thumpResonance * cabinetThump * 0.9
 
       // 9. Output to Speakers (overdriven amp + guitar resonance + cabinet thump + hum floor)
-      left[i] = (overdriven * 0.50 + sumStringL * 0.20 + rumbleSignal * 0.35 + ampFloor * 0.20)
-      right[i] = (overdriven * 0.50 + sumStringR * 0.20 + rumbleSignal * 0.35 + ampFloor * 0.20)
+      left[i] = (overdriven * 0.45 + sumStringL * 0.22 + rumbleSignal * 0.20 + ampFloor * 0.15)
+      right[i] = (overdriven * 0.45 + sumStringR * 0.22 + rumbleSignal * 0.20 + ampFloor * 0.15)
     }
 
     return true
