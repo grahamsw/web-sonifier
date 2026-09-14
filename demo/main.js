@@ -491,7 +491,7 @@ export const defaultSettings = {
   'mmm-lab': {
     sonifiedParams:    ['feedbackGain'],
     paramFeeds:        { feedbackGain: 'A', harmonicShriek: 'B', cabinetThump: 'A', ampHum: 'B', volume: 'A' },
-    paramRanges:       { feedbackGain: [0.80, 1.15], harmonicShriek: [0, 1], cabinetThump: [0, 1], ampHum: [0.1, 0.8], volume: [0.1, 0.8] },
+    paramRanges:       { feedbackGain: [0.0, 2.0], harmonicShriek: [0, 1], cabinetThump: [0, 1], ampHum: [0.1, 0.8], volume: [0.1, 0.8] },
     paramCurves:       {},
     paramInverts:      {},
     ampHum:            0.35,
@@ -500,7 +500,7 @@ export const defaultSettings = {
     basePitch:         73.416,
     detuneSpread:      6,
     stringDamping:     0.25,
-    feedbackGain:      0.98,
+    feedbackGain:      1.0,
     couplingDistance:  4.0,
     sagThreshold:      0.65,
     sagDepth:          0.80,
