@@ -94,6 +94,38 @@ describe('MMMLabProcessor DSP Stability', async () => {
     expect(zeroCrossings).toBeGreaterThanOrEqual(4) // Real oscillating AC audio
   })
 
+  it('exhibits distinct dynamic range between low gain (clean/hum) and high gain (feedback)', () => {
+    const pLow = new processorClass()
+    const lowParams = makeParams({ feedbackGain: [0.3] })
+    let lowPeak = 0
+    for (let b = 0; b < 200; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      pLow.process([], [[left, right]], lowParams)
+      for (let i = 0; i < 128; i++) {
+        const absL = Math.abs(left[i])
+        if (absL > lowPeak) lowPeak = absL
+      }
+    }
+
+    const pHigh = new processorClass()
+    const highParams = makeParams({ feedbackGain: [1.3] })
+    let highPeak = 0
+    for (let b = 0; b < 200; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      pHigh.process([], [[left, right]], highParams)
+      for (let i = 0; i < 128; i++) {
+        const absL = Math.abs(left[i])
+        if (absL > highPeak) highPeak = absL
+      }
+    }
+
+    expect(lowPeak).toBeLessThan(0.10) // Sub-threshold remains quiet/clean
+    expect(highPeak).toBeGreaterThan(0.35) // High gain enters full feedback
+    expect(highPeak / lowPeak).toBeGreaterThan(3.5) // Distinct, wide dynamic contrast
+  })
+
   it('responds to tuning preset message port events', () => {
     expect(() => {
       processor.port.onmessage({ data: { type: 'tuning', preset: 'open-d' } })

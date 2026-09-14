@@ -92,8 +92,8 @@ export class MMMLabSonifier extends SonifierBase {
       {
         name: 'feedbackGain',
         type: 'number',
-        range: [0.0, 1.30],
-        default: 0.98,
+        range: [0.0, 2.0],
+        default: 1.0,
         unit: 'gain',
         curve: 'linear',
         group: '3. Acoustic Feedback Loop',

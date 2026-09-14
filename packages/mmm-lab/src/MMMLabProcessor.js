@@ -24,7 +24,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       { name: 'stringDamping', defaultValue: 0.25, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
 
       // 3. Acoustic Feedback Loop
-      { name: 'feedbackGain', defaultValue: 0.98, minValue: 0.0, maxValue: 1.30, automationRate: 'k-rate' },
+      { name: 'feedbackGain', defaultValue: 1.0, minValue: 0.0, maxValue: 2.5, automationRate: 'k-rate' },
       { name: 'couplingDistance', defaultValue: 4.0, minValue: 1.0, maxValue: 25.0, automationRate: 'k-rate' },
 
       // 4. Power Amp Sag & Choke
@@ -262,7 +262,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       // Total excitation driving the guitar strings:
       // Hum drives strings continuously; acoustic feedback drives strings into resonance
-      const stringExcitation = (ampFloor * 0.25) + (feedbackWithShriek * 0.45)
+      const stringExcitation = (ampFloor * 0.08) + (feedbackWithShriek * 0.018)
 
       // 4. Update 6-String Karplus-Strong Resonator Bank
       let sumStringL = 0.0
@@ -295,7 +295,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         const stringOut = Math.tanh(dcBlocked * 1.2) / 1.2
 
         // Per-period string sustain
-        const stringSustain = 0.9992
+        const stringSustain = 0.994
         buf[wIdx] = (stringOut * stringSustain) + (stringExcitation * 0.75)
         this.stringWriteIndices[s] = (wIdx + 1) & this.stringBufferMask
 
@@ -313,8 +313,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.pickupX1 = rawPickup
       this.pickupY1 = pickupSignal
 
-      // Preamp boosts guitar signal into power amp
-      const ampInput = (pickupSignal * (1.8 + feedbackGain * 2.2)) + ampFloor
+      // Preamp boosts guitar signal into power amp (unity feedback threshold around feedbackGain = 1.0)
+      const ampInput = (pickupSignal * (1.0 + feedbackGain * 1.6)) + ampFloor
       const absSig = Math.abs(ampInput)
 
       // 6. Power Amp Sag & Choking Model ("The Valve On/Off")
@@ -353,8 +353,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const rumbleSignal = thumpResonance * cabinetThump * 0.9
 
       // 9. Output to Speakers (overdriven amp + guitar resonance + cabinet thump + hum floor)
-      left[i] = (overdriven * 0.45 + sumStringL * 0.22 + rumbleSignal * 0.20 + ampFloor * 0.15)
-      right[i] = (overdriven * 0.45 + sumStringR * 0.22 + rumbleSignal * 0.20 + ampFloor * 0.15)
+      left[i] = (overdriven * 0.50 + sumStringL * 0.25 + rumbleSignal * 0.25 + ampFloor * 0.18)
+      right[i] = (overdriven * 0.50 + sumStringR * 0.25 + rumbleSignal * 0.25 + ampFloor * 0.18)
     }
 
     return true
