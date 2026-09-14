@@ -77,6 +77,23 @@ describe('MMMLabProcessor DSP Stability', async () => {
     expect(peak).toBeLessThanOrEqual(1.0) // Bounded by string saturation, never blows up to +30 dBFS
   })
 
+  it('produces oscillating AC audio with frequent zero crossings rather than DC lock', () => {
+    const params = makeParams({ feedbackGain: [1.05] })
+    // Run 100 blocks
+    runBlocks(100, params)
+    const left = new Float32Array(128)
+    const right = new Float32Array(128)
+    processor.process([], [[left, right]], params)
+
+    let zeroCrossings = 0
+    for (let i = 1; i < 128; i++) {
+      if ((left[i] >= 0 && left[i-1] < 0) || (left[i] < 0 && left[i-1] >= 0)) {
+        zeroCrossings++
+      }
+    }
+    expect(zeroCrossings).toBeGreaterThanOrEqual(4) // Real oscillating AC audio
+  })
+
   it('responds to tuning preset message port events', () => {
     expect(() => {
       processor.port.onmessage({ data: { type: 'tuning', preset: 'open-d' } })
