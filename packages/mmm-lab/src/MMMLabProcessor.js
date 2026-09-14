@@ -254,8 +254,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const feedbackWithShriek = acousticFeedback + (shriekBand * harmonicShriek * 3.0)
 
       // Total excitation driving the guitar strings:
-      // Hum drives strings continuously; acoustic feedback drives strings into runaway resonance
-      const stringExcitation = (ampFloor * 0.35) + (feedbackWithShriek * 1.15)
+      // Hum drives strings continuously; acoustic feedback drives strings into resonance
+      const stringExcitation = (ampFloor * 0.25) + (feedbackWithShriek * 0.45)
 
       // 4. Update 6-String Karplus-Strong Resonator Bank
       let sumStringL = 0.0
@@ -277,7 +277,9 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         // One-pole loop damping filter (lower damping = brighter, longer ring)
         const dampAlpha = Math.min(0.85, Math.max(0.08, 1.0 - stringDamping * 0.45))
         this.stringFilterStates[s] = delayedSample * dampAlpha + this.stringFilterStates[s] * (1 - dampAlpha)
-        const stringOut = this.stringFilterStates[s]
+
+        // Physical string displacement saturation: steel strings softly saturate under high amplitude
+        const stringOut = Math.tanh(this.stringFilterStates[s] * 1.2) / 1.2
 
         // Per-period string sustain
         const stringSustain = 0.9992
@@ -332,9 +334,9 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       const rumbleSignal = thumpResonance * cabinetThump * 0.9
 
-      // 9. Output to Speakers (the overdriven amp sound + cabinet thump + ambient room hum)
-      left[i] = (overdriven * 0.70 + sumStringL * 0.30 + rumbleSignal * 0.55 + ampFloor * 0.25)
-      right[i] = (overdriven * 0.70 + sumStringR * 0.30 + rumbleSignal * 0.55 + ampFloor * 0.25)
+      // 9. Output to Speakers (overdriven amp + guitar resonance + cabinet thump + hum floor)
+      left[i] = (overdriven * 0.50 + sumStringL * 0.20 + rumbleSignal * 0.35 + ampFloor * 0.20)
+      right[i] = (overdriven * 0.50 + sumStringR * 0.20 + rumbleSignal * 0.35 + ampFloor * 0.20)
     }
 
     return true
