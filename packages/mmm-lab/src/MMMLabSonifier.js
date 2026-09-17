@@ -194,6 +194,41 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Sub-Harmonic Beating',
         description: 'Intermodulation difference tone between 60 Hz mains hum and the low string (wah-wah beat)'
       },
+      {
+        name: 'rumbleResonance',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.5,
+        unit: 'depth',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Resonance Depth',
+        description: 'Sharpness of the cabinet resonant modes — higher values create stronger, more pitched rumble'
+      },
+
+      // Group 6b: Speaker Knocking
+      {
+        name: 'coneLimit',
+        type: 'number',
+        range: [0.2, 1.0],
+        default: 0.6,
+        unit: 'thresh',
+        curve: 'linear',
+        group: '6b. Speaker Knocking',
+        label: 'Cone Travel Limit',
+        description: 'Mechanical excursion threshold where the speaker cone bottoms out against the magnet'
+      },
+      {
+        name: 'knockLevel',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.4,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6b. Speaker Knocking',
+        label: 'Knock Intensity',
+        description: 'Amplitude of the percussive click/thud when the cone hits its physical travel limit'
+      },
 
       // Group 7: Output
       {
@@ -206,6 +241,52 @@ export class MMMLabSonifier extends SonifierBase {
         group: '7. Output',
         label: 'Master Volume',
         description: 'Master listening level with ear-safety limiter'
+      },
+
+      // Group 8: Second Guitar / Density
+      {
+        name: 'loop2Gain',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.0,
+        unit: 'gain',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Second Guitar Level',
+        description: 'Mix level of the second guitar/amp feedback loop (0 = off, creates density and beating when raised)'
+      },
+      {
+        name: 'loop2Detune',
+        type: 'number',
+        range: [-50, 50],
+        default: 18,
+        unit: 'cents',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Loop B Detune',
+        description: 'Pitch offset of the second guitar relative to the first — creates beating interference patterns'
+      },
+      {
+        name: 'loop2Distance',
+        type: 'number',
+        range: [1.0, 25.0],
+        default: 7.0,
+        unit: 'ms',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Loop B Distance',
+        description: 'Acoustic propagation delay for the second guitar/amp pair (different room path)'
+      },
+      {
+        name: 'crossCoupling',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.3,
+        unit: 'depth',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Cross-Coupling',
+        description: 'How much the two feedback loops bleed into each other through the room (creates interference)'
       }
     ]
   }

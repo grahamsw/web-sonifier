@@ -509,6 +509,13 @@ export const defaultSettings = {
     pickupAngle:       0.30,
     cabinetThump:      0.50,
     subBeating:        0.40,
+    rumbleResonance:   0.5,
+    coneLimit:         0.6,
+    knockLevel:        0.4,
+    loop2Gain:         0.0,
+    loop2Detune:       18,
+    loop2Distance:     7.0,
+    crossCoupling:     0.3,
     volume:            0.5
   }
 }
