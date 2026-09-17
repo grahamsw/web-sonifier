@@ -169,7 +169,7 @@ describe('MMMLabProcessor DSP Stability', async () => {
     expect(rmsOn).toBeGreaterThan(rmsOff)
   })
 
-  // --- Phase B: Speaker Knocking ---
+  // --- Phase B: Speaker Knocking & Heterodyne Roar ---
 
   it('produces knock transients under heavy low-frequency drive', () => {
     const params = makeParams({
@@ -193,6 +193,47 @@ describe('MMMLabProcessor DSP Stability', async () => {
     peakValues.sort((a, b) => b - a)
     const topPeak = peakValues[0]
     expect(topPeak).toBeGreaterThan(0.01)
+  })
+
+  it('fires the 55 Hz acoustic knock resonator when displacement crosses coneLimit', () => {
+    const params = makeParams({
+      feedbackGain: [1.25],
+      coneLimit: [0.45],
+      knockLevel: [0.8]
+    })
+    let knockFired = false
+    for (let b = 0; b < 250; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      if (processor.knockAmp > 0.05) knockFired = true
+    }
+    expect(knockFired).toBe(true)
+    expect(processor.knockPhaseStep).toBeCloseTo((2 * Math.PI * 55.0) / 44100, 4)
+  })
+
+  it('generates rich asymmetric tube overdrive with DC blocking stability', () => {
+    const params = makeParams({
+      feedbackGain: [1.15],
+      subBeating: [0.9]
+    })
+    // Run 200 blocks of heavy feedback with asymmetric tube saturation
+    let sumDc = 0
+    let totalSamples = 0
+    for (let b = 0; b < 200; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      if (b > 50) {
+        for (let i = 0; i < 128; i++) {
+          sumDc += left[i]
+          totalSamples++
+        }
+      }
+    }
+    const avgDc = Math.abs(sumDc / totalSamples)
+    // Asymmetric distortion produces difference tones, but DC blocker keeps output centered
+    expect(avgDc).toBeLessThan(0.05)
   })
 
   // --- Phase C: Second Feedback Loop ---

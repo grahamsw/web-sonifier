@@ -121,21 +121,25 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.shriekY2 = 0
     this._initShriekFilter(2200, 3.5)
 
-    // 4-Mode Resonant Filter Bank (Rumble)
+    // 4-Mode Resonant Filter Bank (Rumble & Body)
     this.rumbleX1 = new Float32Array(4)
     this.rumbleX2 = new Float32Array(4)
     this.rumbleY1 = new Float32Array(4)
     this.rumbleY2 = new Float32Array(4)
-    this.rumbleCoeffs = [
-      this._initBiquadBP(55, 3.0),
-      this._initBiquadBP(110, 4.0),
-      this._initBiquadBP(180, 3.5),
-      this._initBiquadBP(260, 2.5)
-    ]
+    this.lastBasePitch = 0
+    this._updateRumbleFilters(73.416)
 
-    // Cone Excursion / Knocking
+    // 55 Hz Acoustic Speaker Cone Knock Resonator (damped sine burst)
     this.coneDisplacement = 0
-    this.knockEnvelope = 0
+    this.knockAmp = 0
+    this.knockPhase = 0
+    this.knockPhaseStep = (2 * Math.PI * 55.0) / this.sampleRate
+
+    // DC Blocking state for asymmetric overdrive
+    this.overdriveDcX = 0
+    this.overdriveDcY = 0
+    this.overdriveDcX2 = 0
+    this.overdriveDcY2 = 0
 
     // DC Blocking state for strings and pickup
     this.stringDcX = new Float32Array(6)
@@ -196,6 +200,20 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     }
   }
 
+  _updateRumbleFilters(basePitch) {
+    const f0 = Math.max(30.0, basePitch)
+    const f1 = Math.min(this.sampleRate * 0.45, f0 * 2.0)
+    const f2 = Math.min(this.sampleRate * 0.45, f0 * 3.0)
+    const fBox = 82.0 // cabinet wood box mode
+    this.rumbleCoeffs = [
+      this._initBiquadBP(f0, 1.5),
+      this._initBiquadBP(f1, 1.5),
+      this._initBiquadBP(f2, 1.6),
+      this._initBiquadBP(fBox, 2.0)
+    ]
+    this.lastBasePitch = basePitch
+  }
+
   _updateTuningRatios() {
     switch (this.tuningPreset) {
       case 'open-d':
@@ -245,6 +263,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const loop2Detune = parameters.loop2Detune ? parameters.loop2Detune[0] : 18.0
     const loop2Distance = parameters.loop2Distance ? parameters.loop2Distance[0] : 7.0
     const crossCoupling = parameters.crossCoupling ? parameters.crossCoupling[0] : 0.3
+
+    // Update body resonance filters if basePitch changed
+    if (Math.abs(basePitch - this.lastBasePitch) > 0.1) {
+      this._updateRumbleFilters(basePitch)
+    }
 
     // Sag recovery bleed and dynamic attack coefficients
     const recoverySec = Math.max(0.015, sagRecovery / 1000.0)
@@ -438,7 +461,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const ampInput2 = (pickupSignal2 * (1.0 + feedbackGain * 1.6)) + ampFloor
       const absSig2 = Math.abs(ampInput2)
 
-      // 6. Power Amp Sag & Choking Model ("The Valve On/Off")
+      // 6. Power Amp Sag & Asymmetric Tube Overdrive ("The Valve On/Off" + Heterodyne Roar Engine)
       const overload = Math.max(0.0, absSig - sagThreshold)
       const targetCharge = Math.min(1.0, overload * 1.5)
       if (targetCharge > this.sagCharge) {
@@ -447,8 +470,17 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.sagCharge *= sagBleed
       }
       const sagGainReduction = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
-      const overdriven = Math.tanh(ampInput * 1.9) * sagGainReduction
 
+      // Asymmetric tube transfer curve: the quadratic term (v^2) creates f2 - f1 heterodyne difference frequencies
+      const asymCoeff = 0.20 + subBeating * 0.45
+      const asymInput = ampInput + (asymCoeff * ampInput * ampInput)
+      const rawOverdriven = Math.tanh(asymInput * 1.8) * sagGainReduction
+      // DC blocker removes bias shift while preserving sub-bass down to 20Hz
+      const overdriven = rawOverdriven - this.overdriveDcX + 0.997 * this.overdriveDcY
+      this.overdriveDcX = rawOverdriven
+      this.overdriveDcY = overdriven
+
+      // Loop B Asymmetric Tube Overdrive
       const overload2 = Math.max(0.0, absSig2 - sagThreshold)
       const targetCharge2 = Math.min(1.0, overload2 * 1.5)
       if (targetCharge2 > this.sagCharge2) {
@@ -457,7 +489,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.sagCharge2 *= sagBleed
       }
       const sagGainReduction2 = Math.max(0.35, 1.0 - this.sagCharge2 * sagDepth * 0.65)
-      const overdriven2 = Math.tanh(ampInput2 * 1.9) * sagGainReduction2
+      const asymInput2 = ampInput2 + (asymCoeff * ampInput2 * ampInput2)
+      const rawOverdriven2 = Math.tanh(asymInput2 * 1.8) * sagGainReduction2
+      const overdriven2 = rawOverdriven2 - this.overdriveDcX2 + 0.997 * this.overdriveDcY2
+      this.overdriveDcX2 = rawOverdriven2
+      this.overdriveDcY2 = overdriven2
 
       // 7. Write Saturated Output into Speaker Propagation Delay
       this.propBuffer[this.propWriteIndex] = overdriven
@@ -466,7 +502,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.propBuffer2[this.propWriteIndex2] = overdriven2
       this.propWriteIndex2 = (this.propWriteIndex2 + 1) & this.propBufferMask
 
-      // 8. Low Rumble & Cabinet Thump Filter Bank
+      // 8. Low Rumble & Musically-Aligned Resonant Body Filter Bank
       const subProduct = humSig * lowStringSignal * subBeating * 2.0
       const thumpIn = overdriven + subProduct
 
@@ -483,20 +519,25 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       }
       const rumbleSignal = sumRumble * (0.5 + rumbleResonance * 1.5) * cabinetThump * 0.9
 
-      // 9. Cone Excursion / Knocking
-      this.coneDisplacement += (overdriven - this.coneDisplacement) * 0.002
-      if (Math.abs(this.coneDisplacement) > coneLimit) {
-        this.coneDisplacement = Math.sign(this.coneDisplacement) * coneLimit
-        this.knockEnvelope = 1.0
+      // 9. Speaker Cone Excursion & 55 Hz Acoustic Knock Resonator
+      this.coneDisplacement += (Math.abs(overdriven) - this.coneDisplacement) * 0.008
+      if (this.coneDisplacement > coneLimit) {
+        this.knockAmp = knockLevel * 0.6
+        this.knockPhase = 0
+        this.coneDisplacement *= 0.5 // mechanical energy discharge
       }
-      this.knockEnvelope *= 0.85
-      const knockSignal = this.knockEnvelope * Math.sign(this.coneDisplacement) * knockLevel * 0.3
+      let knockSignal = 0.0
+      if (this.knockAmp > 0.0005) {
+        knockSignal = this.knockAmp * Math.sin(this.knockPhase)
+        this.knockPhase += this.knockPhaseStep
+        this.knockAmp *= 0.9975 // ~35ms acoustic decay ring
+      }
 
-      // 10. Output to Speakers
-      left[i] = (overdriven * 0.50 + sumStringL * 0.25 + rumbleSignal * 0.25 + knockSignal + ampFloor * 0.18)
-              + (overdriven2 * 0.50 + sumStringL2 * 0.25) * loop2Gain * 0.7
-      right[i] = (overdriven * 0.50 + sumStringR * 0.25 + rumbleSignal * 0.25 + knockSignal + ampFloor * 0.18)
-               + (overdriven2 * 0.50 + sumStringR2 * 0.25) * loop2Gain * 0.7
+      // 10. Output to Speakers (balanced with rich body and heterodyne roar)
+      left[i] = (overdriven * 0.45 + sumStringL * 0.20 + rumbleSignal * 0.35 + knockSignal * 0.35 + ampFloor * 0.15)
+              + (overdriven2 * 0.45 + sumStringL2 * 0.20) * loop2Gain * 0.7
+      right[i] = (overdriven * 0.45 + sumStringR * 0.20 + rumbleSignal * 0.35 + knockSignal * 0.35 + ampFloor * 0.15)
+               + (overdriven2 * 0.45 + sumStringR2 * 0.20) * loop2Gain * 0.7
     }
 
     return true

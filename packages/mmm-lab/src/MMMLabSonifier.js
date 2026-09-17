@@ -191,8 +191,8 @@ export class MMMLabSonifier extends SonifierBase {
         unit: 'depth',
         curve: 'linear',
         group: '6. Low Rumble & Cabinet Resonance',
-        label: 'Sub-Harmonic Beating',
-        description: 'Intermodulation difference tone between 60 Hz mains hum and the low string (wah-wah beat)'
+        label: 'Heterodyne Roar',
+        description: 'Asymmetric tube intermodulation producing rich f2 - f1 difference tones and churning low-mid roar'
       },
       {
         name: 'rumbleResonance',
@@ -203,7 +203,7 @@ export class MMMLabSonifier extends SonifierBase {
         curve: 'linear',
         group: '6. Low Rumble & Cabinet Resonance',
         label: 'Resonance Depth',
-        description: 'Sharpness of the cabinet resonant modes — higher values create stronger, more pitched rumble'
+        description: 'Sharpness of the body and cabinet resonant modes — higher values create stronger, more pitched rumble'
       },
 
       // Group 6b: Speaker Knocking
@@ -216,7 +216,7 @@ export class MMMLabSonifier extends SonifierBase {
         curve: 'linear',
         group: '6b. Speaker Knocking',
         label: 'Cone Travel Limit',
-        description: 'Mechanical excursion threshold where the speaker cone bottoms out against the magnet'
+        description: 'Mechanical excursion threshold where the speaker cone bottoms out, triggering a 55 Hz acoustic thud'
       },
       {
         name: 'knockLevel',
@@ -227,7 +227,7 @@ export class MMMLabSonifier extends SonifierBase {
         curve: 'linear',
         group: '6b. Speaker Knocking',
         label: 'Knock Intensity',
-        description: 'Amplitude of the percussive click/thud when the cone hits its physical travel limit'
+        description: 'Amplitude of the 55 Hz damped speaker cone impact thud when hitting travel limit'
       },
 
       // Group 7: Output
