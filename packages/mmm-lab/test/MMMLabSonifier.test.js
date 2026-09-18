@@ -244,17 +244,22 @@ describe('MMMLabSonifier', () => {
       expect(preset.name).toBeTruthy()
       expect(preset.description).toBeTruthy()
       expect(typeof preset.params).toBe('object')
+      // Ensure all 24 schema parameters are explicitly configured to prevent path dependency
+      expect(Object.keys(preset.params).length).toBe(schemaKeys.size)
       for (const paramKey of Object.keys(preset.params)) {
         expect(schemaKeys.has(paramKey)).toBe(true)
       }
     }
   })
 
-  it('applies preset parameters with smooth automation via applyPreset()', async () => {
+  it('applies preset parameters with smooth automation and posts reset to worklet via applyPreset()', async () => {
     await sonifier.init(mockContext, mockOutput)
 
     const success = sonifier.applyPreset('hum')
     expect(success).toBe(true)
+
+    // applyPreset should post { type: 'reset' } to clear worklet state
+    expect(sonifier._workletNode.port.postMessage).toHaveBeenCalledWith({ type: 'reset' })
 
     // hum preset sets feedbackGain to 0 and ampHum to 0.65
     expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)

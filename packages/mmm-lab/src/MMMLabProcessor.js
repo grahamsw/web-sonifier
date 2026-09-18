@@ -157,6 +157,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.knockAmp = 0
     this.knockPhase = 0
     this.knockPhaseStep = (2 * Math.PI * 55.0) / this.sampleRate
+    this.knockCooldown = 0
 
     // DC Blocking state for asymmetric overdrive
     this.overdriveDcX = 0
@@ -183,8 +184,45 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.tuningPreset = data.preset || 'ostrich-d'
         this.tuningPreset2 = this.tuningPreset
         this._updateTuningRatios()
+      } else if (data && data.type === 'reset') {
+        this._resetState()
       }
     }
+  }
+
+  _resetState() {
+    for (let s = 0; s < 6; s++) {
+      this.stringBuffers[s].fill(0)
+      this.stringBuffers2[s].fill(0)
+      this.stringFilterStates[s] = 0
+      this.stringFilterStates2[s] = 0
+      this.stringDcX[s] = 0
+      this.stringDcY[s] = 0
+      this.stringDcX2[s] = 0
+      this.stringDcY2[s] = 0
+    }
+    this.propBuffer.fill(0)
+    this.propBuffer2.fill(0)
+    this.propWriteIndex = 0
+    this.propWriteIndex2 = 0
+    this.sagCharge = 0
+    this.sagCharge2 = 0
+    this.coneDisplacement = 0
+    this.knockAmp = 0
+    this.knockPhase = 0
+    this.knockCooldown = 0
+    this.overdriveDcX = 0
+    this.overdriveDcY = 0
+    this.overdriveDcX2 = 0
+    this.overdriveDcY2 = 0
+    this.pickupX1 = 0
+    this.pickupY1 = 0
+    this.pickupX12 = 0
+    this.pickupY12 = 0
+    this.howlX1 = 0; this.howlX2 = 0; this.howlY1 = 0; this.howlY2 = 0
+    this.shriekX1 = 0; this.shriekX2 = 0; this.shriekY1 = 0; this.shriekY2 = 0
+    this.spkX1 = 0; this.spkX2 = 0; this.spkY1 = 0; this.spkY2 = 0
+    this.spkX12 = 0; this.spkX22 = 0; this.spkY12 = 0; this.spkY22 = 0
   }
 
   _initShriekFilter(centerFreq, Q) {
@@ -352,7 +390,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
     // Acoustic distance delay in samples + pickup micro-angle
     // ~1ms to 25ms delay (approx 1ft to 25ft acoustic room coupling)
-    const angleOffset = Math.sin(pickupAngle * Math.PI) * 8.0
+    const angleOffset = Math.sin(pickupAngle * 2.0 * Math.PI) * 55.0
     const propDelaySamples = Math.max(4.0, (couplingDistance * 0.001 * this.sampleRate) + angleOffset)
     const propDelaySamples2 = Math.max(4.0, (loop2Distance * 0.001 * this.sampleRate) + angleOffset)
 
@@ -381,7 +419,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.hissState += 0.10 * (rawNoise - this.hissState)
       this.hissState2 += 0.10 * (this.hissState - this.hissState2)
 
-      const ampFloor = (humSig * 0.07 * ampHum) + (this.hissState2 * 0.04 * ampHiss)
+      const ampFloor = (humSig * 0.16 * ampHum) + (this.hissState2 * 0.10 * ampHiss)
 
       // 2. Read Acoustic Feedback from Speaker Propagation Delay
       const readA = (this.propWriteIndex - propDelaySamples + this.propBufferSize * 4) % this.propBufferSize
@@ -536,12 +574,16 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const sagGainReduction = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
 
       // Soft-knee asymmetric valve transformer saturation: rich even harmonics and musical compression
+      // With quadratic intermodulation term x|x| to generate strong f2 - f1 difference frequencies (heterodyne roar)
       const asym = 0.20 + subBeating * 0.40
+      const quadTerm = ampInput * Math.abs(ampInput) * (0.35 + subBeating * 0.65)
+      const saturatedInput = ampInput + quadTerm
+
       let valveOut = 0
-      if (ampInput >= 0) {
-        valveOut = ampInput / (1.0 + ampInput * (0.65 - asym * 0.25))
+      if (saturatedInput >= 0) {
+        valveOut = saturatedInput / (1.0 + saturatedInput * (0.65 - asym * 0.25))
       } else {
-        const absA = -ampInput
+        const absA = -saturatedInput
         valveOut = -absA / (1.0 + absA * (0.85 + asym * 0.35))
       }
       const rawOverdriven = valveOut * sagGainReduction
@@ -559,11 +601,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.sagCharge2 *= sagBleed
       }
       const sagGainReduction2 = Math.max(0.35, 1.0 - this.sagCharge2 * sagDepth * 0.65)
+      const quadTerm2 = ampInput2 * Math.abs(ampInput2) * (0.35 + subBeating * 0.65)
+      const saturatedInput2 = ampInput2 + quadTerm2
+
       let valveOut2 = 0
-      if (ampInput2 >= 0) {
-        valveOut2 = ampInput2 / (1.0 + ampInput2 * (0.65 - asym * 0.25))
+      if (saturatedInput2 >= 0) {
+        valveOut2 = saturatedInput2 / (1.0 + saturatedInput2 * (0.65 - asym * 0.25))
       } else {
-        const absA2 = -ampInput2
+        const absA2 = -saturatedInput2
         valveOut2 = -absA2 / (1.0 + absA2 * (0.85 + asym * 0.35))
       }
       const rawOverdriven2 = valveOut2 * sagGainReduction2
@@ -609,23 +654,27 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const rumbleSignal = sumRumble * (0.5 + rumbleResonance * 1.5) * cabinetThump * 0.9
 
       // 9. Speaker Cone Excursion & 55 Hz Acoustic Knock Resonator
-      this.coneDisplacement += (Math.abs(overdriven) - this.coneDisplacement) * 0.008
-      if (this.coneDisplacement > coneLimit) {
+      if (this.knockCooldown > 0) {
+        this.knockCooldown--
+      }
+      this.coneDisplacement += (Math.abs(overdriven) - this.coneDisplacement) * 0.0008
+      if (this.coneDisplacement > coneLimit && this.knockCooldown <= 0) {
         this.knockAmp = knockLevel * 0.6
         this.knockPhase = 0
         this.coneDisplacement *= 0.5 // mechanical energy discharge
+        this.knockCooldown = Math.floor(0.09 * this.sampleRate) // 90ms lockout
       }
       let knockSignal = 0.0
       if (this.knockAmp > 0.0005) {
         knockSignal = this.knockAmp * Math.sin(this.knockPhase)
         this.knockPhase += this.knockPhaseStep
-        this.knockAmp *= 0.9975 // ~35ms acoustic decay ring
+        this.knockAmp *= 0.9985 // ~45ms acoustic decay ring
       }
 
       // 10. Output to Speakers (12" paper cone radiation with master soft saturation)
-      const rawL = (spkOut * 0.45 + sumStringL * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+      const rawL = (spkOut * 0.45 + sumStringL * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.45 + ampFloor * 0.35)
                  + (spkOut2 * 0.45 + sumStringL2 * 0.12) * loop2Gain * 0.7
-      const rawR = (spkOut * 0.45 + sumStringR * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+      const rawR = (spkOut * 0.45 + sumStringR * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.45 + ampFloor * 0.35)
                  + (spkOut2 * 0.45 + sumStringR2 * 0.12) * loop2Gain * 0.7
 
       left[i] = Math.tanh(rawL)

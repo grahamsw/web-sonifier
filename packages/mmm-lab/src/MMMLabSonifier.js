@@ -540,7 +540,7 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.65,
         sagDepth: 0.80,
         sagRecovery: 160.0,
-        harmonicShriek: 0.40,
+        harmonicShriek: 0.08,
         pickupAngle: 0.30,
         cabinetThump: 0.50,
         cabinetHowl: 0.50,
@@ -567,6 +567,7 @@ export class MMMLabSonifier extends SonifierBase {
 
   /**
    * Apply a preset by ID.
+   * Resets worklet internal buffers/charge to ensure reproducible deterministic state.
    * @param {string} presetId
    * @returns {boolean}
    */
@@ -575,6 +576,9 @@ export class MMMLabSonifier extends SonifierBase {
     if (!preset) {
       console.warn(`[MMMLabSonifier] Unknown preset "${presetId}"`)
       return false
+    }
+    if (this._workletNode && this._workletNode.port) {
+      this._workletNode.port.postMessage({ type: 'reset' })
     }
     for (const [key, value] of Object.entries(preset.params)) {
       this.setParam(key, value)

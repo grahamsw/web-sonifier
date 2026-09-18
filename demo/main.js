@@ -1054,9 +1054,7 @@ export function renderPresetsBar(type) {
           </button>
         </div>
       </div>
-      <div id="preset-description" style="font-size: 0.8rem; color: #8892b0; line-height: 1.35; padding-top: 0.35rem; border-top: 1px solid #282b38;">
-        ${presets.find(p => p.id === currentPresetId)?.description || ''}
-      </div>
+      <div id="preset-description" style="font-size: 0.8rem; color: #8892b0; line-height: 1.35; padding-top: 0.35rem; border-top: 1px solid #282b38;">${presets.find(p => p.id === currentPresetId)?.description || ''}</div>
     </div>
   `
 
@@ -1072,14 +1070,17 @@ export function renderPresetsBar(type) {
       const descEl = document.getElementById('preset-description')
       if (descEl) descEl.textContent = p.description
 
+      if (activeSonifier && activeSonifierType === type && typeof activeSonifier.applyPreset === 'function') {
+        activeSonifier.applyPreset(presetId)
+      }
+
       for (const [paramName, paramVal] of Object.entries(p.params)) {
         settings[type][paramName] = paramVal
-        if (activeSonifier && activeSonifierType === type) {
+        if (activeSonifier && activeSonifierType === type && typeof activeSonifier.applyPreset !== 'function') {
           activeSonifier.setParam(paramName, paramVal)
         }
       }
 
-      // Re-render parameters panel so all sliders, badges, and readouts update to preset values
       renderAutomatedEditorPanelOnly(type)
       saveSettings(settings)
     })
