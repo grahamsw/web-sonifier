@@ -136,11 +136,13 @@ describe('MMMLabSonifier', () => {
     expect(paramNames).toContain('crossCoupling')
   })
 
-  it('initializes the AudioWorklet, cabinet EQ, limiter, and master gain graph', async () => {
+  it('initializes the AudioWorklet, 4-pole cascaded cabinet EQ, limiter, and master gain graph', async () => {
     await sonifier.init(mockContext, mockOutput)
 
     expect(mockContext.audioWorklet.addModule).toHaveBeenCalledWith('/packages/mmm-lab/src/MMMLabProcessor.js')
-    expect(mockContext.createBiquadFilter).toHaveBeenCalled()
+    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(2)
+    expect(sonifier._cabinetEQ1).toBeDefined()
+    expect(sonifier._cabinetEQ2).toBeDefined()
     expect(mockContext.createDynamicsCompressor).toHaveBeenCalled()
     expect(mockContext.createGain).toHaveBeenCalled()
     expect(sonifier._initialized).toBe(true)
@@ -217,6 +219,8 @@ describe('MMMLabSonifier', () => {
 
     vi.advanceTimersByTime(60)
     expect(sonifier._workletNode.disconnect).toHaveBeenCalled()
+    expect(sonifier._cabinetEQ1.disconnect).toHaveBeenCalled()
+    expect(sonifier._cabinetEQ2.disconnect).toHaveBeenCalled()
     expect(sonifier._masterGain.disconnect).toHaveBeenCalled()
   })
 })

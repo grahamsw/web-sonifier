@@ -65,6 +65,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
     // Thermal hiss 1-pole filter state
     this.hissState = 0
+    this.hissState2 = 0
 
     // 6 Guitar String Delays (size 8192 per string)
     this.stringBufferSize = 8192
@@ -375,11 +376,12 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         0.22 * Math.sin(this.humPhase * 3) +
         0.10 * Math.sin(this.humPhase * 5)
 
-      // Warm 1-pole lowpass thermal tube hiss
+      // Warm 2-pole lowpass thermal tube hiss (~600 Hz warm amp breath)
       const rawNoise = (Math.random() * 2 - 1)
-      this.hissState += 0.28 * (rawNoise - this.hissState)
+      this.hissState += 0.10 * (rawNoise - this.hissState)
+      this.hissState2 += 0.10 * (this.hissState - this.hissState2)
 
-      const ampFloor = (humSig * 0.07 * ampHum) + (this.hissState * 0.035 * ampHiss)
+      const ampFloor = (humSig * 0.07 * ampHum) + (this.hissState2 * 0.04 * ampHiss)
 
       // 2. Read Acoustic Feedback from Speaker Propagation Delay
       const readA = (this.propWriteIndex - propDelaySamples + this.propBufferSize * 4) % this.propBufferSize
@@ -533,10 +535,16 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       }
       const sagGainReduction = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
 
-      // Asymmetric tube transfer curve: the quadratic term (v^2) creates f2 - f1 heterodyne difference frequencies
-      const asymCoeff = 0.20 + subBeating * 0.45
-      const asymInput = ampInput + (asymCoeff * ampInput * ampInput)
-      const rawOverdriven = Math.tanh(asymInput * 1.8) * sagGainReduction
+      // Soft-knee asymmetric valve transformer saturation: rich even harmonics and musical compression
+      const asym = 0.20 + subBeating * 0.40
+      let valveOut = 0
+      if (ampInput >= 0) {
+        valveOut = ampInput / (1.0 + ampInput * (0.65 - asym * 0.25))
+      } else {
+        const absA = -ampInput
+        valveOut = -absA / (1.0 + absA * (0.85 + asym * 0.35))
+      }
+      const rawOverdriven = valveOut * sagGainReduction
       // DC blocker removes bias shift while preserving sub-bass down to 20Hz
       const overdriven = rawOverdriven - this.overdriveDcX + 0.997 * this.overdriveDcY
       this.overdriveDcX = rawOverdriven
@@ -551,8 +559,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.sagCharge2 *= sagBleed
       }
       const sagGainReduction2 = Math.max(0.35, 1.0 - this.sagCharge2 * sagDepth * 0.65)
-      const asymInput2 = ampInput2 + (asymCoeff * ampInput2 * ampInput2)
-      const rawOverdriven2 = Math.tanh(asymInput2 * 1.8) * sagGainReduction2
+      let valveOut2 = 0
+      if (ampInput2 >= 0) {
+        valveOut2 = ampInput2 / (1.0 + ampInput2 * (0.65 - asym * 0.25))
+      } else {
+        const absA2 = -ampInput2
+        valveOut2 = -absA2 / (1.0 + absA2 * (0.85 + asym * 0.35))
+      }
+      const rawOverdriven2 = valveOut2 * sagGainReduction2
       const overdriven2 = rawOverdriven2 - this.overdriveDcX2 + 0.997 * this.overdriveDcY2
       this.overdriveDcX2 = rawOverdriven2
       this.overdriveDcY2 = overdriven2
@@ -608,11 +622,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.knockAmp *= 0.9975 // ~35ms acoustic decay ring
       }
 
-      // 10. Output to Speakers (True acoustic speaker radiation with master saturation)
-      const rawL = (overdriven * 0.40 + sumStringL * 0.15 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.12)
-                 + (overdriven2 * 0.40 + sumStringL2 * 0.15) * loop2Gain * 0.7
-      const rawR = (overdriven * 0.40 + sumStringR * 0.15 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.12)
-                 + (overdriven2 * 0.40 + sumStringR2 * 0.15) * loop2Gain * 0.7
+      // 10. Output to Speakers (12" paper cone radiation with master soft saturation)
+      const rawL = (spkOut * 0.45 + sumStringL * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+                 + (spkOut2 * 0.45 + sumStringL2 * 0.12) * loop2Gain * 0.7
+      const rawR = (spkOut * 0.45 + sumStringR * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+                 + (spkOut2 * 0.45 + sumStringR2 * 0.12) * loop2Gain * 0.7
 
       left[i] = Math.tanh(rawL)
       right[i] = Math.tanh(rawR)

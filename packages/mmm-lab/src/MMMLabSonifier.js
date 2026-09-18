@@ -312,6 +312,8 @@ export class MMMLabSonifier extends SonifierBase {
     this._output = null
     this._workletNode = null
     this._cabinetEQ = null
+    this._cabinetEQ1 = null
+    this._cabinetEQ2 = null
     this._limiter = null
     this._masterGain = null
     this._initialized = false
@@ -335,12 +337,24 @@ export class MMMLabSonifier extends SonifierBase {
     this._limiter.release.setValueAtTime(0.1, this._ctx.currentTime)
     this._limiter.connect(this._masterGain)
 
-    // 3. Speaker Cabinet Lowpass Filter (Guitar Speaker rolloff above 5.5 kHz)
-    this._cabinetEQ = this._ctx.createBiquadFilter()
-    this._cabinetEQ.type = 'lowpass'
-    this._cabinetEQ.frequency.setValueAtTime(5500, this._ctx.currentTime)
-    this._cabinetEQ.Q.setValueAtTime(0.7, this._ctx.currentTime)
-    this._cabinetEQ.connect(this._limiter)
+    // 3. 4-Pole 12" Speaker Cabinet Acoustic Filter (Authentic 12" paper cone rolloff)
+    // Real 12" guitar speaker cones (e.g. Celestion / Oxford) have a steep acoustic rolloff above 3.2 kHz
+    // Stage 1: 3200 Hz with Q=0.85 (cone edge resonance / cutoff shoulder)
+    this._cabinetEQ1 = this._ctx.createBiquadFilter()
+    this._cabinetEQ1.type = 'lowpass'
+    this._cabinetEQ1.frequency.setValueAtTime(3200, this._ctx.currentTime)
+    this._cabinetEQ1.Q.setValueAtTime(0.85, this._ctx.currentTime)
+
+    // Stage 2: 3600 Hz with Q=0.707 (steep 24 dB/oct acoustic attenuation of treble fizz)
+    this._cabinetEQ2 = this._ctx.createBiquadFilter()
+    this._cabinetEQ2.type = 'lowpass'
+    this._cabinetEQ2.frequency.setValueAtTime(3600, this._ctx.currentTime)
+    this._cabinetEQ2.Q.setValueAtTime(0.707, this._ctx.currentTime)
+
+    this._cabinetEQ = this._cabinetEQ1 // alias for backward compatibility
+
+    this._cabinetEQ1.connect(this._cabinetEQ2)
+    this._cabinetEQ2.connect(this._limiter)
 
     // 4. Register AudioWorklet Module
     try {
@@ -356,7 +370,7 @@ export class MMMLabSonifier extends SonifierBase {
       numberOfOutputs: 1,
       outputChannelCount: [2]
     })
-    this._workletNode.connect(this._cabinetEQ)
+    this._workletNode.connect(this._cabinetEQ1)
 
     // 6. Apply Schema Defaults
     this.applyDefaults()
@@ -408,7 +422,8 @@ export class MMMLabSonifier extends SonifierBase {
     setTimeout(() => {
       try {
         if (this._workletNode) this._workletNode.disconnect()
-        if (this._cabinetEQ) this._cabinetEQ.disconnect()
+        if (this._cabinetEQ1) this._cabinetEQ1.disconnect()
+        if (this._cabinetEQ2) this._cabinetEQ2.disconnect()
         if (this._limiter) this._limiter.disconnect()
         if (this._masterGain) this._masterGain.disconnect()
       } catch (e) {

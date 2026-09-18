@@ -325,4 +325,54 @@ describe('MMMLabProcessor DSP Stability', async () => {
     const peak = runBlocks(500, params)
     expect(peak).toBeLessThanOrEqual(1.0)
   })
+
+  it('suppresses high-frequency fizz (> 4.5 kHz) while preserving rich low-mid body (60-1500 Hz)', () => {
+    const params = makeParams({
+      feedbackGain: [1.10],
+      cabinetHowl: [0.6],
+      cabinetThump: [0.6]
+    })
+    for (let b = 0; b < 200; b++) {
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+    }
+
+    const samples = []
+    for (let b = 0; b < 20; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      for (let i = 0; i < 128; i++) samples.push(left[i])
+    }
+
+    const lowFreqs = [60, 100, 135, 200, 400, 800, 1500]
+    let lowMidEnergy = 0
+    for (const f of lowFreqs) {
+      let re = 0, im = 0
+      const w = (2 * Math.PI * f) / 44100
+      for (let n = 0; n < samples.length; n++) {
+        re += samples[n] * Math.cos(w * n)
+        im += samples[n] * Math.sin(w * n)
+      }
+      lowMidEnergy += (re * re + im * im)
+    }
+
+    const highFreqs = [4500, 6000, 8000, 10000, 14000]
+    let highFizzEnergy = 0
+    for (const f of highFreqs) {
+      let re = 0, im = 0
+      const w = (2 * Math.PI * f) / 44100
+      for (let n = 0; n < samples.length; n++) {
+        re += samples[n] * Math.cos(w * n)
+        im += samples[n] * Math.sin(w * n)
+      }
+      highFizzEnergy += (re * re + im * im)
+    }
+
+    const lowMidRms = Math.sqrt(lowMidEnergy / lowFreqs.length)
+    const highFizzRms = Math.max(1e-6, Math.sqrt(highFizzEnergy / highFreqs.length))
+    const ratio = lowMidRms / highFizzRms
+
+    // Low-mid body must be at least 5x (> 14 dB) stronger than harsh treble fizz
+    expect(ratio).toBeGreaterThan(5.0)
+  })
 })
