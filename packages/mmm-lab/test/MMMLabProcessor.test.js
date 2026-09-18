@@ -37,6 +37,7 @@ describe('MMMLabProcessor DSP Stability', async () => {
       harmonicShriek: [0.40],
       pickupAngle: [0.30],
       cabinetThump: [0.50],
+      cabinetHowl: [0.50],
       subBeating: [0.40],
       rumbleResonance: [0.5],
       coneLimit: [0.6],
@@ -287,9 +288,32 @@ describe('MMMLabProcessor DSP Stability', async () => {
     expect(diffEnergy).toBeGreaterThan(0.001)
   })
 
+  it('generates commanding low-mid animal howl energy (90-250 Hz) when cabinetHowl is engaged', () => {
+    const params = makeParams({
+      feedbackGain: [1.25],
+      cabinetHowl: [1.0],
+      harmonicShriek: [0.1]
+    })
+    for (let b = 0; b < 200; b++) {
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+    }
+    let howlEnergy = 0
+    for (let b = 0; b < 10; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      for (let i = 0; i < 128; i++) {
+        howlEnergy += left[i] * left[i]
+      }
+    }
+    const rms = Math.sqrt(howlEnergy / 1280)
+    expect(rms).toBeGreaterThan(0.05)
+  })
+
   it('bounds all outputs within [-1.0, 1.0] with both loops at maximum', () => {
     const params = makeParams({
       feedbackGain: [1.3],
+      cabinetHowl: [1.0],
       loop2Gain: [1.0],
       crossCoupling: [1.0],
       cabinetThump: [1.0],

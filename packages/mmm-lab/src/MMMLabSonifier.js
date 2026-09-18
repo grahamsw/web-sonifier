@@ -184,6 +184,17 @@ export class MMMLabSonifier extends SonifierBase {
         description: '76 Hz resonant speaker cabinet air cavity shudder'
       },
       {
+        name: 'cabinetHowl',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Animal Howl',
+        description: 'Low-mid (135 Hz) speaker cabinet cavity acoustic resonance that pitch-bends and howls like an animal'
+      },
+      {
         name: 'subBeating',
         type: 'number',
         range: [0.0, 1.0],

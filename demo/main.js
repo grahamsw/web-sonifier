@@ -508,6 +508,7 @@ export const defaultSettings = {
     harmonicShriek:    0.40,
     pickupAngle:       0.30,
     cabinetThump:      0.50,
+    cabinetHowl:       0.50,
     subBeating:        0.40,
     rumbleResonance:   0.5,
     coneLimit:         0.6,

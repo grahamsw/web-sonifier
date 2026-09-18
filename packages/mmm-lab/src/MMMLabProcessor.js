@@ -38,6 +38,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       // 6. Low Rumble & Cabinet Resonance
       { name: 'cabinetThump', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
+      { name: 'cabinetHowl', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
       { name: 'subBeating', defaultValue: 0.40, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
       { name: 'rumbleResonance', defaultValue: 0.5, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
 
@@ -121,6 +122,27 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.shriekY2 = 0
     this._initShriekFilter(2200, 3.5)
 
+    // Howl low-mid acoustic cabinet resonance filter (centered at 135 Hz)
+    this.howlX1 = 0
+    this.howlX2 = 0
+    this.howlY1 = 0
+    this.howlY2 = 0
+    this._initHowlFilter(135, 1.8)
+
+    // 12" Guitar Speaker Cabinet Lowpass Filters (2.8 kHz rolloff for acoustic feedback)
+    this.spkX1 = 0
+    this.spkX2 = 0
+    this.spkY1 = 0
+    this.spkY2 = 0
+    this.spkX12 = 0
+    this.spkX22 = 0
+    this.spkY12 = 0
+    this.spkY22 = 0
+    this._initSpeakerFilter(2800, 0.707)
+
+    // Physical wound string mass weighting over pickups
+    this.stringWeights = new Float32Array([2.4, 2.0, 1.8, 1.2, 1.0, 0.9])
+
     // 4-Mode Resonant Filter Bank (Rumble & Body)
     this.rumbleX1 = new Float32Array(4)
     this.rumbleX2 = new Float32Array(4)
@@ -179,6 +201,36 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.sb2 = b2 / a0
     this.sa1 = a1 / a0
     this.sa2 = a2 / a0
+  }
+
+  _initHowlFilter(centerFreq, Q) {
+    const w0 = (2 * Math.PI * centerFreq) / this.sampleRate
+    const alpha = Math.sin(w0) / (2 * Q)
+    const b0 = alpha
+    const b1 = 0
+    const b2 = -alpha
+    const a0 = 1 + alpha
+    const a1 = -2 * Math.cos(w0)
+    const a2 = 1 - alpha
+
+    this.hb0 = b0 / a0
+    this.hb1 = b1 / a0
+    this.hb2 = b2 / a0
+    this.ha1 = a1 / a0
+    this.ha2 = a2 / a0
+  }
+
+  _initSpeakerFilter(cutoffFreq, Q) {
+    const w0 = (2 * Math.PI * cutoffFreq) / this.sampleRate
+    const alpha = Math.sin(w0) / (2 * Q)
+    const cos = Math.cos(w0)
+    const a0 = 1 + alpha
+
+    this.spkB0 = ((1 - cos) / 2) / a0
+    this.spkB1 = (1 - cos) / a0
+    this.spkB2 = ((1 - cos) / 2) / a0
+    this.spkA1 = (-2 * cos) / a0
+    this.spkA2 = (1 - alpha) / a0
   }
 
   _initBiquadBP(centerFreq, Q) {
@@ -255,6 +307,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const harmonicShriek = parameters.harmonicShriek ? parameters.harmonicShriek[0] : 0.40
     const pickupAngle = parameters.pickupAngle ? parameters.pickupAngle[0] : 0.30
     const cabinetThump = parameters.cabinetThump ? parameters.cabinetThump[0] : 0.50
+    const cabinetHowl = parameters.cabinetHowl ? parameters.cabinetHowl[0] : 0.50
     const subBeating = parameters.subBeating ? parameters.subBeating[0] : 0.40
     const rumbleResonance = parameters.rumbleResonance ? parameters.rumbleResonance[0] : 0.5
     const coneLimit = parameters.coneLimit ? parameters.coneLimit[0] : 0.6
@@ -353,8 +406,15 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       const acousticFeedback2 = b_from_B * feedbackGain + b_from_A * crossCoupling * 0.3
 
-      // 3. Shriek High-Harmonic Peaking Node (2.2 kHz overtone resonance)
-      // Using acousticFeedback of loop A to drive the shared shriek filter state
+      // 3. Acoustic Resonances: Low-Mid Cabinet Howl (135 Hz animal roar) & High Shriek (2.2 kHz)
+      const howlIn = acousticFeedback
+      const howlBand = this.hb0 * howlIn + this.hb1 * this.howlX1 + this.hb2 * this.howlX2
+        - this.ha1 * this.howlY1 - this.ha2 * this.howlY2
+      this.howlX2 = this.howlX1
+      this.howlX1 = howlIn
+      this.howlY2 = this.howlY1
+      this.howlY1 = howlBand
+
       const shriekIn = acousticFeedback
       const shriekBand = this.sb0 * shriekIn + this.sb1 * this.shriekX1 + this.sb2 * this.shriekX2
         - this.sa1 * this.shriekY1 - this.sa2 * this.shriekY2
@@ -363,13 +423,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.shriekY2 = this.shriekY1
       this.shriekY1 = shriekBand
 
-      // High frequency overtone emphasis injected back into strings
-      const feedbackWithShriek = acousticFeedback + (shriekBand * harmonicShriek * 3.0)
-      const feedbackWithShriek2 = acousticFeedback2 + (shriekBand * harmonicShriek * 3.0)
+      // Direct acoustic feedback path (Cabinet Howl + High Shriek)
+      const directAcousticFeedback = acousticFeedback + (howlBand * cabinetHowl * 2.5) + (shriekBand * harmonicShriek * 1.5)
+      const directAcousticFeedback2 = acousticFeedback2 + (howlBand * cabinetHowl * 2.5) + (shriekBand * harmonicShriek * 1.5)
 
-      // Total excitation driving the guitar strings
-      const stringExcitation = (ampFloor * 0.08) + (feedbackWithShriek * 0.018)
-      const stringExcitation2 = (ampFloor * 0.08) + (feedbackWithShriek2 * 0.018)
+      // Total sound pressure driving parallel sympathetic strings
+      const stringExcitation = (ampFloor * 0.08) + (directAcousticFeedback * 0.015)
+      const stringExcitation2 = (ampFloor * 0.08) + (directAcousticFeedback2 * 0.015)
 
       // 4. Update 6-String Karplus-Strong Resonator Bank (Loop A)
       let sumStringL = 0.0
@@ -390,8 +450,9 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         const dampAlpha = Math.min(0.85, Math.max(0.08, 1.0 - stringDamping * 0.45))
         this.stringFilterStates[s] = delayedSample * dampAlpha + this.stringFilterStates[s] * (1 - dampAlpha)
 
+        // R = 0.9997 preserves low-frequency fundamentals
         const lpOut = this.stringFilterStates[s]
-        const dcBlocked = lpOut - this.stringDcX[s] + 0.995 * this.stringDcY[s]
+        const dcBlocked = lpOut - this.stringDcX[s] + 0.9997 * this.stringDcY[s]
         this.stringDcX[s] = lpOut
         this.stringDcY[s] = dcBlocked
 
@@ -401,8 +462,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         buf[wIdx] = (stringOut * stringSustain) + (stringExcitation * 0.75)
         this.stringWriteIndices[s] = (wIdx + 1) & this.stringBufferMask
 
-        sumStringL += stringOut * panWeights[s][0]
-        sumStringR += stringOut * panWeights[s][1]
+        sumStringL += stringOut * panWeights[s][0] * this.stringWeights[s]
+        sumStringR += stringOut * panWeights[s][1] * this.stringWeights[s]
 
         if (s === 0) lowStringSignal = stringOut
       }
@@ -430,7 +491,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.stringFilterStates2[s] = delayedSample * dampAlpha + this.stringFilterStates2[s] * (1 - dampAlpha)
 
         const lpOut = this.stringFilterStates2[s]
-        const dcBlocked = lpOut - this.stringDcX2[s] + 0.995 * this.stringDcY2[s]
+        const dcBlocked = lpOut - this.stringDcX2[s] + 0.9997 * this.stringDcY2[s]
         this.stringDcX2[s] = lpOut
         this.stringDcY2[s] = dcBlocked
 
@@ -440,25 +501,26 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         buf[wIdx] = (stringOut * stringSustain) + (stringExcitation2 * 0.75)
         this.stringWriteIndices2[s] = (wIdx + 1) & this.stringBufferMask
 
-        sumStringL2 += stringOut * panL
-        sumStringR2 += stringOut * panR
+        sumStringL2 += stringOut * panL * this.stringWeights[s]
+        sumStringR2 += stringOut * panR * this.stringWeights[s]
       }
 
       // 5. Guitar Pickups & Cranked Amplifier Preamp
-      const rawPickup = (sumStringL + sumStringR) * 0.5
+      const rawPickup = (sumStringL + sumStringR) * 0.25
       const pickupSignal = rawPickup - this.pickupX1 + 0.995 * this.pickupY1
       this.pickupX1 = rawPickup
       this.pickupY1 = pickupSignal
 
-      const ampInput = (pickupSignal * (1.0 + feedbackGain * 1.6)) + ampFloor
+      // Direct acoustic cabinet feedback AND sympathetic strings enter cranked preamp
+      const ampInput = (directAcousticFeedback * 0.70 + pickupSignal * 0.75) * (1.0 + feedbackGain * 1.6) + ampFloor
       const absSig = Math.abs(ampInput)
 
-      const rawPickup2 = (sumStringL2 + sumStringR2) * 0.5
+      const rawPickup2 = (sumStringL2 + sumStringR2) * 0.25
       const pickupSignal2 = rawPickup2 - this.pickupX12 + 0.995 * this.pickupY12
       this.pickupX12 = rawPickup2
       this.pickupY12 = pickupSignal2
 
-      const ampInput2 = (pickupSignal2 * (1.0 + feedbackGain * 1.6)) + ampFloor
+      const ampInput2 = (directAcousticFeedback2 * 0.70 + pickupSignal2 * 0.75) * (1.0 + feedbackGain * 1.6) + ampFloor
       const absSig2 = Math.abs(ampInput2)
 
       // 6. Power Amp Sag & Asymmetric Tube Overdrive ("The Valve On/Off" + Heterodyne Roar Engine)
@@ -495,11 +557,24 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.overdriveDcX2 = rawOverdriven2
       this.overdriveDcY2 = overdriven2
 
-      // 7. Write Saturated Output into Speaker Propagation Delay
-      this.propBuffer[this.propWriteIndex] = overdriven
+      // 7. 12" Speaker Cabinet Rolloff before writing to room propagation buffer
+      // Real guitar speakers roll off > 3 kHz, allowing the low-mid cabinet resonance to dominate
+      const spkOut = this.spkB0 * overdriven + this.spkB1 * this.spkX1 + this.spkB2 * this.spkX2
+        - this.spkA1 * this.spkY1 - this.spkA2 * this.spkY2
+      this.spkX2 = this.spkX1
+      this.spkX1 = overdriven
+      this.spkY2 = this.spkY1
+      this.spkY1 = spkOut
+      this.propBuffer[this.propWriteIndex] = spkOut
       this.propWriteIndex = (this.propWriteIndex + 1) & this.propBufferMask
 
-      this.propBuffer2[this.propWriteIndex2] = overdriven2
+      const spkOut2 = this.spkB0 * overdriven2 + this.spkB1 * this.spkX12 + this.spkB2 * this.spkX22
+        - this.spkA1 * this.spkY12 - this.spkA2 * this.spkY22
+      this.spkX22 = this.spkX12
+      this.spkX12 = overdriven2
+      this.spkY22 = this.spkY12
+      this.spkY12 = spkOut2
+      this.propBuffer2[this.propWriteIndex2] = spkOut2
       this.propWriteIndex2 = (this.propWriteIndex2 + 1) & this.propBufferMask
 
       // 8. Low Rumble & Musically-Aligned Resonant Body Filter Bank
@@ -533,11 +608,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.knockAmp *= 0.9975 // ~35ms acoustic decay ring
       }
 
-      // 10. Output to Speakers (balanced with rich body and heterodyne roar)
-      left[i] = (overdriven * 0.45 + sumStringL * 0.20 + rumbleSignal * 0.35 + knockSignal * 0.35 + ampFloor * 0.15)
-              + (overdriven2 * 0.45 + sumStringL2 * 0.20) * loop2Gain * 0.7
-      right[i] = (overdriven * 0.45 + sumStringR * 0.20 + rumbleSignal * 0.35 + knockSignal * 0.35 + ampFloor * 0.15)
-               + (overdriven2 * 0.45 + sumStringR2 * 0.20) * loop2Gain * 0.7
+      // 10. Output to Speakers (True acoustic speaker radiation with master saturation)
+      const rawL = (overdriven * 0.40 + sumStringL * 0.15 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.12)
+                 + (overdriven2 * 0.40 + sumStringL2 * 0.15) * loop2Gain * 0.7
+      const rawR = (overdriven * 0.40 + sumStringR * 0.15 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.12)
+                 + (overdriven2 * 0.40 + sumStringR2 * 0.15) * loop2Gain * 0.7
+
+      left[i] = Math.tanh(rawL)
+      right[i] = Math.tanh(rawR)
     }
 
     return true

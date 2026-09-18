@@ -31,6 +31,7 @@ describe('MMMLabSonifier', () => {
       ['harmonicShriek', mockParam(0.40)],
       ['pickupAngle', mockParam(0.30)],
       ['cabinetThump', mockParam(0.50)],
+      ['cabinetHowl', mockParam(0.50)],
       ['subBeating', mockParam(0.40)],
       ['rumbleResonance', mockParam(0.5)],
       ['coneLimit', mockParam(0.6)],
@@ -120,6 +121,7 @@ describe('MMMLabSonifier', () => {
     expect(paramNames).toContain('harmonicShriek')
     expect(paramNames).toContain('pickupAngle')
     expect(paramNames).toContain('cabinetThump')
+    expect(paramNames).toContain('cabinetHowl')
     expect(paramNames).toContain('subBeating')
     expect(paramNames).toContain('volume')
     // Phase A
@@ -162,6 +164,10 @@ describe('MMMLabSonifier', () => {
     sonifier.setParam('cabinetThump', 0.9)
     const thumpParam = mockWorkletParams.get('cabinetThump')
     expect(thumpParam.setTargetAtTime).toHaveBeenCalledWith(0.9, 0, 0.025)
+
+    sonifier.setParam('cabinetHowl', 0.85)
+    const howlParam = mockWorkletParams.get('cabinetHowl')
+    expect(howlParam.setTargetAtTime).toHaveBeenCalledWith(0.85, 0, 0.025)
   })
 
   it('updates new Phase A/B/C parameters with smoothing', async () => {
