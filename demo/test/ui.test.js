@@ -48,6 +48,7 @@ beforeEach(() => {
           </div>
         </div>
 
+        <div id="preset-bar-panel"></div>
         <div class="parameters-container" id="parameters-panel"></div>
       </div>
     </div>
@@ -196,6 +197,13 @@ const mmmlabSchema = [
 
 class MockMMMLabSonifier {
   getParamSchema() { return mmmlabSchema }
+  getPresets() {
+    return [
+      { id: 'hum', name: 'Amp Hum & Tube Breath', description: 'Transformer hum', params: { ampHum: 0.65, feedbackGain: 0.0 } },
+      { id: 'basic-feedback', name: 'Basic Acoustic Feedback', description: 'Acoustic loop', params: { feedbackGain: 1.02 } },
+      { id: 'default', name: 'Balanced Drone (Default)', description: 'Default baseline', params: { feedbackGain: 1.0 } }
+    ]
+  }
 }
 
 vi.mock('@web-sonifier/core', () => ({
@@ -818,6 +826,38 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(groupHeaders).toContain('5. Shriek & Harmonic Bending')
     expect(groupHeaders).toContain('6. Low Rumble & Cabinet Resonance')
     expect(groupHeaders).toContain('7. Output')
+  })
+
+  it('should render the component sound preset bar and allow auditioning presets when sonifier supports presets', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm-lab'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    const presetBar = document.getElementById('preset-bar-panel')
+    expect(presetBar).not.toBeNull()
+    expect(presetBar.style.display).toBe('block')
+
+    const presetSelect = document.getElementById('sonifier-preset-select')
+    expect(presetSelect).not.toBeNull()
+    const options = Array.from(presetSelect.querySelectorAll('option')).map(o => o.value)
+    expect(options).toContain('hum')
+    expect(options).toContain('basic-feedback')
+
+    // Switch to hum preset
+    presetSelect.value = 'hum'
+    presetSelect.dispatchEvent(new Event('change'))
+
+    const descEl = document.getElementById('preset-description')
+    expect(descEl.textContent).toBe('Transformer hum')
+
+    // Verify hold feeds toggle
+    const holdBtn = document.getElementById('btn-toggle-hold-feeds')
+    expect(holdBtn).not.toBeNull()
+    holdBtn.click()
+    const holdText = document.getElementById('hold-feeds-text')
+    expect(holdText.textContent).toContain('Feeds Held')
   })
 
   it('should include all @web-sonifier packages imported by main.js in index.html importmap', async () => {

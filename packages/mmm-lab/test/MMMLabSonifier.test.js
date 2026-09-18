@@ -223,4 +223,45 @@ describe('MMMLabSonifier', () => {
     expect(sonifier._cabinetEQ2.disconnect).toHaveBeenCalled()
     expect(sonifier._masterGain.disconnect).toHaveBeenCalled()
   })
+
+  it('provides all 8 component sound presets with valid schema parameter mappings', () => {
+    const presets = sonifier.getPresets()
+    expect(Array.isArray(presets)).toBe(true)
+    expect(presets.length).toBe(8)
+
+    const presetIds = presets.map(p => p.id)
+    expect(presetIds).toContain('hum')
+    expect(presetIds).toContain('basic-feedback')
+    expect(presetIds).toContain('heterodyne-howl')
+    expect(presetIds).toContain('screech')
+    expect(presetIds).toContain('rumble-pulse')
+    expect(presetIds).toContain('cabinet-boom')
+    expect(presetIds).toContain('full-mmm')
+    expect(presetIds).toContain('default')
+
+    const schemaKeys = new Set(sonifier.getParamSchema().map(p => p.name))
+    for (const preset of presets) {
+      expect(preset.name).toBeTruthy()
+      expect(preset.description).toBeTruthy()
+      expect(typeof preset.params).toBe('object')
+      for (const paramKey of Object.keys(preset.params)) {
+        expect(schemaKeys.has(paramKey)).toBe(true)
+      }
+    }
+  })
+
+  it('applies preset parameters with smooth automation via applyPreset()', async () => {
+    await sonifier.init(mockContext, mockOutput)
+
+    const success = sonifier.applyPreset('hum')
+    expect(success).toBe(true)
+
+    // hum preset sets feedbackGain to 0 and ampHum to 0.65
+    expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)
+    expect(mockWorkletParams.get('ampHum').setTargetAtTime).toHaveBeenCalledWith(0.65, 0, 0.025)
+
+    // invalid preset returns false
+    const invalid = sonifier.applyPreset('nonexistent')
+    expect(invalid).toBe(false)
+  })
 })

@@ -182,6 +182,27 @@ export function getSonifierSchema(type) {
   return []
 }
 
+export function getSonifierPresets(type) {
+  if (activeSonifier && activeSonifierType === type && typeof activeSonifier.getPresets === 'function') {
+    return activeSonifier.getPresets()
+  }
+  const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+  if (SonifierClass) {
+    if (SonifierClass.PRESETS) {
+      return Object.values(SonifierClass.PRESETS)
+    }
+    try {
+      const temp = new SonifierClass()
+      if (typeof temp.getPresets === 'function') {
+        return temp.getPresets()
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return []
+}
+
 // ---------------------------------------------------------------------------
 // Default Settings & UI Facet Configurations
 // ---------------------------------------------------------------------------
@@ -330,6 +351,7 @@ export const UI_CONFIGS = {
 export const defaultSettings = {
   sonifierType: 'tone',
   masterVolume: 0.8,
+  holdFeeds: false,
   feeds: [
     { id: 'A', label: 'Feed A', value: 50, rateMs: 1000, stepSize: 6 },
     { id: 'B', label: 'Feed B', value: 50, rateMs: 2000, stepSize: 4 }
@@ -489,6 +511,7 @@ export const defaultSettings = {
     volume:            0.5
   },
   'mmm-lab': {
+    activePresetId:    'default',
     sonifiedParams:    ['feedbackGain'],
     paramFeeds:        { feedbackGain: 'A', harmonicShriek: 'B', cabinetThump: 'A', ampHum: 'B', volume: 'A' },
     paramRanges:       { feedbackGain: [0.0, 2.0], harmonicShriek: [0, 1], cabinetThump: [0, 1], ampHum: [0.1, 0.8], volume: [0.1, 0.8] },
@@ -812,7 +835,9 @@ export function handleFeedUpdate(feed) {
   if (valLarge) valLarge.textContent = feed.value.toFixed(1)
   if (meterBar) meterBar.style.width = `${Math.max(0, Math.min(100, feed.value))}%`
 
-  // 2. Modulate sonifier parameters linked to this feed
+  // 2. Modulate sonifier parameters linked to this feed (unless held for preset auditioning)
+  if (settings.holdFeeds) return
+
   const currentType = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   const s = settings[currentType]
   if (!s) return
@@ -989,12 +1014,89 @@ if (masterVolumeEl) {
 }
 
 // ---------------------------------------------------------------------------
-// Parameters Panel Rendering (Automated Editor)
+// Parameters Panel Rendering (Automated Editor & Presets)
 // ---------------------------------------------------------------------------
 
-export function renderParametersPanel() {
+export function renderPresetsBar(type) {
+  let presetBarEl = document.getElementById('preset-bar-panel')
+  if (!presetBarEl && parametersPanel && parametersPanel.parentNode) {
+    presetBarEl = document.createElement('div')
+    presetBarEl.id = 'preset-bar-panel'
+    presetBarEl.style.marginBottom = '1rem'
+    parametersPanel.parentNode.insertBefore(presetBarEl, parametersPanel)
+  }
+  if (!presetBarEl) return
+
+  const presets = getSonifierPresets(type)
+  if (!presets || presets.length === 0) {
+    presetBarEl.style.display = 'none'
+    presetBarEl.innerHTML = ''
+    return
+  }
+
+  presetBarEl.style.display = 'block'
+  if (!settings[type]) settings[type] = {}
+  const currentPresetId = settings[type].activePresetId || presets[0]?.id || 'default'
+
+  presetBarEl.innerHTML = `
+    <div class="preset-bar-container" style="background: #1e2029; border: 1px solid #2e3240; border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 250px;">
+          <label for="sonifier-preset-select" style="font-size: 0.85rem; font-weight: 600; color: #a0a8b8; white-space: nowrap;">Preset Sound:</label>
+          <select id="sonifier-preset-select" style="background: #14161f; color: #e2e8f0; border: 1px solid #3b4252; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; flex: 1; cursor: pointer;">
+            ${presets.map(p => `<option value="${p.id}" ${p.id === currentPresetId ? 'selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button id="btn-toggle-hold-feeds" type="button" style="background: ${settings.holdFeeds ? '#1e382b' : '#2a2d3d'}; border: 1px solid ${settings.holdFeeds ? '#4caf82' : '#3b4252'}; color: ${settings.holdFeeds ? '#4caf82' : '#81a1c1'}; border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+            <span>${settings.holdFeeds ? '▶' : '⏸'}</span>
+            <span id="hold-feeds-text">${settings.holdFeeds ? 'Feeds Held (Click to Resume)' : 'Hold Feeds (Isolate Sound)'}</span>
+          </button>
+        </div>
+      </div>
+      <div id="preset-description" style="font-size: 0.8rem; color: #8892b0; line-height: 1.35; padding-top: 0.35rem; border-top: 1px solid #282b38;">
+        ${presets.find(p => p.id === currentPresetId)?.description || ''}
+      </div>
+    </div>
+  `
+
+  const selectEl = document.getElementById('sonifier-preset-select')
+  if (selectEl) {
+    selectEl.addEventListener('change', () => {
+      const presetId = selectEl.value
+      const p = presets.find(item => item.id === presetId)
+      if (!p) return
+
+      settings[type].activePresetId = presetId
+
+      const descEl = document.getElementById('preset-description')
+      if (descEl) descEl.textContent = p.description
+
+      for (const [paramName, paramVal] of Object.entries(p.params)) {
+        settings[type][paramName] = paramVal
+        if (activeSonifier && activeSonifierType === type) {
+          activeSonifier.setParam(paramName, paramVal)
+        }
+      }
+
+      // Re-render parameters panel so all sliders, badges, and readouts update to preset values
+      renderAutomatedEditorPanelOnly(type)
+      saveSettings(settings)
+    })
+  }
+
+  const holdBtn = document.getElementById('btn-toggle-hold-feeds')
+  if (holdBtn) {
+    holdBtn.addEventListener('click', () => {
+      settings.holdFeeds = !settings.holdFeeds
+      saveSettings(settings)
+      renderPresetsBar(type)
+    })
+  }
+}
+
+export function renderAutomatedEditorPanelOnly(type) {
   if (!parametersPanel) return
-  const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   const schema = getSonifierSchema(type)
   const schemaMap = new Map(schema.map(p => [p.name, p]))
 
@@ -1098,6 +1200,13 @@ export function renderParametersPanel() {
       }
     }
   })
+}
+
+export function renderParametersPanel() {
+  if (!parametersPanel) return
+  const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
+  renderPresetsBar(type)
+  renderAutomatedEditorPanelOnly(type)
 }
 
 // ---------------------------------------------------------------------------
