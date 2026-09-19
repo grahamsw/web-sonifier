@@ -37,6 +37,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       { name: 'harmonicShriek', defaultValue: 0.40, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
       { name: 'pickupAngle', defaultValue: 0.30, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
       { name: 'shriekBite', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
+      { name: 'seagullSqueal', defaultValue: 0.35, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
 
       // 6. Low Rumble & Cabinet Resonance
       { name: 'cabinetThump', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
@@ -145,10 +146,21 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.barkX1 = 0; this.barkX2 = 0; this.barkY1 = 0; this.barkY2 = 0
     this.barkX12 = 0; this.barkX22 = 0; this.barkY12 = 0; this.barkY22 = 0
 
-    // 3. Low-Pass (3600 Hz): steep 12" paper cone mechanical attenuation
-    this._initSpeakerLP(3600, 0.707)
+    // 3. Low-Pass (7200 Hz): extended guitar speaker cone frequency response preserving microphonic pickup squeals
+    this._initSpeakerLP(7200, 0.707)
     this.lpX1 = 0; this.lpX2 = 0; this.lpY1 = 0; this.lpY2 = 0
     this.lpX12 = 0; this.lpX22 = 0; this.lpY12 = 0; this.lpY22 = 0
+
+    // Pickup Microphonic Tank Resonators ("Flock of Seagulls" Squeals)
+    // 2-pole oversampled state-variable filters tuned to 5.8-7.5 kHz microphonic winding resonances
+    this.sgLowA = 0
+    this.sgBandA = 0
+    this.sgLowB = 0
+    this.sgBandB = 0
+    this.seagullBurstA = 0
+    this.seagullBurstB = 0
+    this.lastSagGainA = 1.0
+    this.lastSagGainB = 1.0
 
     // Pre-Gain Screech Resonance Filter (1550 Hz, Q=1.8, +8.0 dB for harmonicShriek mode jump)
     this._initShriekFilter(1550, 1.8, 8.0)
@@ -242,6 +254,12 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.lpX12 = 0; this.lpX22 = 0; this.lpY12 = 0; this.lpY22 = 0
     this.tiltX1 = 0; this.tiltX2 = 0; this.tiltY1 = 0; this.tiltY2 = 0
     this.tiltX12 = 0; this.tiltX22 = 0; this.tiltY12 = 0; this.tiltY22 = 0
+    this.sgLowA = 0; this.sgBandA = 0
+    this.sgLowB = 0; this.sgBandB = 0
+    this.seagullBurstA = 0
+    this.seagullBurstB = 0
+    this.lastSagGainA = 1.0
+    this.lastSagGainB = 1.0
     this.rumbleX1.fill(0); this.rumbleX2.fill(0); this.rumbleY1.fill(0); this.rumbleY2.fill(0)
     this.rumbleX12.fill(0); this.rumbleX22.fill(0); this.rumbleY12.fill(0); this.rumbleY22.fill(0)
     this.stringExcursion.fill(0)
@@ -367,14 +385,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
   _updateRumbleFilters(basePitch) {
     const f0 = Math.max(30.0, basePitch)
-    const f1 = Math.min(this.sampleRate * 0.45, f0 * 2.0)
-    const f2 = Math.min(this.sampleRate * 0.45, f0 * 3.0)
-    const fBox = 82.0 // cabinet wood box fundamental mode
+    const fA2 = 110.0 // Authentic A2 drone & 4x12 cabinet acoustic wood mode
+    const fOct = Math.min(this.sampleRate * 0.45, f0 * 2.0)
+    const fUpper = (this.tuningPreset === 'ostrich-ad' || this.tuningPreset === 'ostrich-a') ? 220.0 : 82.0
     this.rumbleCoeffs = [
       this._initBiquadBP(f0, 1.8),
-      this._initBiquadBP(f1, 2.0),
-      this._initBiquadBP(f2, 2.2),
-      this._initBiquadBP(fBox, 2.2)
+      this._initBiquadBP(fA2, 2.4),
+      this._initBiquadBP(fOct, 2.0),
+      this._initBiquadBP(fUpper, 2.2)
     ]
     this.lastBasePitch = basePitch
   }
@@ -384,18 +402,32 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       case 'open-d':
         // Open D: D1, A1, D2, F#2, A2, D3
         this.tuningIntervals = [1.0, 1.4983, 2.0, 2.5198, 2.9966, 4.0]
+        this.tuningIntervals2 = [...this.tuningIntervals]
         break
       case 'standard-e':
         // Standard E: E, A, D, G, B, E
         this.tuningIntervals = [1.0, 1.3348, 1.7818, 2.3784, 2.9966, 4.0]
+        this.tuningIntervals2 = [...this.tuningIntervals]
+        break
+      case 'ostrich-ad':
+        // Lou Reed Twin-Guitar Drone (Master Tape Fourth/Fifth Drone Pair):
+        // Guitar A: Ostrich D (73.416 Hz root: D1, D2, D2, D3, D3, D3)
+        // Guitar B: Ostrich A (110.00 Hz root: 1.498307 ratio -> A2, A2, A3, A3, A4, A4)
+        this.tuningIntervals = [1.0, 2.0, 2.0, 4.0, 4.0, 4.0]
+        this.tuningIntervals2 = [1.498307, 1.498307, 2.996614, 2.996614, 5.993228, 5.993228]
+        break
+      case 'ostrich-a':
+        // Lou Reed Ostrich A: All-A unison drone (110.00 Hz root: A2, A2, A3, A3, A4, A4)
+        this.tuningIntervals = [1.498307, 1.498307, 2.996614, 2.996614, 5.993228, 5.993228]
+        this.tuningIntervals2 = [1.498307, 1.498307, 2.996614, 2.996614, 5.993228, 5.993228]
         break
       case 'ostrich-d':
       default:
         // Lou Reed Ostrich D: D1, D2, D2, D3, D3, D3
         this.tuningIntervals = [1.0, 2.0, 2.0, 4.0, 4.0, 4.0]
+        this.tuningIntervals2 = [...this.tuningIntervals]
         break
     }
-    this.tuningIntervals2 = [...this.tuningIntervals]
   }
 
   process(inputs, outputs, parameters) {
@@ -421,6 +453,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const harmonicShriek = parameters.harmonicShriek ? parameters.harmonicShriek[0] : 0.40
     const pickupAngle = parameters.pickupAngle ? parameters.pickupAngle[0] : 0.30
     const shriekBite = parameters.shriekBite ? parameters.shriekBite[0] : 0.50
+    const seagullSqueal = parameters.seagullSqueal ? parameters.seagullSqueal[0] : 0.35
     const cabinetThump = parameters.cabinetThump ? parameters.cabinetThump[0] : 0.50
     const cabinetHowl = parameters.cabinetHowl ? parameters.cabinetHowl[0] : 0.50
     const subBeating = parameters.subBeating ? parameters.subBeating[0] : 0.40
@@ -675,10 +708,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
                     - this.spkLpA1 * this.lpY1 - this.spkLpA2 * this.lpY2
       this.lpX2 = this.lpX1; this.lpX1 = barkOutA; this.lpY2 = this.lpY1; this.lpY1 = spkOutA
 
-      this.propBuffer[this.propWriteIndex] = spkOutA
-      this.propWriteIndex = (this.propWriteIndex + 1) & this.propBufferMask
-
-      // Stack B: HP 50Hz -> Mid Bark 960Hz (+4.5dB, Minor-Third Throat) -> LP 3600Hz
+      // Stack B: HP 50Hz -> Mid Bark 960Hz (+4.5dB, Minor-Third Throat) -> LP 7200Hz
       const hpOutB = this.spkHpB0 * overdrivenB + this.spkHpB1 * this.hpX12 + this.spkHpB2 * this.hpX22
                    - this.spkHpA1 * this.hpY12 - this.spkHpA2 * this.hpY22
       this.hpX22 = this.hpX12; this.hpX12 = overdrivenB; this.hpY22 = this.hpY12; this.hpY12 = hpOutB
@@ -691,7 +721,62 @@ class MMMLabProcessor extends AudioWorkletProcessor {
                     - this.spkLpA1 * this.lpY12 - this.spkLpA2 * this.lpY22
       this.lpX22 = this.lpX12; this.lpX12 = barkOutB; this.lpY22 = this.lpY12; this.lpY12 = spkOutB
 
-      this.propBuffer2[this.propWriteIndex2] = spkOutB
+      // 7b. Microphonic Pickup Tank Resonators ("Flock of Seagulls" Squeals)
+      // Stack A Seagull: 6.2 kHz microphonic tank swooping down to 5.8 kHz
+      const unblockingRateA = sagGainReductionA - this.lastSagGainA
+      this.lastSagGainA = sagGainReductionA
+      if (unblockingRateA > 0.0006 && absSigA > 0.08) {
+        this.seagullBurstA = Math.min(1.0, this.seagullBurstA + unblockingRateA * 150.0 * seagullSqueal)
+      }
+      if (Math.random() < 0.00035 * seagullSqueal && absSigA > 0.12) {
+        this.seagullBurstA = Math.min(1.0, this.seagullBurstA + 0.45 * seagullSqueal)
+      }
+      this.seagullBurstA *= 0.9996
+
+      const fcA = Math.min(this.sampleRate * 0.40, 6200 + (this.seagullBurstA * 1200) + Math.sin(this.driftPhase1 * 4.0) * 450)
+      const fNormA = Math.min(0.35, fcA / this.sampleRate)
+      const F1_A = 2.0 * Math.sin(Math.PI * fNormA * 0.5)
+      const DA = 0.24 // High-Q microphonic tank resonance (Q ≈ 4.2)
+      const coilShockA = (Math.random() * 2 - 1) * 0.08 * this.seagullBurstA
+      const tankDriveA = (pickupSignalA * 0.30 + coilShockA + this.sgBandA * 0.75) * this.seagullBurstA * seagullSqueal
+      let highA = tankDriveA - this.sgLowA - DA * this.sgBandA
+      this.sgBandA += F1_A * highA
+      this.sgLowA += F1_A * this.sgBandA
+      highA = tankDriveA - this.sgLowA - DA * this.sgBandA
+      this.sgBandA += F1_A * highA
+      this.sgLowA += F1_A * this.sgBandA
+      const seagullSignalA = Math.tanh(this.sgBandA * 2.2) * this.seagullBurstA * seagullSqueal
+
+      // Stack B Seagull: 6.8 kHz microphonic tank with independent swoop
+      const unblockingRateB = sagGainReductionB - this.lastSagGainB
+      this.lastSagGainB = sagGainReductionB
+      if (unblockingRateB > 0.0006 && absSigB > 0.08) {
+        this.seagullBurstB = Math.min(1.0, this.seagullBurstB + unblockingRateB * 150.0 * seagullSqueal)
+      }
+      if (Math.random() < 0.00035 * seagullSqueal && absSigB > 0.12) {
+        this.seagullBurstB = Math.min(1.0, this.seagullBurstB + 0.45 * seagullSqueal)
+      }
+      this.seagullBurstB *= 0.9996
+
+      const fcB = Math.min(this.sampleRate * 0.40, 6800 + (this.seagullBurstB * 1100) + Math.cos(this.driftPhase2 * 3.5) * 450)
+      const fNormB = Math.min(0.35, fcB / this.sampleRate)
+      const F1_B = 2.0 * Math.sin(Math.PI * fNormB * 0.5)
+      const DB = 0.24
+      const coilShockB = (Math.random() * 2 - 1) * 0.08 * this.seagullBurstB
+      const tankDriveB = (pickupSignalB * 0.30 + coilShockB + this.sgBandB * 0.75) * this.seagullBurstB * seagullSqueal
+      let highB = tankDriveB - this.sgLowB - DB * this.sgBandB
+      this.sgBandB += F1_B * highB
+      this.sgLowB += F1_B * this.sgBandB
+      highB = tankDriveB - this.sgLowB - DB * this.sgBandB
+      this.sgBandB += F1_B * highB
+      this.sgLowB += F1_B * this.sgBandB
+      const seagullSignalB = Math.tanh(this.sgBandB * 2.2) * this.seagullBurstB * seagullSqueal
+
+      // Acoustic propagation delay buffer write with room microphonic bleed
+      this.propBuffer[this.propWriteIndex] = spkOutA + seagullSignalA * 0.25
+      this.propWriteIndex = (this.propWriteIndex + 1) & this.propBufferMask
+
+      this.propBuffer2[this.propWriteIndex2] = spkOutB + seagullSignalB * 0.25
       this.propWriteIndex2 = (this.propWriteIndex2 + 1) & this.propBufferMask
 
       // 8. Cabinet Box Rumble & Resonance (55, 110, 180, 260 Hz)
@@ -752,10 +837,10 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       // 10. Stack Acoustic Radiation & True Dual-Stack Stereo Staging
       // Stack A Output (Guitar Stack 1: predominantly Left)
-      const stackOutputA = (spkOutA * 0.55 + rumbleSignalA * 0.35 + knockSignalA * 0.25) + (sumStringA * 0.08 * sagGainReductionA)
+      const stackOutputA = (spkOutA * 0.55 + rumbleSignalA * 0.35 + knockSignalA * 0.25) + (sumStringA * 0.08 * sagGainReductionA) + (seagullSignalA * 0.40)
 
       // Stack B Output (Guitar Stack 2: predominantly Right, scaled by loop2Gain)
-      const stackOutputB = ((spkOutB * 0.55 + rumbleSignalB * 0.35 + knockSignalB * 0.25) + (sumStringB * 0.08 * sagGainReductionB)) * loop2Gain
+      const stackOutputB = ((spkOutB * 0.55 + rumbleSignalB * 0.35 + knockSignalB * 0.25) + (sumStringB * 0.08 * sagGainReductionB) + (seagullSignalB * 0.40)) * loop2Gain
 
       // True Dual-Stack Stereo Staging:
       // Stack A radiates 75% Left, 25% Right

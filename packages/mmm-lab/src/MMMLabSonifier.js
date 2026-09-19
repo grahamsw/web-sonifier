@@ -192,6 +192,17 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Shriek Viciousness',
         description: 'Asymmetric non-linear biting wave-shaper intensity on the screaming harmonic overtone'
       },
+      {
+        name: 'seagullSqueal',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.35,
+        unit: 'intensity',
+        curve: 'linear',
+        group: '5. Shriek & Harmonic Bending',
+        label: 'Flock of Seagulls Squeal',
+        description: 'High-pitch (5.8–7.5 kHz) swooping microphonic pickup cry triggered by power-tube unblocking surges'
+      },
 
       // Group 6: Low Rumble & Cabinet Resonance
       {
@@ -349,6 +360,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.0,
         pickupAngle: 0.30,
         shriekBite: 0.0,
+        seagullSqueal: 0.0,
         cabinetThump: 0.0,
         cabinetHowl: 0.0,
         subBeating: 0.0,
@@ -382,6 +394,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.15,
         pickupAngle: 0.30,
         shriekBite: 0.30,
+        seagullSqueal: 0.15,
         cabinetThump: 0.20,
         cabinetHowl: 0.20,
         subBeating: 0.25,
@@ -415,6 +428,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.05,
         pickupAngle: 0.35,
         shriekBite: 0.40,
+        seagullSqueal: 0.20,
         cabinetThump: 0.35,
         cabinetHowl: 0.95,
         subBeating: 0.80,
@@ -448,6 +462,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.95,
         pickupAngle: 0.70,
         shriekBite: 0.90,
+        seagullSqueal: 0.85,
         cabinetThump: 0.05,
         cabinetHowl: 0.05,
         subBeating: 0.10,
@@ -481,6 +496,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.15,
         pickupAngle: 0.30,
         shriekBite: 0.20,
+        seagullSqueal: 0.30,
         cabinetThump: 0.65,
         cabinetHowl: 0.40,
         subBeating: 0.50,
@@ -514,6 +530,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.0,
         pickupAngle: 0.30,
         shriekBite: 0.10,
+        seagullSqueal: 0.0,
         cabinetThump: 1.0,
         cabinetHowl: 0.15,
         subBeating: 0.85,
@@ -534,7 +551,7 @@ export class MMMLabSonifier extends SonifierBase {
       params: {
         ampHum: 0.35,
         ampHiss: 0.20,
-        tuningPreset: 'ostrich-d',
+        tuningPreset: 'ostrich-ad',
         basePitch: 73.416,
         detuneSpread: 7.0,
         stringDamping: 0.25,
@@ -547,6 +564,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.35,
         pickupAngle: 0.35,
         shriekBite: 0.75,
+        seagullSqueal: 0.55,
         cabinetThump: 0.55,
         cabinetHowl: 0.60,
         subBeating: 0.50,
@@ -580,6 +598,7 @@ export class MMMLabSonifier extends SonifierBase {
         harmonicShriek: 0.25,
         pickupAngle: 0.30,
         shriekBite: 0.50,
+        seagullSqueal: 0.35,
         cabinetThump: 0.50,
         cabinetHowl: 0.50,
         subBeating: 0.40,
@@ -661,18 +680,18 @@ export class MMMLabSonifier extends SonifierBase {
     this._limiter.release.setValueAtTime(0.1, this._ctx.currentTime)
     this._limiter.connect(this._masterGain)
 
-    // 3. 4-Pole 12" Speaker Cabinet Acoustic Filter (Authentic 12" paper cone rolloff)
-    // Real 12" guitar speaker cones (e.g. Celestion / Oxford) have a steep acoustic rolloff above 3.2 kHz
-    // Stage 1: 3200 Hz with Q=0.85 (cone edge resonance / cutoff shoulder)
+    // 3. 4-Pole 12" Speaker Cabinet Acoustic Filter (Authentic 12" paper cone extended high-end)
+    // Extended to preserve high-pitch (5.8-7.5 kHz) microphonic pickup squeals ("flock of seagulls")
+    // Stage 1: 7000 Hz with Q=0.85 (cone edge resonance / cutoff shoulder)
     this._cabinetEQ1 = this._ctx.createBiquadFilter()
     this._cabinetEQ1.type = 'lowpass'
-    this._cabinetEQ1.frequency.setValueAtTime(3200, this._ctx.currentTime)
+    this._cabinetEQ1.frequency.setValueAtTime(7000, this._ctx.currentTime)
     this._cabinetEQ1.Q.setValueAtTime(0.85, this._ctx.currentTime)
 
-    // Stage 2: 3600 Hz with Q=0.707 (steep 24 dB/oct acoustic attenuation of treble fizz)
+    // Stage 2: 7600 Hz with Q=0.707 (steep 24 dB/oct acoustic attenuation of ultrasonic fizz)
     this._cabinetEQ2 = this._ctx.createBiquadFilter()
     this._cabinetEQ2.type = 'lowpass'
-    this._cabinetEQ2.frequency.setValueAtTime(3600, this._ctx.currentTime)
+    this._cabinetEQ2.frequency.setValueAtTime(7600, this._ctx.currentTime)
     this._cabinetEQ2.Q.setValueAtTime(0.707, this._ctx.currentTime)
 
     this._cabinetEQ = this._cabinetEQ1 // alias for backward compatibility

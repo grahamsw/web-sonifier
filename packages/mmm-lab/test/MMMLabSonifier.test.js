@@ -120,6 +120,8 @@ describe('MMMLabSonifier', () => {
     expect(paramNames).toContain('sagRecovery')
     expect(paramNames).toContain('harmonicShriek')
     expect(paramNames).toContain('pickupAngle')
+    expect(paramNames).toContain('shriekBite')
+    expect(paramNames).toContain('seagullSqueal')
     expect(paramNames).toContain('cabinetThump')
     expect(paramNames).toContain('cabinetHowl')
     expect(paramNames).toContain('subBeating')
@@ -250,6 +252,10 @@ describe('MMMLabSonifier', () => {
         expect(schemaKeys.has(paramKey)).toBe(true)
       }
     }
+
+    const fullPreset = presets.find(p => p.id === 'full-mmm')
+    expect(fullPreset.params.tuningPreset).toBe('ostrich-ad')
+    expect(fullPreset.params.seagullSqueal).toBe(0.55)
   })
 
   it('applies preset parameters with smooth automation and posts reset to worklet via applyPreset()', async () => {

@@ -38,6 +38,7 @@ describe('MMMLabProcessor DSP Stability', async () => {
       harmonicShriek: [0.40],
       pickupAngle: [0.30],
       shriekBite: [0.50],
+      seagullSqueal: [0.35],
       cabinetThump: [0.50],
       cabinetHowl: [0.50],
       subBeating: [0.40],
@@ -569,6 +570,89 @@ describe('MMMLabProcessor DSP Stability', async () => {
     const peak1 = runBlocks(50, params1)
     expect(peak1).toBeLessThanOrEqual(1.0)
     expect(processor.driftPhase1).toBeGreaterThan(0)
+  })
+
+  it('configures dual-guitar ostrich-ad tuning producing A2 (110 Hz) drone on Guitar B alongside D2 (73.4 Hz) on Guitar A', () => {
+    processor.port.onmessage({ data: { type: 'tuning', preset: 'ostrich-ad' } })
+    expect(processor.tuningIntervals[0]).toBe(1.0)
+    // Guitar B intervals are Fifth above D: 1.498307 ratio -> 73.416 * 1.498307 = 110.00 Hz (A2)
+    expect(processor.tuningIntervals2[0]).toBeCloseTo(1.498307, 4)
+    expect(processor.tuningIntervals2[2]).toBeCloseTo(2.996614, 4) // 220.00 Hz (A3)
+
+    const params = makeParams({ basePitch: [73.416], detuneSpread: [0.0], driftRate: [0.0], loop2Detune: [0.0] })
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+
+    // Guitar A fundamental: 44100 / 73.416 ≈ 600.68 samples
+    expect(processor.stringPeriods[0]).toBeCloseTo(44100 / 73.416, 1)
+    // Guitar B fundamental: 44100 / (73.416 * 1.498307) = 44100 / 110.00 = 400.9 samples (A2)
+    expect(processor.stringPeriods2[0]).toBeCloseTo(44100 / 110.00, 1)
+  })
+
+  it('supports ostrich-a all-A unison drone tuning preset', () => {
+    processor.port.onmessage({ data: { type: 'tuning', preset: 'ostrich-a' } })
+    expect(processor.tuningIntervals[0]).toBeCloseTo(1.498307, 4)
+    expect(processor.tuningIntervals2[0]).toBeCloseTo(1.498307, 4)
+  })
+
+  it('generates high-frequency microphonic seagull squeal energy in the 5.8-7.5 kHz range when seagullSqueal is active', () => {
+    const pQuiet = new processorClass()
+    const pSqueal = new processorClass()
+
+    const quietParams = makeParams({
+      ampHum: [0.0],
+      ampHiss: [0.0],
+      feedbackGain: [0.0],
+      seagullSqueal: [0.0]
+    })
+    const squealParams = makeParams({
+      ampHum: [0.0],
+      ampHiss: [0.0],
+      feedbackGain: [0.0],
+      seagullSqueal: [0.85]
+    })
+
+    // Trigger seagull burst
+    pQuiet.seagullBurstA = 1.0
+    pSqueal.seagullBurstA = 1.0
+
+    // Measure spectral energy at 6200 Hz via single-bin DFT
+    const omega = (2 * Math.PI * 6200.0) / 44100.0
+    let quietCos = 0, quietSin = 0
+    let squealCos = 0, squealSin = 0
+
+    let sampleCount = 0
+    for (let b = 0; b < 10; b++) {
+      const leftQ = new Float32Array(128), rightQ = new Float32Array(128)
+      const leftS = new Float32Array(128), rightS = new Float32Array(128)
+      pQuiet.process([], [[leftQ, rightQ]], quietParams)
+      pSqueal.process([], [[leftS, rightS]], squealParams)
+
+      for (let i = 0; i < 128; i++) {
+        const n = sampleCount++
+        quietCos += leftQ[i] * Math.cos(omega * n)
+        quietSin += leftQ[i] * Math.sin(omega * n)
+        squealCos += leftS[i] * Math.cos(omega * n)
+        squealSin += leftS[i] * Math.sin(omega * n)
+      }
+    }
+
+    const magQuiet = Math.hypot(quietCos, quietSin)
+    const magSqueal = Math.hypot(squealCos, squealSin)
+
+    expect(magQuiet).toBe(0.0)
+    expect(magSqueal).toBeGreaterThan(0.05)
+  })
+
+  it('bounds and stabilizes seagull squeals across burst cycles without clipping or explosive runaway', () => {
+    const params = makeParams({
+      feedbackGain: [1.30],
+      seagullSqueal: [1.0],
+      loop2Gain: [0.80]
+    })
+
+    const peak = runBlocks(150, params)
+    expect(peak).toBeLessThanOrEqual(1.0)
+    expect(Number.isFinite(peak)).toBe(true)
   })
 })
 
