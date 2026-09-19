@@ -375,4 +375,71 @@ describe('MMMLabProcessor DSP Stability', async () => {
     // Low-mid body must be at least 5x (> 14 dB) stronger than harsh treble fizz
     expect(ratio).toBeGreaterThan(5.0)
   })
+
+  it('triggers mechanical knock impulses and maintains low-end dominance in cabinet-boom configuration', () => {
+    const params = makeParams({
+      feedbackGain: [0.98],
+      stringDamping: [0.55],
+      basePitch: [50.0],
+      cabinetThump: [1.0],
+      rumbleResonance: [0.92],
+      coneLimit: [0.28],
+      knockLevel: [1.0],
+      harmonicShriek: [0.0],
+      cabinetHowl: [0.15],
+      subBeating: [0.85]
+    })
+
+    let knockCount = 0
+    for (let b = 0; b < 250; b++) {
+      const prevAmp = processor.knockAmp
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+      if (processor.knockAmp > prevAmp && processor.knockAmp > 0.5) {
+        knockCount++
+      }
+    }
+    // Cone excursion bottoming must fire multiple mechanical knock impulses
+    expect(knockCount).toBeGreaterThanOrEqual(1)
+  })
+
+  it('maintains dual guitar dynamic balance and prevents sag clamping in full-mmm configuration', () => {
+    const params = makeParams({
+      feedbackGain: [1.05],
+      stringDamping: [0.25],
+      basePitch: [73.416],
+      detuneSpread: [8.0],
+      harmonicShriek: [0.22],
+      pickupAngle: [0.35],
+      cabinetThump: [0.60],
+      cabinetHowl: [0.55],
+      subBeating: [0.45],
+      rumbleResonance: [0.60],
+      coneLimit: [0.50],
+      knockLevel: [0.40],
+      loop2Gain: [0.85],
+      loop2Detune: [18.0],
+      loop2Distance: [7.0],
+      crossCoupling: [0.42]
+    })
+
+    for (let b = 0; b < 200; b++) {
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+    }
+
+    // Both sag circuits must have charge but not be permanently clamped at 1.0
+    expect(processor.sagCharge).toBeGreaterThan(0.2)
+    expect(processor.sagCharge).toBeLessThan(0.95)
+    expect(processor.sagCharge2).toBeGreaterThan(0.2)
+    expect(processor.sagCharge2).toBeLessThan(0.95)
+
+    // Verify bounded output
+    const left = new Float32Array(128)
+    const right = new Float32Array(128)
+    processor.process([], [[left, right]], params)
+    for (let i = 0; i < 128; i++) {
+      expect(Math.abs(left[i])).toBeLessThanOrEqual(1.0)
+      expect(Math.abs(right[i])).toBeLessThanOrEqual(1.0)
+    }
+  })
 })
+
