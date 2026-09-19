@@ -403,7 +403,7 @@ export class MMMLabSonifier extends SonifierBase {
     'screech': {
       id: 'screech',
       name: 'Screech & Harmonic Bending',
-      description: 'Forces the acoustic loop to slip off the low string fundamental into a piercing 2.2 kHz reed-like harmonic overtone scream.',
+      description: 'Pre-gain harmonic tilt drive forces the acoustic feedback loop to latch onto screaming string overtones (2nd and 3rd harmonics) rather than the low fundamental.',
       params: {
         ampHum: 0.20,
         ampHiss: 0.15,

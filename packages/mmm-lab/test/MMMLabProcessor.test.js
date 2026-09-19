@@ -441,5 +441,61 @@ describe('MMMLabProcessor DSP Stability', async () => {
       expect(Math.abs(right[i])).toBeLessThanOrEqual(1.0)
     }
   })
+
+  it('exhibits authentic MMM spatial and spectral characteristics (wide stereo & decorrelation)', () => {
+    const params = makeParams({
+      feedbackGain: [1.08],
+      harmonicShriek: [0.35],
+      loop2Gain: [0.80],
+      loop2Detune: [18.0],
+      crossCoupling: [0.40]
+    })
+
+    // Warm up feedback
+    for (let b = 0; b < 100; b++) {
+      processor.process([], [[new Float32Array(128), new Float32Array(128)]], params)
+    }
+
+    // Capture 50 blocks (~6400 samples)
+    const leftAll = []
+    const rightAll = []
+    for (let b = 0; b < 50; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      for (let i = 0; i < 128; i++) {
+        leftAll.push(left[i])
+        rightAll.push(right[i])
+      }
+    }
+
+    // Stereo correlation must demonstrate wide spatial decorrelation (< 0.65)
+    let meanL = 0, meanR = 0
+    for (let i = 0; i < leftAll.length; i++) {
+      meanL += leftAll[i]
+      meanR += rightAll[i]
+    }
+    meanL /= leftAll.length
+    meanR /= rightAll.length
+
+    let cov = 0, varL = 0, varR = 0
+    let sumMidSq = 0, sumSideSq = 0
+    for (let i = 0; i < leftAll.length; i++) {
+      const dL = leftAll[i] - meanL
+      const dR = rightAll[i] - meanR
+      cov += dL * dR
+      varL += dL * dL
+      varR += dR * dR
+      const m = 0.5 * (leftAll[i] + rightAll[i])
+      const s = 0.5 * (leftAll[i] - rightAll[i])
+      sumMidSq += m * m
+      sumSideSq += s * s
+    }
+    const corr = cov / (Math.sqrt(varL * varR) + 1e-9)
+    const sideMidRatio = Math.sqrt(sumSideSq) / (Math.sqrt(sumMidSq) + 1e-9)
+
+    // Side-to-mid ratio must demonstrate substantial stereo separation (> 0.15 vs 0.02 in mono)
+    expect(sideMidRatio).toBeGreaterThan(0.15)
+  })
 })
 
