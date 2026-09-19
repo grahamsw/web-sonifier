@@ -390,13 +390,9 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
     // Acoustic distance delay in samples + pickup micro-angle
     // ~1ms to 25ms delay (approx 1ft to 25ft acoustic room coupling)
-    // Dynamic sweep range expands when harmonicShriek is cranked (for screech bending)
-    // Loop A and Loop B have quadrature/decorrelated room angles for rich stereo motion and binaural beating
-    const sweepRange = 16.0 + harmonicShriek * 24.0
-    const angleOffsetA = Math.sin(pickupAngle * Math.PI) * sweepRange
-    const angleOffsetB = Math.cos(pickupAngle * Math.PI) * sweepRange
-    const propDelaySamples = Math.max(4.0, (couplingDistance * 0.001 * this.sampleRate) + angleOffsetA)
-    const propDelaySamples2 = Math.max(4.0, (loop2Distance * 0.001 * this.sampleRate) - angleOffsetB)
+    const angleOffset = Math.sin(pickupAngle * Math.PI) * 8.0
+    const propDelaySamples = Math.max(4.0, (couplingDistance * 0.001 * this.sampleRate) + angleOffset)
+    const propDelaySamples2 = Math.max(4.0, (loop2Distance * 0.001 * this.sampleRate) + angleOffset)
 
     // String stereo panning positions (from string 0 left to string 5 right)
     const panWeights = [
@@ -423,7 +419,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.hissState += 0.10 * (rawNoise - this.hissState)
       this.hissState2 += 0.10 * (this.hissState - this.hissState2)
 
-      const ampFloor = (humSig * 0.12 * ampHum) + (this.hissState2 * 0.06 * ampHiss)
+      const ampFloor = (humSig * 0.07 * ampHum) + (this.hissState2 * 0.04 * ampHiss)
 
       // 2. Read Acoustic Feedback from Speaker Propagation Delay
       const readA = (this.propWriteIndex - propDelaySamples + this.propBufferSize * 4) % this.propBufferSize
@@ -578,16 +574,12 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const sagGainReduction = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
 
       // Soft-knee asymmetric valve transformer saturation: rich even harmonics and musical compression
-      // With quadratic intermodulation term x|x| to generate strong f2 - f1 difference frequencies (heterodyne roar)
       const asym = 0.20 + subBeating * 0.40
-      const quadTerm = ampInput * Math.abs(ampInput) * (0.10 + subBeating * 0.25)
-      const saturatedInput = ampInput + quadTerm
-
       let valveOut = 0
-      if (saturatedInput >= 0) {
-        valveOut = saturatedInput / (1.0 + saturatedInput * (0.65 - asym * 0.25))
+      if (ampInput >= 0) {
+        valveOut = ampInput / (1.0 + ampInput * (0.65 - asym * 0.25))
       } else {
-        const absA = -saturatedInput
+        const absA = -ampInput
         valveOut = -absA / (1.0 + absA * (0.85 + asym * 0.35))
       }
       const rawOverdriven = valveOut * sagGainReduction
@@ -605,14 +597,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.sagCharge2 *= sagBleed
       }
       const sagGainReduction2 = Math.max(0.35, 1.0 - this.sagCharge2 * sagDepth * 0.65)
-      const quadTerm2 = ampInput2 * Math.abs(ampInput2) * (0.10 + subBeating * 0.25)
-      const saturatedInput2 = ampInput2 + quadTerm2
-
       let valveOut2 = 0
-      if (saturatedInput2 >= 0) {
-        valveOut2 = saturatedInput2 / (1.0 + saturatedInput2 * (0.65 - asym * 0.25))
+      if (ampInput2 >= 0) {
+        valveOut2 = ampInput2 / (1.0 + ampInput2 * (0.65 - asym * 0.25))
       } else {
-        const absA2 = -saturatedInput2
+        const absA2 = -ampInput2
         valveOut2 = -absA2 / (1.0 + absA2 * (0.85 + asym * 0.35))
       }
       const rawOverdriven2 = valveOut2 * sagGainReduction2
@@ -658,37 +647,25 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const rumbleSignal = sumRumble * (0.5 + rumbleResonance * 1.5) * cabinetThump * 0.9
 
       // 9. Speaker Cone Excursion & 55 Hz Acoustic Knock Resonator
-      if (this.knockCooldown > 0) {
-        this.knockCooldown--
-      }
-      // Cone excursion tracks signed low-frequency displacement (overdriven + resonant cabinet air modes)
-      const excursionDrive = overdriven + rumbleSignal * 1.4
-      this.coneDisplacement += (excursionDrive - this.coneDisplacement) * 0.015
-      if (Math.abs(this.coneDisplacement) > coneLimit && this.knockCooldown <= 0) {
-        this.knockAmp = knockLevel * 0.85
+      this.coneDisplacement += (Math.abs(overdriven) - this.coneDisplacement) * 0.008
+      if (this.coneDisplacement > coneLimit) {
+        this.knockAmp = knockLevel * 0.6
         this.knockPhase = 0
-        this.coneDisplacement = Math.sign(this.coneDisplacement) * coneLimit * 0.5 // mechanical energy discharge
-        this.knockCooldown = Math.floor(0.045 * this.sampleRate) // ~45ms lockout (allows rhythmic excursion bottoming)
+        this.coneDisplacement *= 0.5 // mechanical energy discharge
       }
       let knockSignal = 0.0
       if (this.knockAmp > 0.0005) {
-        // Mechanical transient impact (sharp clack) + 55 Hz resonant ring of the basket/cabinet
-        knockSignal = this.knockAmp * (Math.cos(this.knockPhase) * 0.65 + Math.sin(this.knockPhase) * 0.35)
+        // Pure 55 Hz smooth acoustic sine wave burst (no click discontinuity)
+        knockSignal = this.knockAmp * Math.sin(this.knockPhase)
         this.knockPhase += this.knockPhaseStep
-        this.knockAmp *= 0.9970 // ~30ms decay ring
+        this.knockAmp *= 0.9975 // ~35ms acoustic decay ring
       }
 
-      // 10. Output to Speakers (12" paper cone radiation with stereo staging and master soft saturation)
-      // Amp A is staged center-left (70/30), Amp B is staged center-right (30/70)
-      const spkL1 = spkOut * 0.70
-      const spkR1 = spkOut * 0.30
-      const spkL2 = spkOut2 * 0.30
-      const spkR2 = spkOut2 * 0.70
-
-      const rawL = (spkL1 * 0.50 + sumStringL * 0.14 + rumbleSignal * 0.45 + knockSignal * 0.65 + ampFloor * 0.18)
-                 + (spkL2 * 0.50 + sumStringL2 * 0.14) * loop2Gain * 0.8
-      const rawR = (spkR1 * 0.50 + sumStringR * 0.14 + rumbleSignal * 0.45 + knockSignal * 0.65 + ampFloor * 0.18)
-                 + (spkR2 * 0.50 + sumStringR2 * 0.14) * loop2Gain * 0.8
+      // 10. Output to Speakers (12" paper cone radiation with master soft saturation)
+      const rawL = (spkOut * 0.45 + sumStringL * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+                 + (spkOut2 * 0.45 + sumStringL2 * 0.12) * loop2Gain * 0.7
+      const rawR = (spkOut * 0.45 + sumStringR * 0.12 + rumbleSignal * 0.35 + knockSignal * 0.30 + ampFloor * 0.06)
+                 + (spkOut2 * 0.45 + sumStringR2 * 0.12) * loop2Gain * 0.7
 
       left[i] = Math.tanh(rawL)
       right[i] = Math.tanh(rawR)

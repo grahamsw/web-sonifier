@@ -404,22 +404,22 @@ describe('MMMLabProcessor DSP Stability', async () => {
 
   it('maintains dual guitar dynamic balance and prevents sag clamping in full-mmm configuration', () => {
     const params = makeParams({
-      feedbackGain: [1.05],
+      feedbackGain: [1.08],
       stringDamping: [0.25],
       basePitch: [73.416],
-      detuneSpread: [8.0],
-      harmonicShriek: [0.22],
+      detuneSpread: [7.0],
+      harmonicShriek: [0.35],
       pickupAngle: [0.35],
-      cabinetThump: [0.60],
-      cabinetHowl: [0.55],
-      subBeating: [0.45],
+      cabinetThump: [0.55],
+      cabinetHowl: [0.60],
+      subBeating: [0.50],
       rumbleResonance: [0.60],
       coneLimit: [0.50],
       knockLevel: [0.40],
-      loop2Gain: [0.85],
+      loop2Gain: [0.75],
       loop2Detune: [18.0],
       loop2Distance: [7.0],
-      crossCoupling: [0.42]
+      crossCoupling: [0.45]
     })
 
     for (let b = 0; b < 200; b++) {
