@@ -577,6 +577,7 @@ export class MMMLabSonifier extends SonifierBase {
       console.warn(`[MMMLabSonifier] Unknown preset "${presetId}"`)
       return false
     }
+    this._pendingPresetId = presetId
     if (this._workletNode && this._workletNode.port) {
       this._workletNode.port.postMessage({ type: 'reset' })
     }
@@ -601,6 +602,7 @@ export class MMMLabSonifier extends SonifierBase {
     this._limiter = null
     this._masterGain = null
     this._initialized = false
+    this._pendingPresetId = null
   }
 
   async init(audioContext, outputNode) {
@@ -656,8 +658,23 @@ export class MMMLabSonifier extends SonifierBase {
     })
     this._workletNode.connect(this._cabinetEQ1)
 
-    // 6. Apply Schema Defaults
-    this.applyDefaults()
+    // Clear worklet buffers for deterministic start
+    if (this._workletNode.port) {
+      this._workletNode.port.postMessage({ type: 'reset' })
+    }
+
+    // 6. Apply Schema Defaults for unconfigured params only (do not overwrite preset/user params)
+    for (const entry of this.getParamSchema()) {
+      if (this._paramValues[entry.name] === undefined && entry.default !== undefined) {
+        this._paramValues[entry.name] = entry.default
+      }
+    }
+    if (this._pendingPresetId && MMMLabSonifier.PRESETS[this._pendingPresetId]) {
+      const preset = MMMLabSonifier.PRESETS[this._pendingPresetId]
+      for (const [k, v] of Object.entries(preset.params)) {
+        this._paramValues[k] = v
+      }
+    }
     for (const [k, v] of Object.entries(this._paramValues)) {
       this.onParam(k, v)
     }

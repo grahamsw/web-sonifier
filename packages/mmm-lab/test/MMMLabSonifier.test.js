@@ -269,4 +269,16 @@ describe('MMMLabSonifier', () => {
     const invalid = sonifier.applyPreset('nonexistent')
     expect(invalid).toBe(false)
   })
+
+  it('preserves preset parameters and resets worklet state when initialized with a pending preset', async () => {
+    sonifier.applyPreset('hum')
+    await sonifier.init(mockContext, mockOutput)
+
+    // Should post reset message to worklet
+    expect(sonifier._workletNode.port.postMessage).toHaveBeenCalledWith({ type: 'reset' })
+
+    // Should have dispatched hum params (feedbackGain = 0.0) without being overwritten by defaults
+    expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)
+    expect(mockWorkletParams.get('ampHum').setTargetAtTime).toHaveBeenCalledWith(0.65, 0, 0.025)
+  })
 })

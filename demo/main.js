@@ -842,6 +842,9 @@ export function handleFeedUpdate(feed) {
   const s = settings[currentType]
   if (!s) return
 
+  // If an isolated audition preset is active, don't let feeds overwrite its preset values
+  if (s.activePresetId && s.activePresetId !== 'default') return
+
   const sonifiedList = s.sonifiedParams || []
   const paramFeeds = s.paramFeeds || {}
 
@@ -892,10 +895,14 @@ export function applySettings() {
   }
 
   if (activeSonifier) {
-    for (const param of schema) {
-      if (!sonifiedSet.has(param.name)) {
-        if (s[param.name] !== undefined) {
-          activeSonifier.setParam(param.name, s[param.name])
+    if (typeof activeSonifier.applyPreset === 'function' && s.activePresetId && (settings.holdFeeds || s.activePresetId !== 'default')) {
+      activeSonifier.applyPreset(s.activePresetId)
+    } else {
+      for (const param of schema) {
+        if (!sonifiedSet.has(param.name) || settings.holdFeeds) {
+          if (s[param.name] !== undefined) {
+            activeSonifier.setParam(param.name, s[param.name])
+          }
         }
       }
     }
@@ -943,7 +950,9 @@ export async function startSonifier() {
     const feed = feeds.get(linkedFeedId) || feeds.get('A')
     const feedVal = feed ? feed.value : 50
     const mapped = adapter.map(feedVal)
-    activeSonifier.setParam(paramName, mapped)
+    if (!settings.holdFeeds && !(s.activePresetId && s.activePresetId !== 'default')) {
+      activeSonifier.setParam(paramName, mapped)
+    }
 
     const mappedValEl = document.getElementById(`mapped-val-${paramName}`)
     if (mappedValEl) {
@@ -1081,6 +1090,7 @@ export function renderPresetsBar(type) {
         }
       }
 
+      renderPresetsBar(type)
       renderAutomatedEditorPanelOnly(type)
       saveSettings(settings)
     })
