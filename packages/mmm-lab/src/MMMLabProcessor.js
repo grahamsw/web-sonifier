@@ -26,6 +26,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       // 3. Acoustic Feedback Loop
       { name: 'feedbackGain', defaultValue: 1.0, minValue: 0.0, maxValue: 2.5, automationRate: 'k-rate' },
       { name: 'couplingDistance', defaultValue: 4.0, minValue: 1.0, maxValue: 25.0, automationRate: 'k-rate' },
+      { name: 'driftRate', defaultValue: 0.25, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
 
       // 4. Power Amp Sag & Choke
       { name: 'sagThreshold', defaultValue: 0.65, minValue: 0.15, maxValue: 1.0, automationRate: 'k-rate' },
@@ -35,6 +36,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       // 5. Shriek & Harmonic Bending
       { name: 'harmonicShriek', defaultValue: 0.40, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
       { name: 'pickupAngle', defaultValue: 0.30, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
+      { name: 'shriekBite', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
 
       // 6. Low Rumble & Cabinet Resonance
       { name: 'cabinetThump', defaultValue: 0.50, minValue: 0.0, maxValue: 1.0, automationRate: 'k-rate' },
@@ -135,8 +137,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.hpX1 = 0; this.hpX2 = 0; this.hpY1 = 0; this.hpY2 = 0
     this.hpX12 = 0; this.hpX22 = 0; this.hpY12 = 0; this.hpY22 = 0
 
-    // 2. Presence Bark Peaking EQ (1050 Hz, Q=0.55, +4.0 dB): authentic Celestion/Jensen mid-throat
-    this._initSpeakerBark(1050, 0.55, 4.0)
+    // 2. Presence Bark Peaking EQs (Dual-Harmonic Minor-Third Throat)
+    // Stack A: 805 Hz, Q=0.65, +4.5 dB (authentic master tape throat mode A)
+    this._initSpeakerBarkA(805, 0.65, 4.5)
+    // Stack B: 960 Hz, Q=0.65, +4.5 dB (authentic master tape throat mode B: minor-third interval 960/805 = 1.1925)
+    this._initSpeakerBarkB(960, 0.65, 4.5)
     this.barkX1 = 0; this.barkX2 = 0; this.barkY1 = 0; this.barkY2 = 0
     this.barkX12 = 0; this.barkX22 = 0; this.barkY12 = 0; this.barkY22 = 0
 
@@ -145,10 +150,19 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.lpX1 = 0; this.lpX2 = 0; this.lpY1 = 0; this.lpY2 = 0
     this.lpX12 = 0; this.lpX22 = 0; this.lpY12 = 0; this.lpY22 = 0
 
-    // Pre-Gain Harmonic Tilt Filter (1200 Hz high-pass for harmonicShriek)
-    this._initTiltFilter(1200, 0.707)
+    // Pre-Gain Screech Resonance Filter (1550 Hz, Q=1.8, +8.0 dB for harmonicShriek mode jump)
+    this._initShriekFilter(1550, 1.8, 8.0)
     this.tiltX1 = 0; this.tiltX2 = 0; this.tiltY1 = 0; this.tiltY2 = 0
     this.tiltX12 = 0; this.tiltX22 = 0; this.tiltY12 = 0; this.tiltY22 = 0
+
+    // String Excursions for Non-Linear Tension Modulation (Pitch Swoop / Bend)
+    this.stringExcursion = new Float32Array(6)
+    this.stringExcursion2 = new Float32Array(6)
+
+    // Acoustic Room Drift / Chaos Engine Phases
+    this.driftPhase1 = 0.0
+    this.driftPhase2 = 0.8
+    this.driftPhase3 = 1.9
 
     // 4-Mode Cabinet Wood Box Resonance Bank (55, 110, 180, 260 Hz)
     this.rumbleX1 = new Float32Array(4)
@@ -230,6 +244,11 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.tiltX12 = 0; this.tiltX22 = 0; this.tiltY12 = 0; this.tiltY22 = 0
     this.rumbleX1.fill(0); this.rumbleX2.fill(0); this.rumbleY1.fill(0); this.rumbleY2.fill(0)
     this.rumbleX12.fill(0); this.rumbleX22.fill(0); this.rumbleY12.fill(0); this.rumbleY22.fill(0)
+    this.stringExcursion.fill(0)
+    this.stringExcursion2.fill(0)
+    this.driftPhase1 = 0.0
+    this.driftPhase2 = 0.8
+    this.driftPhase3 = 1.9
   }
 
   _initSpeakerHP(cutoff, Q) {
@@ -244,7 +263,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.spkHpA2 = (1 - alpha) / a0
   }
 
-  _initSpeakerBark(centerFreq, Q, gainDB) {
+  _initSpeakerBarkA(centerFreq, Q, gainDB) {
     const w0 = (2 * Math.PI * centerFreq) / this.sampleRate
     const A = Math.pow(10, gainDB / 40)
     const alpha = Math.sin(w0) / (2 * Q)
@@ -254,11 +273,38 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const a0 = 1 + alpha / A
     const a1 = -2 * Math.cos(w0)
     const a2 = 1 - alpha / A
-    this.spkBarkB0 = b0 / a0
-    this.spkBarkB1 = b1 / a0
-    this.spkBarkB2 = b2 / a0
-    this.spkBarkA1 = a1 / a0
-    this.spkBarkA2 = a2 / a0
+    this.spkBarkA_B0 = b0 / a0
+    this.spkBarkA_B1 = b1 / a0
+    this.spkBarkA_B2 = b2 / a0
+    this.spkBarkA_A1 = a1 / a0
+    this.spkBarkA_A2 = a2 / a0
+    // Backward-compatibility aliases
+    this.spkBarkB0 = this.spkBarkA_B0
+    this.spkBarkB1 = this.spkBarkA_B1
+    this.spkBarkB2 = this.spkBarkA_B2
+    this.spkBarkA1 = this.spkBarkA_A1
+    this.spkBarkA2 = this.spkBarkA_A2
+  }
+
+  _initSpeakerBarkB(centerFreq, Q, gainDB) {
+    const w0 = (2 * Math.PI * centerFreq) / this.sampleRate
+    const A = Math.pow(10, gainDB / 40)
+    const alpha = Math.sin(w0) / (2 * Q)
+    const b0 = 1 + alpha * A
+    const b1 = -2 * Math.cos(w0)
+    const b2 = 1 - alpha * A
+    const a0 = 1 + alpha / A
+    const a1 = -2 * Math.cos(w0)
+    const a2 = 1 - alpha / A
+    this.spkBarkB_B0 = b0 / a0
+    this.spkBarkB_B1 = b1 / a0
+    this.spkBarkB_B2 = b2 / a0
+    this.spkBarkB_A1 = a1 / a0
+    this.spkBarkB_A2 = a2 / a0
+  }
+
+  _initSpeakerBark(centerFreq, Q, gainDB) {
+    this._initSpeakerBarkA(centerFreq, Q, gainDB)
   }
 
   _initSpeakerLP(cutoff, Q) {
@@ -279,16 +325,31 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     this.spkA2 = this.spkLpA2
   }
 
-  _initTiltFilter(cutoff, Q) {
-    const w0 = (2 * Math.PI * cutoff) / this.sampleRate
+  _initShriekFilter(centerFreq, Q, gainDB) {
+    const w0 = (2 * Math.PI * centerFreq) / this.sampleRate
+    const A = Math.pow(10, gainDB / 40)
     const alpha = Math.sin(w0) / (2 * Q)
-    const cos = Math.cos(w0)
-    const a0 = 1 + alpha
-    this.tiltB0 = ((1 + cos) / 2) / a0
-    this.tiltB1 = (-(1 + cos)) / a0
-    this.tiltB2 = ((1 + cos) / 2) / a0
-    this.tiltA1 = (-2 * cos) / a0
-    this.tiltA2 = (1 - alpha) / a0
+    const b0 = 1 + alpha * A
+    const b1 = -2 * Math.cos(w0)
+    const b2 = 1 - alpha * A
+    const a0 = 1 + alpha / A
+    const a1 = -2 * Math.cos(w0)
+    const a2 = 1 - alpha / A
+    this.shriekB0 = b0 / a0
+    this.shriekB1 = b1 / a0
+    this.shriekB2 = b2 / a0
+    this.shriekA1 = a1 / a0
+    this.shriekA2 = a2 / a0
+    // Backward-compatibility aliases for tilt filter
+    this.tiltB0 = this.shriekB0
+    this.tiltB1 = this.shriekB1
+    this.tiltB2 = this.shriekB2
+    this.tiltA1 = this.shriekA1
+    this.tiltA2 = this.shriekA2
+  }
+
+  _initTiltFilter(cutoff, Q) {
+    this._initShriekFilter(cutoff, Q, 8.0)
   }
 
   _initBiquadBP(centerFreq, Q) {
@@ -353,11 +414,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     const stringDamping = parameters.stringDamping ? parameters.stringDamping[0] : 0.25
     const feedbackGain = parameters.feedbackGain ? parameters.feedbackGain[0] : 1.0
     const couplingDistance = parameters.couplingDistance ? parameters.couplingDistance[0] : 4.0
+    const driftRate = parameters.driftRate ? parameters.driftRate[0] : 0.25
     const sagThreshold = parameters.sagThreshold ? parameters.sagThreshold[0] : 0.65
     const sagDepth = parameters.sagDepth ? parameters.sagDepth[0] : 0.80
     const sagRecovery = parameters.sagRecovery ? parameters.sagRecovery[0] : 160.0
     const harmonicShriek = parameters.harmonicShriek ? parameters.harmonicShriek[0] : 0.40
     const pickupAngle = parameters.pickupAngle ? parameters.pickupAngle[0] : 0.30
+    const shriekBite = parameters.shriekBite ? parameters.shriekBite[0] : 0.50
     const cabinetThump = parameters.cabinetThump ? parameters.cabinetThump[0] : 0.50
     const cabinetHowl = parameters.cabinetHowl ? parameters.cabinetHowl[0] : 0.50
     const subBeating = parameters.subBeating ? parameters.subBeating[0] : 0.40
@@ -374,6 +437,22 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this._updateRumbleFilters(basePitch)
     }
 
+    // Room Acoustic Chaos / Drift Engine (modulates propagation delay and micro-detuning)
+    const driftSpeed = driftRate * (numSamples / this.sampleRate)
+    this.driftPhase1 += driftSpeed * 0.45
+    this.driftPhase2 += driftSpeed * 0.78
+    this.driftPhase3 += driftSpeed * 1.55
+    if (this.driftPhase1 > 2 * Math.PI) this.driftPhase1 -= 2 * Math.PI
+    if (this.driftPhase2 > 2 * Math.PI) this.driftPhase2 -= 2 * Math.PI
+    if (this.driftPhase3 > 2 * Math.PI) this.driftPhase3 -= 2 * Math.PI
+
+    const delayDriftA = Math.sin(this.driftPhase1) * 0.8 * driftRate
+    const delayDriftB = Math.cos(this.driftPhase2) * 0.8 * driftRate
+    const detuneDrift = Math.sin(this.driftPhase3) * 5.0 * driftRate
+
+    const effDistanceA = Math.max(1.0, couplingDistance + delayDriftA)
+    const effDistanceB = Math.max(1.0, loop2Distance + delayDriftB)
+
     // Pre-calculate string delay lengths for Guitar A
     for (let s = 0; s < 6; s++) {
       const spreadCents = (s - 2.5) * (detuneSpread / 1200.0)
@@ -383,7 +462,8 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     }
 
     // Pre-calculate string delay lengths for Guitar B
-    const basePitchB = basePitch * Math.pow(2, loop2Detune / 1200.0)
+    const effLoop2Detune = loop2Detune + detuneDrift
+    const basePitchB = basePitch * Math.pow(2, effLoop2Detune / 1200.0)
     for (let s = 0; s < 6; s++) {
       const spreadCents = (s - 2.5) * (detuneSpread / 1200.0)
       const ratio = this.tuningIntervals2[s]
@@ -392,12 +472,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
     }
 
     // Propagation delay lengths in samples
-    const propDelaySamplesA = (couplingDistance / 1000.0) * this.sampleRate
-    const propDelaySamplesB = (loop2Distance / 1000.0) * this.sampleRate
+    const propDelaySamplesA = (effDistanceA / 1000.0) * this.sampleRate
+    const propDelaySamplesB = (effDistanceB / 1000.0) * this.sampleRate
 
-    // Sag attack and bleed constants
-    const sagAttack = 1.0 - Math.exp(-1.0 / (0.005 * this.sampleRate))
-    const sagBleed = Math.exp(-1.0 / ((sagRecovery / 1000.0) * this.sampleRate))
+    // Sag attack and bleed constants (Stack A recovers at sagRecovery ms; Stack B ~68% faster for out-of-phase throbbing)
+    const sagAttack = 1.0 - Math.exp(-1.0 / (0.006 * this.sampleRate))
+    const sagBleedA = Math.exp(-1.0 / ((sagRecovery / 1000.0) * this.sampleRate))
+    const sagBleedB = Math.exp(-1.0 / (((sagRecovery * 0.68) / 1000.0) * this.sampleRate))
 
     // Asymmetric valve distortion balance
     const asym = 0.22 + subBeating * 0.35
@@ -441,12 +522,14 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const stringExcitationA = (ampFloor * 0.05) + (acousticAtGuitarA * 0.018)
       const stringExcitationB = (ampFloor * 0.05) + (acousticAtGuitarB * 0.018)
 
-      // 3. Guitar A: 6 Karplus-Strong Strings
+      // 3. Guitar A: 6 Karplus-Strong Strings with Non-Linear Tension Modulation
       let sumStringA = 0.0
       let lowStringSignalA = 0.0
 
       for (let s = 0; s < 6; s++) {
-        const pLen = this.stringPeriods[s]
+        // High excursion shortens effective string delay (pitch bends up +40-70 cents during shriek)
+        const tensionShortening = 1.0 - 0.045 * Math.min(1.0, this.stringExcursion[s] * this.stringExcursion[s] * 2.5)
+        const pLen = this.stringPeriods[s] * tensionShortening
         const buf = this.stringBuffers[s]
         const wIdx = this.stringWriteIndices[s]
 
@@ -465,6 +548,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.stringDcY[s] = dcBlocked
 
         const stringOut = Math.tanh(dcBlocked * 1.2) / 1.2
+        this.stringExcursion[s] += (Math.abs(stringOut) - this.stringExcursion[s]) * 0.005
         const stringSustain = 0.994
 
         buf[wIdx] = (stringOut * stringSustain) + (stringExcitationA * 0.75)
@@ -474,12 +558,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         if (s === 0) lowStringSignalA = stringOut
       }
 
-      // 4. Guitar B: 6 Karplus-Strong Strings
+      // 4. Guitar B: 6 Karplus-Strong Strings with Non-Linear Tension Modulation
       let sumStringB = 0.0
       let lowStringSignalB = 0.0
 
       for (let s = 0; s < 6; s++) {
-        const pLen = this.stringPeriods2[s]
+        const tensionShortening = 1.0 - 0.045 * Math.min(1.0, this.stringExcursion2[s] * this.stringExcursion2[s] * 2.5)
+        const pLen = this.stringPeriods2[s] * tensionShortening
         const buf = this.stringBuffers2[s]
         const wIdx = this.stringWriteIndices2[s]
 
@@ -498,6 +583,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         this.stringDcY2[s] = dcBlocked
 
         const stringOut = Math.tanh(dcBlocked * 1.2) / 1.2
+        this.stringExcursion2[s] += (Math.abs(stringOut) - this.stringExcursion2[s]) * 0.005
         const stringSustain = 0.994
 
         buf[wIdx] = (stringOut * stringSustain) + (stringExcitationB * 0.75)
@@ -507,33 +593,36 @@ class MMMLabProcessor extends AudioWorkletProcessor {
         if (s === 0) lowStringSignalB = stringOut
       }
 
-      // 5. Pickups & Pre-Gain Harmonic Shriek (Tilt Boost)
+      // 5. Pickups & Harmonic Screech (1550 Hz mode jump + asymmetric biting wave-shaper)
       const rawPickupA = sumStringA * 0.25
-      const tiltHPA = this.tiltB0 * rawPickupA + this.tiltB1 * this.tiltX1 + this.tiltB2 * this.tiltX2
-                    - this.tiltA1 * this.tiltY1 - this.tiltA2 * this.tiltY2
+      const shriekHPA = this.tiltB0 * rawPickupA + this.tiltB1 * this.tiltX1 + this.tiltB2 * this.tiltX2
+                      - this.tiltA1 * this.tiltY1 - this.tiltA2 * this.tiltY2
       this.tiltX2 = this.tiltX1; this.tiltX1 = rawPickupA
-      this.tiltY2 = this.tiltY1; this.tiltY1 = tiltHPA
-      const pickupSignalA = rawPickupA + tiltHPA * harmonicShriek * 2.5
+      this.tiltY2 = this.tiltY1; this.tiltY1 = shriekHPA
+      const shriekDriveA = rawPickupA + shriekHPA * harmonicShriek * 3.2
+      const bite = shriekBite * harmonicShriek
+      const pickupSignalA = Math.tanh(shriekDriveA) + bite * 0.30 * (Math.tanh(2.2 * shriekDriveA) - Math.tanh(shriekDriveA))
 
       const rawPickupB = sumStringB * 0.25
-      const tiltHPB = this.tiltB0 * rawPickupB + this.tiltB1 * this.tiltX12 + this.tiltB2 * this.tiltX22
-                    - this.tiltA1 * this.tiltY12 - this.tiltA2 * this.tiltY22
+      const shriekHPB = this.tiltB0 * rawPickupB + this.tiltB1 * this.tiltX12 + this.tiltB2 * this.tiltX22
+                      - this.tiltA1 * this.tiltY12 - this.tiltA2 * this.tiltY22
       this.tiltX22 = this.tiltX12; this.tiltX12 = rawPickupB
-      this.tiltY22 = this.tiltY12; this.tiltY12 = tiltHPB
-      const pickupSignalB = rawPickupB + tiltHPB * harmonicShriek * 2.5
+      this.tiltY22 = this.tiltY12; this.tiltY12 = shriekHPB
+      const shriekDriveB = rawPickupB + shriekHPB * harmonicShriek * 3.2
+      const pickupSignalB = Math.tanh(shriekDriveB) + bite * 0.30 * (Math.tanh(2.2 * shriekDriveB) - Math.tanh(shriekDriveB))
 
-      // 6. Preamp Overdrive & Power Amp Sag (Stack A)
+      // 6. Preamp Overdrive & Power Amp Grid-Leak Blocking Sag (Stack A)
       const ampInputA = (acousticAtGuitarA * 0.65 + pickupSignalA * 0.85) * (1.0 + feedbackGain * 1.4) + ampFloor
       const absSigA = Math.abs(ampInputA)
 
       const overloadA = Math.max(0.0, absSigA - sagThreshold)
-      const targetChargeA = Math.min(1.0, overloadA * 1.5)
+      const targetChargeA = Math.min(0.90, overloadA * 1.5)
       if (targetChargeA > this.sagCharge) {
         this.sagCharge += (targetChargeA - this.sagCharge) * sagAttack
       } else {
-        this.sagCharge *= sagBleed
+        this.sagCharge *= sagBleedA
       }
-      const sagGainReductionA = Math.max(0.35, 1.0 - this.sagCharge * sagDepth * 0.65)
+      const sagGainReductionA = Math.max(0.03, 1.0 / (1.0 + Math.pow(this.sagCharge / Math.max(0.1, 1.0 - sagDepth * 0.45), 2.2)))
 
       let valveOutA = 0
       if (ampInputA >= 0) {
@@ -547,18 +636,18 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.overdriveDcX = rawOverdrivenA
       this.overdriveDcY = overdrivenA
 
-      // Preamp Overdrive & Power Amp Sag (Stack B)
+      // Preamp Overdrive & Power Amp Grid-Leak Blocking Sag (Stack B)
       const ampInputB = (acousticAtGuitarB * 0.65 + pickupSignalB * 0.85) * (1.0 + feedbackGain * 1.4) + ampFloor
       const absSigB = Math.abs(ampInputB)
 
       const overloadB = Math.max(0.0, absSigB - sagThreshold)
-      const targetChargeB = Math.min(1.0, overloadB * 1.5)
+      const targetChargeB = Math.min(0.90, overloadB * 1.5)
       if (targetChargeB > this.sagCharge2) {
         this.sagCharge2 += (targetChargeB - this.sagCharge2) * sagAttack
       } else {
-        this.sagCharge2 *= sagBleed
+        this.sagCharge2 *= sagBleedB
       }
-      const sagGainReductionB = Math.max(0.35, 1.0 - this.sagCharge2 * sagDepth * 0.65)
+      const sagGainReductionB = Math.max(0.03, 1.0 / (1.0 + Math.pow(this.sagCharge2 / Math.max(0.1, 1.0 - sagDepth * 0.45), 2.2)))
 
       let valveOutB = 0
       if (ampInputB >= 0) {
@@ -573,13 +662,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.overdriveDcY2 = overdrivenB
 
       // 7. 12" Guitar Speaker Cabinet Transfer Function
-      // Stack A: HP 50Hz -> Mid Bark 1050Hz (+4dB) -> LP 3600Hz
+      // Stack A: HP 50Hz -> Mid Bark 805Hz (+4.5dB) -> LP 3600Hz
       const hpOutA = this.spkHpB0 * overdrivenA + this.spkHpB1 * this.hpX1 + this.spkHpB2 * this.hpX2
                    - this.spkHpA1 * this.hpY1 - this.spkHpA2 * this.hpY2
       this.hpX2 = this.hpX1; this.hpX1 = overdrivenA; this.hpY2 = this.hpY1; this.hpY1 = hpOutA
 
-      const barkOutA = this.spkBarkB0 * hpOutA + this.spkBarkB1 * this.barkX1 + this.spkBarkB2 * this.barkX2
-                     - this.spkBarkA1 * this.barkY1 - this.spkBarkA2 * this.barkY2
+      const barkOutA = this.spkBarkA_B0 * hpOutA + this.spkBarkA_B1 * this.barkX1 + this.spkBarkA_B2 * this.barkX2
+                     - this.spkBarkA_A1 * this.barkY1 - this.spkBarkA_A2 * this.barkY2
       this.barkX2 = this.barkX1; this.barkX1 = hpOutA; this.barkY2 = this.barkY1; this.barkY1 = barkOutA
 
       const spkOutA = this.spkLpB0 * barkOutA + this.spkLpB1 * this.lpX1 + this.spkLpB2 * this.lpX2
@@ -589,13 +678,13 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.propBuffer[this.propWriteIndex] = spkOutA
       this.propWriteIndex = (this.propWriteIndex + 1) & this.propBufferMask
 
-      // Stack B: HP 50Hz -> Mid Bark 1050Hz (+4dB) -> LP 3600Hz
+      // Stack B: HP 50Hz -> Mid Bark 960Hz (+4.5dB, Minor-Third Throat) -> LP 3600Hz
       const hpOutB = this.spkHpB0 * overdrivenB + this.spkHpB1 * this.hpX12 + this.spkHpB2 * this.hpX22
                    - this.spkHpA1 * this.hpY12 - this.spkHpA2 * this.hpY22
       this.hpX22 = this.hpX12; this.hpX12 = overdrivenB; this.hpY22 = this.hpY12; this.hpY12 = hpOutB
 
-      const barkOutB = this.spkBarkB0 * hpOutB + this.spkBarkB1 * this.barkX12 + this.spkBarkB2 * this.barkX22
-                     - this.spkBarkA1 * this.barkY12 - this.spkBarkA2 * this.barkY22
+      const barkOutB = this.spkBarkB_B0 * hpOutB + this.spkBarkB_B1 * this.barkX12 + this.spkBarkB_B2 * this.barkX22
+                     - this.spkBarkB_A1 * this.barkY12 - this.spkBarkB_A2 * this.barkY22
       this.barkX22 = this.barkX12; this.barkX12 = hpOutB; this.barkY22 = this.barkY12; this.barkY12 = barkOutB
 
       const spkOutB = this.spkLpB0 * barkOutB + this.spkLpB1 * this.lpX12 + this.spkLpB2 * this.lpX22
@@ -606,7 +695,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       this.propWriteIndex2 = (this.propWriteIndex2 + 1) & this.propBufferMask
 
       // 8. Cabinet Box Rumble & Resonance (55, 110, 180, 260 Hz)
-      const subProductA = humSig * lowStringSignalA * subBeating * 1.5
+      const subProductA = humSig * lowStringSignalA * subBeating * 1.5 * sagGainReductionA
       const thumpInA = spkOutA * (1.0 + cabinetHowl * 0.8) + subProductA
 
       let sumRumbleA = 0.0
@@ -620,7 +709,7 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       }
       const rumbleSignalA = sumRumbleA * (0.5 + rumbleResonance * 1.5) * cabinetThump * 0.8
 
-      const subProductB = humSig * lowStringSignalB * subBeating * 1.5
+      const subProductB = humSig * lowStringSignalB * subBeating * 1.5 * sagGainReductionB
       const thumpInB = spkOutB * (1.0 + cabinetHowl * 0.8) + subProductB
 
       let sumRumbleB = 0.0
@@ -663,10 +752,10 @@ class MMMLabProcessor extends AudioWorkletProcessor {
 
       // 10. Stack Acoustic Radiation & True Dual-Stack Stereo Staging
       // Stack A Output (Guitar Stack 1: predominantly Left)
-      const stackOutputA = spkOutA * 0.52 + sumStringA * 0.10 + rumbleSignalA * 0.35 + knockSignalA * 0.25
+      const stackOutputA = (spkOutA * 0.55 + rumbleSignalA * 0.35 + knockSignalA * 0.25) + (sumStringA * 0.08 * sagGainReductionA)
 
       // Stack B Output (Guitar Stack 2: predominantly Right, scaled by loop2Gain)
-      const stackOutputB = (spkOutB * 0.52 + sumStringB * 0.10 + rumbleSignalB * 0.35 + knockSignalB * 0.25) * loop2Gain
+      const stackOutputB = ((spkOutB * 0.55 + rumbleSignalB * 0.35 + knockSignalB * 0.25) + (sumStringB * 0.08 * sagGainReductionB)) * loop2Gain
 
       // True Dual-Stack Stereo Staging:
       // Stack A radiates 75% Left, 25% Right

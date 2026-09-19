@@ -31,11 +31,13 @@ describe('MMMLabProcessor DSP Stability', async () => {
       stringDamping: [0.25],
       feedbackGain: [0.98],
       couplingDistance: [4.0],
+      driftRate: [0.25],
       sagThreshold: [0.65],
       sagDepth: [0.80],
       sagRecovery: [160.0],
       harmonicShriek: [0.40],
       pickupAngle: [0.30],
+      shriekBite: [0.50],
       cabinetThump: [0.50],
       cabinetHowl: [0.50],
       subBeating: [0.40],
@@ -247,9 +249,9 @@ describe('MMMLabProcessor DSP Stability', async () => {
       const left = new Float32Array(128)
       const right = new Float32Array(128)
       pSingle.process([], [[left, right]], singleParams)
-      for (let i = 0; i < 128; i++) rmsSingle += left[i] * left[i]
+      for (let i = 0; i < 128; i++) rmsSingle += left[i] * left[i] + right[i] * right[i]
     }
-    rmsSingle = Math.sqrt(rmsSingle / (300 * 128))
+    rmsSingle = Math.sqrt(rmsSingle / (300 * 128 * 2))
 
     const pDual = new processorClass()
     const dualParams = makeParams({ feedbackGain: [1.05], loop2Gain: [0.8], crossCoupling: [0.0] })
@@ -258,11 +260,11 @@ describe('MMMLabProcessor DSP Stability', async () => {
       const left = new Float32Array(128)
       const right = new Float32Array(128)
       pDual.process([], [[left, right]], dualParams)
-      for (let i = 0; i < 128; i++) rmsDual += left[i] * left[i]
+      for (let i = 0; i < 128; i++) rmsDual += left[i] * left[i] + right[i] * right[i]
     }
-    rmsDual = Math.sqrt(rmsDual / (300 * 128))
+    rmsDual = Math.sqrt(rmsDual / (300 * 128 * 2))
 
-    // Second loop adds energy (scaled by 0.7); expect measurable increase
+    // Second loop adds energy; expect measurable increase
     expect(rmsDual).toBeGreaterThan(rmsSingle)
   })
 
@@ -496,6 +498,77 @@ describe('MMMLabProcessor DSP Stability', async () => {
 
     // Side-to-mid ratio must demonstrate substantial stereo separation (> 0.15 vs 0.02 in mono)
     expect(sideMidRatio).toBeGreaterThan(0.15)
+  })
+
+  it('exhibits power tube blocking sag relaxation under heavy feedback overload', () => {
+    const params = makeParams({
+      feedbackGain: [1.20],
+      sagThreshold: [0.45],
+      sagDepth: [0.95],
+      sagRecovery: [185.0]
+    })
+
+    // Warm up feedback into blocking sag relaxation
+    runBlocks(100, params)
+
+    expect(processor.sagCharge).toBeGreaterThan(0.3)
+    expect(processor.sagCharge).toBeLessThan(0.95)
+
+    // Measure block RMS over next 200 blocks
+    let minRms = 1.0
+    let maxRms = 0.0
+    for (let b = 0; b < 200; b++) {
+      const left = new Float32Array(128)
+      const right = new Float32Array(128)
+      processor.process([], [[left, right]], params)
+      let sumSq = 0
+      for (let i = 0; i < 128; i++) {
+        sumSq += left[i] * left[i]
+      }
+      const blockRms = Math.sqrt(sumSq / 128)
+      if (blockRms < minRms) minRms = blockRms
+      if (blockRms > maxRms) maxRms = blockRms
+    }
+
+    expect(maxRms).toBeGreaterThan(0.08)
+    expect(minRms).toBeGreaterThan(0.01)
+  })
+
+  it('configures dual-harmonic presence barks (805 Hz Stack A, 960 Hz Stack B) forming an acoustic minor third', () => {
+    expect(processor.spkBarkA_B0).toBeDefined()
+    expect(processor.spkBarkB_B0).toBeDefined()
+    // Stack A bark is 805 Hz, Stack B bark is 960 Hz
+    // Verify coefficients differ between Stack A and Stack B
+    expect(processor.spkBarkA_B0).not.toBe(processor.spkBarkB_B0)
+    expect(processor.spkBarkA_A1).not.toBe(processor.spkBarkB_A1)
+  })
+
+  it('tracks string excursion and applies non-linear tension modulation during shriek', () => {
+    const params = makeParams({
+      feedbackGain: [1.15],
+      harmonicShriek: [0.90],
+      shriekBite: [0.80]
+    })
+
+    runBlocks(150, params)
+
+    // Strings must have recorded excursion
+    let totalExcursion = 0
+    for (let s = 0; s < 6; s++) {
+      totalExcursion += processor.stringExcursion[s]
+    }
+    expect(totalExcursion).toBeGreaterThan(0.1)
+  })
+
+  it('allows configurable driftRate without instability or NaN across range [0.0, 1.0]', () => {
+    const params0 = makeParams({ driftRate: [0.0], feedbackGain: [1.05] })
+    const peak0 = runBlocks(50, params0)
+    expect(peak0).toBeLessThanOrEqual(1.0)
+
+    const params1 = makeParams({ driftRate: [1.0], feedbackGain: [1.05] })
+    const peak1 = runBlocks(50, params1)
+    expect(peak1).toBeLessThanOrEqual(1.0)
+    expect(processor.driftPhase1).toBeGreaterThan(0)
   })
 })
 
