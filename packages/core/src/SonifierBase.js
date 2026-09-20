@@ -1,3 +1,5 @@
+import { MetaParameter } from './MetaParameter.js'
+
 /**
  * SonifierBase
  *
@@ -31,6 +33,15 @@ export class SonifierBase {
    */
   getParamSchema() {
     throw new Error(`${this.constructor.name} must implement getParamSchema()`)
+  }
+
+  /**
+   * Return an array of meta-parameter descriptors.
+   * Plugin authors can optionally override this to declare factory meta-parameters.
+   * @returns {Array<Object>}
+   */
+  getMetaParamSchema() {
+    return []
   }
 
   /**
@@ -93,6 +104,45 @@ export class SonifierBase {
    */
   getParam(name) {
     return this._paramValues[name]
+  }
+
+  /**
+   * Get a MetaParameter instance by name.
+   * Caches instantiated MetaParameters for performance.
+   * @param {string} name
+   * @returns {MetaParameter|null}
+   */
+  getMetaParam(name) {
+    if (!this._metaParams) {
+      this._metaParams = new Map()
+    }
+    if (this._metaParams.has(name)) {
+      return this._metaParams.get(name)
+    }
+
+    const schema = this.getMetaParamSchema().find(m => m.name === name)
+    if (!schema) return null
+
+    const instance = new MetaParameter(schema)
+    this._metaParams.set(name, instance)
+    return instance
+  }
+
+  /**
+   * Set a meta-parameter value by name. Evaluates the meta-parameter and dispatches
+   * setParam() updates for all mapped target parameters.
+   *
+   * @param {string} name
+   * @param {number} value
+   * @returns {Record<string, number|string|boolean>|null}
+   */
+  setMetaParam(name, value) {
+    const meta = this.getMetaParam(name)
+    if (!meta) {
+      console.warn(`[web-sonify] Unknown meta-param "${name}" on ${this.constructor.name}`)
+      return null
+    }
+    return meta.apply(value, this)
   }
 
   /**
