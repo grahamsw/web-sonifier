@@ -10,7 +10,7 @@
     "dev": "node scripts/serve.js",
     "test": "vitest run",
     "prepare": "husky",
-    "build": "npm run build --workspaces && node scripts/post-build-inline.js",
+    "build": "npm run build --workspace=@web-sonifier/core && npm run build --workspaces && node scripts/post-build-inline.js",
     "bump:patch": "npm version patch --workspaces --include-workspace-root",
     "bump:minor": "npm version minor --workspaces --include-workspace-root"
   },
