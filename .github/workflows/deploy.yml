@@ -1,0 +1,42 @@
+name: Deploy to Firebase Hosting on Merge
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: hosting-deploy
+  cancel-in-progress: false
+
+jobs:
+  test_and_deploy:
+    name: Test, Build & Deploy to Live
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit test suite
+        run: npm test
+
+      - name: Run monorepo build
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting (Live Channel)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WEB_SONIFIER }}'
+          channelId: live
+          projectId: web-sonifier
