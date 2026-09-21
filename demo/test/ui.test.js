@@ -10,6 +10,13 @@ beforeEach(() => {
 
   // Build the mock DOM matching index.html with dual panels
   document.body.innerHTML = `
+    <nav class="site-nav">
+      <a href="/demo/" class="site-nav-link active">Workbench</a>
+      <a href="/packages/chime/demo/" class="site-nav-link">Chimes</a>
+      <a href="/packages/bubble/demo/" class="site-nav-link">Bubble</a>
+      <a href="/packages/wind/demo/" class="site-nav-link">Wind</a>
+      <a href="#landscape-modal" id="nav-landscapes-link" class="site-nav-link">Landscapes</a>
+    </nav>
     <div class="app-layout">
       <!-- Left: Data Feeds Panel -->
       <div class="panel feeds-panel">
@@ -43,12 +50,16 @@ beforeEach(() => {
                 <option value="metal-machine">Metal Machine</option>
                 <option value="mmm2">MMM2</option>
                 <option value="mmm-lab">Metal Machine Lab</option>
+                <option value="bubble">Minnaert Bubble</option>
+                <option value="chime">Modal Wind Chime</option>
+                <option value="wind">Aeolian Wind</option>
               </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
         </div>
 
         <div id="preset-bar-panel"></div>
+        <div id="macro-bar-panel" style="display: none;"></div>
         <div class="parameters-container" id="parameters-panel"></div>
       </div>
     </div>
@@ -62,11 +73,19 @@ beforeEach(() => {
       <button id="btn-custom-load">Load</button>
       <button id="btn-custom-cancel">Cancel</button>
     </dialog>
+
+    <dialog id="compound-landscapes-dialog">
+      <button id="btn-close-landscapes">Understood</button>
+    </dialog>
   `
 
   const dialog = document.getElementById('custom-sonifier-dialog')
   dialog.showModal = vi.fn()
   dialog.close = vi.fn()
+
+  const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+  landscapesDialog.showModal = vi.fn()
+  landscapesDialog.close = vi.fn()
 
   const mockLocalStorage = {
     getItem: vi.fn().mockReturnValue(null),
@@ -939,6 +958,49 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
       expect(imports[pkg], `Missing importmap entry in demo/index.html for ${pkg}`).toBeDefined()
       expect(imports[pkg].startsWith('/packages/')).toBe(true)
     }
+  })
+
+  it('should render Farnell procedural physical models (bubble, chime, wind) parameter cards when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    const paramPanel = document.getElementById('parameters-panel')
+
+    // Test Bubble
+    sonifierSelect.value = 'bubble'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Bubble Radius')
+    expect(paramPanel.innerHTML).toContain('Liquid Depth')
+
+    // Test Chime
+    sonifierSelect.value = 'chime'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Base Pitch')
+    expect(paramPanel.innerHTML).toContain('Metal Alloy')
+
+    // Test Wind
+    sonifierSelect.value = 'wind'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Wind Speed')
+    expect(paramPanel.innerHTML).toContain('Turbulence')
+  })
+
+  it('should render global navigation bar and handle compound landscapes modal', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const navLinks = document.querySelectorAll('.site-nav-link')
+    expect(navLinks.length).toBeGreaterThan(0)
+
+    const landscapesLink = document.getElementById('nav-landscapes-link')
+    expect(landscapesLink).not.toBeNull()
+
+    const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+    landscapesLink.click()
+    expect(landscapesDialog.showModal).toHaveBeenCalled()
+
+    const closeBtn = document.getElementById('btn-close-landscapes')
+    closeBtn.click()
+    expect(landscapesDialog.close).toHaveBeenCalled()
   })
 })
 

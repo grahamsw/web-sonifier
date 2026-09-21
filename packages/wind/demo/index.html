@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farnell Aeolian Wind & Vortex Shedding Lab</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #090d16;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    header {
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-bottom: 0.4rem;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .section-title {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    /* Top Global Navigation Bar */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+    }
+
+    .site-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .site-nav-brand-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .site-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .site-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .site-nav-link:hover {
+      color: #fff;
+      background: #1f2937;
+    }
+
+    .site-nav-link.active {
+      color: #fff;
+      background: #0369a1;
+      border: 1px solid #0284c7;
+      font-weight: 600;
+    }
+
+    .site-nav-link.nav-roadmap {
+      opacity: 0.8;
+      border: 1px dashed #334155;
+    }
+
+    .site-nav-link.nav-roadmap:hover {
+      opacity: 1;
+      border-color: #38bdf8;
+    }
+
+    .nav-badge-pill {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
+
+    /* Visualizer Canvas */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 140px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 50%, #1e293b, #090d16);
+      border: 1px solid #334155;
+      margin-bottom: 1.2rem;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .flow-overlay {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      pointer-events: none;
+    }
+    .flow-speed-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+    }
+    .flow-sub-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    /* Controls */
+    .control-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 85px;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.9rem;
+    }
+    label {
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+    input[type=range] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .val-display {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      text-align: right;
+    }
+
+    /* Preset Buttons */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+    @media (max-width: 600px) {
+      .preset-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .btn-preset {
+      padding: 0.55rem 0.5rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .btn-preset:hover {
+      background: #334155;
+      border-color: #38bdf8;
+    }
+    .btn-preset.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Transport Button */
+    .transport-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .btn-toggle {
+      flex: 1;
+      padding: 0.85rem 1.5rem;
+      background: #0284c7;
+      border: 1px solid #0369a1;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn-toggle:hover {
+      background: #0369a1;
+    }
+    .btn-toggle.running {
+      background: #ef4444;
+      border-color: #dc2626;
+    }
+    .btn-toggle.running:hover {
+      background: #dc2626;
+    }
+
+    .info-panel {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      background: #0a0f1d;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      line-height: 1.6;
+    }
+    .code-term {
+      color: #38bdf8;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="site-nav" aria-label="Main Navigation">
+      <a href="/demo/" class="site-nav-brand">
+        <span>web-sonifier</span>
+        <span class="site-nav-brand-badge">v0.1</span>
+      </a>
+      <ul class="site-nav-links">
+        <li><a href="/demo/" class="site-nav-link">🎛️ Data Workbench</a></li>
+        <li><a href="/packages/chime/demo/" class="site-nav-link">🎐 Modal Chimes Lab</a></li>
+        <li><a href="/packages/bubble/demo/" class="site-nav-link">🫧 Minnaert Bubble Lab</a></li>
+        <li><a href="/packages/wind/demo/" class="site-nav-link active">🌬️ Aeolian Wind Lab</a></li>
+        <li><a href="/demo/#landscape-modal" class="site-nav-link nav-roadmap">🏞️ Compound Landscapes <span class="nav-badge-pill">Soon</span></a></li>
+        <li><a href="https://github.com/grahamsw/web-sonifier" target="_blank" rel="noopener" class="site-nav-link" style="color: #38bdf8;">GitHub ↗</a></li>
+      </ul>
+    </nav>
+
+    <header>
+      <h1>Acoustic Wind & Vortex Shedding Model</h1>
+      <p class="subtitle">Andy Farnell, <em>Designing Sound</em> (Ch 35: Air & Wind) &middot; Strouhal Aeolian Vortices &middot; Helmholtz Cavities</p>
+    </header>
+
+    <!-- Interactive Transport & Animated Wind Tunnel -->
+    <div class="card">
+      <div class="canvas-container">
+        <canvas id="windCanvas"></canvas>
+        <div class="flow-overlay">
+          <div class="flow-speed-label" id="overlaySpeed">25.0 km/h</div>
+          <div class="flow-sub-label" id="overlayBeaufort">Moderate Breeze &middot; Strouhal Whistle: ~320 Hz</div>
+        </div>
+      </div>
+
+      <div class="transport-box">
+        <button id="btnToggle" class="btn-toggle">
+          <span>▶ Start Wind Synthesis</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="section-title">Aerodynamic & Cavity Parameters</div>
+
+      <div class="control-row">
+        <label for="speedSlider">Wind Speed</label>
+        <input id="speedSlider" type="range" min="0" max="100" step="0.5" value="25">
+        <span id="speedVal" class="val-display">25.0 km/h</span>
+      </div>
+
+      <div class="control-row">
+        <label for="turbSlider">Turbulence / Gusts</label>
+        <input id="turbSlider" type="range" min="0" max="1" step="0.01" value="0.40">
+        <span id="turbVal" class="val-display">0.40</span>
+      </div>
+
+      <div class="control-row">
+        <label for="cavitySlider">Cavity Resonance</label>
+        <input id="cavitySlider" type="range" min="0" max="1" step="0.01" value="0.30">
+        <span id="cavityVal" class="val-display">0.30</span>
+      </div>
+
+      <div class="control-row">
+        <label for="volSlider">Master Volume</label>
+        <input id="volSlider" type="range" min="0" max="1" step="0.01" value="0.70">
+        <span id="volVal" class="val-display">0.70</span>
+      </div>
+
+      <div style="margin-top: 1.2rem;">
+        <div class="section-title">Atmospheric Acoustic Presets</div>
+        <div class="preset-grid">
+          <button class="btn-preset active" data-speed="25" data-turb="0.4" data-cavity="0.3">🍃 Open Meadow</button>
+          <button class="btn-preset" data-speed="55" data-turb="0.65" data-cavity="0.35">🍂 Autumn Gale</button>
+          <button class="btn-preset" data-speed="40" data-turb="0.45" data-cavity="0.80">🏔️ Mountain Pass</button>
+          <button class="btn-preset" data-speed="85" data-turb="0.90" data-cavity="0.50">⛈️ Ocean Storm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Physical Explanation -->
+    <div class="info-panel">
+      <h3 style="color: #f1f5f9; font-size: 0.95rem; margin-bottom: 0.4rem;">Physics Principles (Andy Farnell, Ch 35)</h3>
+      <p>
+        <strong>1. Strouhal Vortex Shedding (Aeolian Tones):</strong> When air streams past cylindrical obstacles (wires, edges, branches) of diameter <span class="code-term">d</span> at velocity <span class="code-term">v</span>, alternating vortices create acoustic pressure oscillations at <span class="code-term">f = St &times; (v / d)</span>. Smooth cylinders exhibit a Strouhal number <span class="code-term">St &approx; 0.20</span>.
+      </p>
+      <p style="margin-top: 0.4rem;">
+        <strong>2. Broadband Shearing & Turbulence:</strong> Pink noise filtered through dynamic high-Q and low-Q bands simulates boundary-layer drag, obstacle friction, and low-frequency gust wandering.
+      </p>
+      <p style="margin-top: 0.4rem;">
+        <strong>3. Cavity Whistling:</strong> Air shearing across hollow architectural apertures excites resonant Helmholtz and pipe modes (the classic howling chasm).
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { AeolianWind } from '../src/AeolianWind.js'
+
+    let ctx = null
+    let wind = null
+    let isRunning = false
+
+    const btnToggle = document.getElementById('btnToggle')
+    const speedSlider = document.getElementById('speedSlider')
+    const turbSlider = document.getElementById('turbSlider')
+    const cavitySlider = document.getElementById('cavitySlider')
+    const volSlider = document.getElementById('volSlider')
+
+    const speedVal = document.getElementById('speedVal')
+    const turbVal = document.getElementById('turbVal')
+    const cavityVal = document.getElementById('cavityVal')
+    const volVal = document.getElementById('volVal')
+
+    const overlaySpeed = document.getElementById('overlaySpeed')
+    const overlayBeaufort = document.getElementById('overlayBeaufort')
+    const presetBtns = document.querySelectorAll('.btn-preset')
+
+    function getBeaufortDesc(kmh) {
+      if (kmh < 5) return 'Light Air &middot; Calm Whispers'
+      if (kmh < 20) return 'Gentle Breeze &middot; Leaves Rustling'
+      if (kmh < 40) return 'Moderate Breeze &middot; Twigs in Motion'
+      if (kmh < 60) return 'Strong Breeze &middot; Aeolian Wire Whistle'
+      if (kmh < 85) return 'Gale &middot; Severe Shear & Whistling'
+      return 'Storm / Hurricane Force &middot; Violent Vortices'
+    }
+
+    function initAudio() {
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+      if (!wind) {
+        wind = new AeolianWind(ctx)
+        wind.setSpeed(parseFloat(speedSlider.value))
+        wind.setTurbulence(parseFloat(turbSlider.value))
+        wind.setCavity(parseFloat(cavitySlider.value))
+        wind.setVolume(parseFloat(volSlider.value))
+      }
+    }
+
+    btnToggle.addEventListener('click', () => {
+      if (!isRunning) {
+        initAudio()
+        isRunning = true
+        btnToggle.classList.add('running')
+        btnToggle.innerHTML = '<span>■ Stop Wind Synthesis</span>'
+      } else {
+        if (wind) {
+          wind.destroy()
+          wind = null
+        }
+        isRunning = false
+        btnToggle.classList.remove('running')
+        btnToggle.innerHTML = '<span>▶ Start Wind Synthesis</span>'
+      }
+    })
+
+    function updateReadouts() {
+      const spd = parseFloat(speedSlider.value)
+      const turb = parseFloat(turbSlider.value)
+      const cav = parseFloat(cavitySlider.value)
+      const vol = parseFloat(volSlider.value)
+
+      speedVal.textContent = `${spd.toFixed(1)} km/h`
+      turbVal.textContent = turb.toFixed(2)
+      cavityVal.textContent = cav.toFixed(2)
+      volVal.textContent = vol.toFixed(2)
+
+      overlaySpeed.textContent = `${spd.toFixed(1)} km/h`
+      const v_ms = (spd * 1000) / 3600
+      const f_strouhal = Math.round(0.2 * (v_ms / 0.008)) // 8mm wire approx
+      overlayBeaufort.innerHTML = `${getBeaufortDesc(spd)} &middot; Shedding Peak: ~${f_strouhal} Hz`
+
+      if (wind) {
+        wind.setSpeed(spd)
+        wind.setTurbulence(turb)
+        wind.setCavity(cav)
+        wind.setVolume(vol)
+      }
+    }
+
+    speedSlider.addEventListener('input', updateReadouts)
+    turbSlider.addEventListener('input', updateReadouts)
+    cavitySlider.addEventListener('input', updateReadouts)
+    volSlider.addEventListener('input', updateReadouts)
+
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+
+        speedSlider.value = btn.dataset.speed
+        turbSlider.value = btn.dataset.turb
+        cavitySlider.value = btn.dataset.cavity
+        updateReadouts()
+      })
+    })
+
+    // -------------------------------------------------------------------------
+    // Canvas Aerodynamic Flow Animation
+    // -------------------------------------------------------------------------
+    const canvas = document.getElementById('windCanvas')
+    const c = canvas.getContext('2d')
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth * window.devicePixelRatio
+      canvas.height = canvas.parentElement.clientHeight * window.devicePixelRatio
+      c.scale(window.devicePixelRatio, window.devicePixelRatio)
+    }
+    window.addEventListener('resize', resizeCanvas)
+    resizeCanvas()
+
+    const particles = []
+    const PARTICLE_COUNT = 65
+    const width = canvas.parentElement.clientWidth
+    const height = canvas.parentElement.clientHeight
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        len: 10 + Math.random() * 25,
+        speedFactor: 0.6 + Math.random() * 0.8,
+        alpha: 0.15 + Math.random() * 0.45,
+        yJitterPhase: Math.random() * Math.PI * 2
+      })
+    }
+
+    function animate() {
+      requestAnimationFrame(animate)
+      const w = canvas.parentElement.clientWidth
+      const h = canvas.parentElement.clientHeight
+
+      c.clearRect(0, 0, w, h)
+
+      const spd = parseFloat(speedSlider.value)
+      const turb = parseFloat(turbSlider.value)
+      const baseVel = 0.5 + (spd / 100) * 12
+
+      // Draw obstacle wires
+      c.strokeStyle = 'rgba(71, 85, 105, 0.4)'
+      c.lineWidth = 4
+      c.beginPath()
+      c.moveTo(w * 0.45, 0)
+      c.lineTo(w * 0.45, h)
+      c.stroke()
+
+      c.lineWidth = 2
+      c.beginPath()
+      c.moveTo(w * 0.7, 0)
+      c.lineTo(w * 0.7, h)
+      c.stroke()
+
+      // Draw particles
+      for (const p of particles) {
+        p.x += baseVel * p.speedFactor
+        p.yJitterPhase += 0.05 + turb * 0.15
+        const jitterY = Math.sin(p.yJitterPhase) * (turb * 4)
+
+        if (p.x > w + 40) {
+          p.x = -40
+          p.y = Math.random() * h
+        }
+
+        const streak = p.len * (0.5 + (spd / 100) * 1.5)
+        const alpha = isRunning ? p.alpha : p.alpha * 0.4
+
+        c.strokeStyle = `rgba(56, 189, 248, ${alpha})`
+        c.lineWidth = 1.2
+        c.beginPath()
+        c.moveTo(p.x, p.y + jitterY)
+        c.lineTo(p.x - streak, p.y)
+        c.stroke()
+      }
+    }
+    animate()
+  </script>
+</body>
+</html>

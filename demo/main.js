@@ -12,6 +12,9 @@ import { OceanSonifier } from '@web-sonifier/ocean'
 import { MetalMachineSonifier } from '@web-sonifier/metal-machine'
 import { MMM2Sonifier } from '@web-sonifier/mmm2'
 import { MMMLabSonifier } from '@web-sonifier/mmm-lab'
+import { BubbleSonifier } from '@web-sonifier/bubble'
+import { ChimeSonifier } from '@web-sonifier/chime'
+import { WindSonifier } from '@web-sonifier/wind'
 import {
   renderAutomatedEditor,
   getOutputRangeBounds,
@@ -161,7 +164,10 @@ export const SONIFIER_CLASSES = {
   ocean: OceanSonifier,
   'metal-machine': MetalMachineSonifier,
   mmm2: MMM2Sonifier,
-  'mmm-lab': MMMLabSonifier
+  'mmm-lab': MMMLabSonifier,
+  bubble: BubbleSonifier,
+  chime: ChimeSonifier,
+  wind: WindSonifier
 }
 
 export function getSonifierSchema(type) {
@@ -1672,6 +1678,29 @@ if (btnOpenLoadCustom && customDialog) {
       }
     })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Compound Landscapes Dialog Handler
+// ---------------------------------------------------------------------------
+
+const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+const navLandscapesLink = document.getElementById('nav-landscapes-link')
+const btnCloseLandscapes = document.getElementById('btn-close-landscapes')
+
+if (navLandscapesLink && landscapesDialog) {
+  navLandscapesLink.addEventListener('click', (e) => {
+    e.preventDefault()
+    if (typeof landscapesDialog.showModal === 'function') {
+      landscapesDialog.showModal()
+    }
+  })
+}
+
+if (btnCloseLandscapes && landscapesDialog) {
+  btnCloseLandscapes.addEventListener('click', () => {
+    landscapesDialog.close()
+  })
 }
 
 // ---------------------------------------------------------------------------

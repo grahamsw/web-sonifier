@@ -103,7 +103,7 @@ graph LR
 - **Acoustics**: Rapid upward frequency chirp $f(t) = f_0(1 + \alpha t)$ from neck detachment and surface tension release, with viscous exponential damping $\exp(-\eta t)$.
 
 ### B. Inharmonic Solid Rods: Metal Chimes & Crotales
-- **Status**: In progress (`packages/chime/`).
+- **Status**: Implemented (`packages/chime/`).
 - **Physics**: Euler-Bernoulli transverse vibrations of a free-free or clamped-free cylindrical metal tube.
   - Mode 1: $1.00 \cdot f_0$
   - Mode 2: $2.76 \cdot f_0$
@@ -111,10 +111,15 @@ graph LR
   - Mode 4: $8.93 \cdot f_0$
 - **Acoustics**: Metallic shimmer caused by non-integer overtones. High modes decay quickly (100–300ms) while the fundamental sustains for 2–4 seconds.
 
-### C. Future Procedural Candidates
-1. **Aerodynamics / Wind**: Vortex shedding / Strouhal flow ($f = \text{St} \cdot v / d$) over resonant cavities.
-2. **Friction / Stick-Slip**: Micro-asperity impacts and thermal crackle (brakes, chalk, dragging).
-3. **Mechanical Escapement**: Clockwork ticks, gears, motors.
+### C. Aerodynamics / Wind: Aeolian Vortex Shedding (Chapter 35)
+- **Status**: Implemented (`packages/wind/`).
+- **Physics**: Flow velocity $v$ past obstruction diameter $d$ creates alternating vortex shedding at Strouhal frequency:
+  $$f = \text{St} \cdot \frac{v}{d} \approx 0.20 \cdot \frac{v}{d}$$
+- **Acoustics**: Multi-band wire whistling, broadband pink noise drag/shearing, low-frequency gust wandering, and Helmholtz cavity resonance.
+
+### D. Future Procedural Candidates
+1. **Friction / Stick-Slip**: Micro-asperity impacts and thermal crackle (brakes, chalk, dragging).
+2. **Mechanical Escapement**: Clockwork ticks, gears, motors.
 
 ---
 
@@ -148,3 +153,16 @@ To manage parallel development across multiple feature tracks (e.g. `MMM-Lab`, `
 ### C. Temporal De-quantizer (`packages/core/src/EventScatterAdapter.js`)
 - De-quantizes periodic or infrequent polled batch telemetry (e.g. $N$ signups over 60s).
 - Spreads $N$ strike triggers across the upcoming window via `random`, `uniform`, or `poisson` strategies.
+
+### D. Aeolian Wind & Vortex Shedding (`packages/wind/`)
+- **Physics**: Strouhal vortex shedding ($f = \text{St} \cdot v / d$), turbulence noise beds, and Helmholtz cavity resonance.
+- **Features**:
+  - `AeolianWind.setSpeed(kmh)`: Airflow velocity driving Strouhal shedding frequencies.
+  - `AeolianWind.setTurbulence(norm)`: Gust wandering depth and high-frequency friction hiss.
+  - `AeolianWind.setCavity(norm)`: Resonant howling across hollow apertures.
+  - `WindSonifier`: `SonifierBase` plugin exposing continuous aerodynamic parameters to data feeds.
+- **Demo**: `packages/wind/demo/index.html`.
+
+### E. Global Navigation & Workbench Integration (`demo/`)
+- Registered `BubbleSonifier`, `ChimeSonifier`, and `WindSonifier` in `demo/main.js` and `demo/index.html` with Farnell chapter citations.
+- Added cross-page `<nav class="site-nav">` linking the Data Workbench, Modal Chimes Lab, Minnaert Bubble Lab, Aeolian Wind Lab, and Compound Landscapes preview.

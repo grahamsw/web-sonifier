@@ -147,10 +147,108 @@
       color: #79c0ff;
       font-family: monospace;
     }
+
+    /* Top Global Navigation Bar */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+    }
+
+    .site-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .site-nav-brand-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #58a6ff;
+      background: rgba(88, 166, 255, 0.15);
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .site-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .site-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #8b949e;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .site-nav-link:hover {
+      color: #fff;
+      background: #21262d;
+    }
+
+    .site-nav-link.active {
+      color: #fff;
+      background: #1f6feb;
+      border: 1px solid #388bfd;
+      font-weight: 600;
+    }
+
+    .site-nav-link.nav-roadmap {
+      opacity: 0.8;
+      border: 1px dashed #30363d;
+    }
+
+    .site-nav-link.nav-roadmap:hover {
+      opacity: 1;
+      border-color: #58a6ff;
+    }
+
+    .nav-badge-pill {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      background: rgba(88, 166, 255, 0.2);
+      color: #58a6ff;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <nav class="site-nav" aria-label="Main Navigation">
+      <a href="/demo/" class="site-nav-brand">
+        <span>web-sonifier</span>
+        <span class="site-nav-brand-badge">v0.1</span>
+      </a>
+      <ul class="site-nav-links">
+        <li><a href="/demo/" class="site-nav-link">🎛️ Data Workbench</a></li>
+        <li><a href="/packages/chime/demo/" class="site-nav-link">🎐 Modal Chimes Lab</a></li>
+        <li><a href="/packages/bubble/demo/" class="site-nav-link active">🫧 Minnaert Bubble Lab</a></li>
+        <li><a href="/packages/wind/demo/" class="site-nav-link">🌬️ Aeolian Wind Lab</a></li>
+        <li><a href="/demo/#landscape-modal" class="site-nav-link nav-roadmap">🏞️ Compound Landscapes <span class="nav-badge-pill">Soon</span></a></li>
+        <li><a href="https://github.com/grahamsw/web-sonifier" target="_blank" rel="noopener" class="site-nav-link" style="color: #58a6ff;">GitHub ↗</a></li>
+      </ul>
+    </nav>
+
     <header>
       <h1>Acoustic Bubble & Droplet Model</h1>
       <p class="subtitle">Andy Farnell, <em>Designing Sound</em> (Ch 34: Water) & Marcel Minnaert's Cavity Equation</p>
