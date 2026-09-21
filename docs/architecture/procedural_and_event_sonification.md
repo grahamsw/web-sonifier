@@ -125,3 +125,26 @@ To manage parallel development across multiple feature tracks (e.g. `MMM-Lab`, `
 - **Merge Back to Main Early & Often**: As soon as a feature branch passes unit tests and verification, merge back into `main` and delete the feature branch.
 - **Regular Pull / Rebase**: Active branches should pull or rebase on `main` before starting new commits to avoid divergent drift.
 - **Pre-commit Gate**: Full test suite runs automatically via Husky before every commit.
+
+---
+
+## 7. Implementation Changelog & Artifacts
+
+### A. Modal Wind Chime (`packages/chime/`)
+- **Physics**: Transverse cylindrical bar vibrations via Euler-Bernoulli modes ($1.000, 2.756, 5.404, 8.933$).
+- **Exciter**: 6ms soft rubber/wood clapper contact buffer + mode-dependent damping ($Q$).
+- **Features**:
+  - `ModalChime.strike({ pitch, velocity, damping, pan })`: discrete strike API.
+  - `ModalChime.setWindSpeed(kmh)`: continuous ambient airflow driving stochastic clapper strikes across pentatonic tubes.
+  - Alloys: `aluminum` (singing & long sustain), `bronze` (warm & heavy), `steel` (bright & cutting).
+- **Demo**: `packages/chime/demo/index.html`.
+
+### B. Musical Quantizer Decorators (`packages/core/src/Quantizer.js`)
+- `Quantize.scale(scaleDegrees, { rootFreq })`: Snaps continuous frequency to musical scales (`pentatonic`, `minorPentatonic`, `dorian`, `hirajoshi`, `wholeTone`, `major`, `minor`).
+- `Quantize.harmonics(f0)`: Snaps to integer multiples of fundamental $f_0$.
+- `Quantize.steps(stepSize)`: Discrete bucket quantization.
+- `adapter.pipe(...transformers)`: Fluent pipelining on `Adapter`.
+
+### C. Temporal De-quantizer (`packages/core/src/EventScatterAdapter.js`)
+- De-quantizes periodic or infrequent polled batch telemetry (e.g. $N$ signups over 60s).
+- Spreads $N$ strike triggers across the upcoming window via `random`, `uniform`, or `poisson` strategies.
