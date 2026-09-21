@@ -111,6 +111,17 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Distance Delay',
         description: 'Physical acoustic propagation delay between speaker and guitar body'
       },
+      {
+        name: 'driftRate',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.25,
+        unit: 'rate',
+        curve: 'linear',
+        group: '3. Acoustic Feedback Loop',
+        label: 'Rate of Change (Drift)',
+        description: 'Speed of room acoustic feedback phase migration and mode hopping (0 = static drone, 1 = chaotic frenzy)'
+      },
 
       // Group 4: Power Amp Sag & Choke
       {
@@ -146,6 +157,17 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Recovery Time',
         description: 'Time for bias capacitor to bleed off, setting the rhythm of the valve on/off flutter'
       },
+      {
+        name: 'sagThrob',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.80,
+        unit: 'depth',
+        curve: 'linear',
+        group: '4. Power Amp Sag & Choke',
+        label: 'Sag Throb',
+        description: 'Power amp blocking distortion sag and choke flutter depth'
+      },
 
       // Group 5: Shriek & Harmonic Bending
       {
@@ -170,6 +192,39 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Pickup Angle / Bend',
         description: 'Micro-distance phase angle that pulls and bends the pitch of the screaming harmonic'
       },
+      {
+        name: 'shriekBite',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'grit',
+        curve: 'linear',
+        group: '5. Shriek & Harmonic Bending',
+        label: 'Shriek Viciousness',
+        description: 'Asymmetric non-linear biting wave-shaper intensity on the screaming harmonic overtone'
+      },
+      {
+        name: 'drive',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'grit',
+        curve: 'linear',
+        group: '5. Shriek & Harmonic Bending',
+        label: 'Preamp Drive',
+        description: 'Overdrive saturation and biting wave-shaping intensity'
+      },
+      {
+        name: 'seagullSqueal',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.35,
+        unit: 'intensity',
+        curve: 'linear',
+        group: '5. Shriek & Harmonic Bending',
+        label: 'Flock of Seagulls Squeal',
+        description: 'High-pitch (5.8–7.5 kHz) swooping microphonic pickup cry triggered by power-tube unblocking surges'
+      },
 
       // Group 6: Low Rumble & Cabinet Resonance
       {
@@ -184,6 +239,28 @@ export class MMMLabSonifier extends SonifierBase {
         description: '76 Hz resonant speaker cabinet air cavity shudder'
       },
       {
+        name: 'cabinetHowl',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Animal Howl',
+        description: 'Low-mid (135 Hz) speaker cabinet cavity acoustic resonance that pitch-bends and howls like an animal'
+      },
+      {
+        name: 'howl',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Cabinet Howl',
+        description: 'Low-mid (135 Hz) speaker cabinet cavity acoustic resonance'
+      },
+      {
         name: 'subBeating',
         type: 'number',
         range: [0.0, 1.0],
@@ -191,8 +268,43 @@ export class MMMLabSonifier extends SonifierBase {
         unit: 'depth',
         curve: 'linear',
         group: '6. Low Rumble & Cabinet Resonance',
-        label: 'Sub-Harmonic Beating',
-        description: 'Intermodulation difference tone between 60 Hz mains hum and the low string (wah-wah beat)'
+        label: 'Heterodyne Roar',
+        description: 'Asymmetric tube intermodulation producing rich f2 - f1 difference tones and churning low-mid roar'
+      },
+      {
+        name: 'rumbleResonance',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.5,
+        unit: 'depth',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Resonance Depth',
+        description: 'Sharpness of the body and cabinet resonant modes — higher values create stronger, more pitched rumble'
+      },
+
+      // Group 6b: Speaker Knocking
+      {
+        name: 'coneLimit',
+        type: 'number',
+        range: [0.2, 1.0],
+        default: 0.6,
+        unit: 'thresh',
+        curve: 'linear',
+        group: '6b. Speaker Knocking',
+        label: 'Cone Travel Limit',
+        description: 'Mechanical excursion threshold where the speaker cone bottoms out, triggering a 55 Hz acoustic thud'
+      },
+      {
+        name: 'knockLevel',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.4,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6b. Speaker Knocking',
+        label: 'Knock Intensity',
+        description: 'Amplitude of the 55 Hz damped speaker cone impact thud when hitting travel limit'
       },
 
       // Group 7: Output
@@ -206,8 +318,470 @@ export class MMMLabSonifier extends SonifierBase {
         group: '7. Output',
         label: 'Master Volume',
         description: 'Master listening level with ear-safety limiter'
+      },
+
+      // Group 8: Second Guitar / Density
+      {
+        name: 'loop2Gain',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.0,
+        unit: 'gain',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Second Guitar Level',
+        description: 'Mix level of the second guitar/amp feedback loop (0 = off, creates density and beating when raised)'
+      },
+      {
+        name: 'loop2Detune',
+        type: 'number',
+        range: [-50, 50],
+        default: 18,
+        unit: 'cents',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Loop B Detune',
+        description: 'Pitch offset of the second guitar relative to the first — creates beating interference patterns'
+      },
+      {
+        name: 'loop2Distance',
+        type: 'number',
+        range: [1.0, 25.0],
+        default: 7.0,
+        unit: 'ms',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Loop B Distance',
+        description: 'Acoustic propagation delay for the second guitar/amp pair (different room path)'
+      },
+      {
+        name: 'crossCoupling',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.3,
+        unit: 'depth',
+        curve: 'linear',
+        group: '8. Second Guitar / Density',
+        label: 'Cross-Coupling',
+        description: 'How much the two feedback loops bleed into each other through the room (creates interference)'
       }
     ]
+  }
+
+  /**
+   * Component Sound Presets
+   * Isolates and showcases the distinct acoustic building blocks of Metal Machine Music.
+   */
+  static PRESETS = {
+    'hum': {
+      id: 'hum',
+      name: 'Amp Hum & Tube Breath',
+      description: 'Isolates cranked tube amplifier idling noise: 60Hz transformer hum + 120/180Hz overtones + 2-pole thermal rush with zero feedback.',
+      params: {
+        ampHum: 0.65,
+        ampHiss: 0.35,
+        tuningPreset: 'ostrich-d',
+        basePitch: 73.416,
+        detuneSpread: 6.0,
+        stringDamping: 0.25,
+        feedbackGain: 0.0,
+        couplingDistance: 4.0,
+        driftRate: 0.0,
+        sagThreshold: 0.65,
+        sagDepth: 0.80,
+        sagRecovery: 160.0,
+        sagThrob: 0.80,
+        harmonicShriek: 0.0,
+        pickupAngle: 0.30,
+        shriekBite: 0.0,
+        drive: 0.0,
+        seagullSqueal: 0.0,
+        cabinetThump: 0.0,
+        cabinetHowl: 0.0,
+        howl: 0.0,
+        subBeating: 0.0,
+        rumbleResonance: 0.5,
+        coneLimit: 0.6,
+        knockLevel: 0.0,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    },
+    'basic-feedback': {
+      id: 'basic-feedback',
+      name: 'Basic Acoustic Feedback',
+      description: 'Isolates the singing, resonant guitar-speaker acoustic feedback loop without chaotic choke, flutter, or excessive screech.',
+      params: {
+        ampHum: 0.25,
+        ampHiss: 0.15,
+        tuningPreset: 'ostrich-d',
+        basePitch: 73.416,
+        detuneSpread: 4.0,
+        stringDamping: 0.18,
+        feedbackGain: 1.02,
+        couplingDistance: 4.0,
+        driftRate: 0.15,
+        sagThreshold: 0.70,
+        sagDepth: 0.30,
+        sagRecovery: 160.0,
+        sagThrob: 0.30,
+        harmonicShriek: 0.15,
+        pickupAngle: 0.30,
+        shriekBite: 0.30,
+        drive: 0.30,
+        seagullSqueal: 0.15,
+        cabinetThump: 0.20,
+        cabinetHowl: 0.20,
+        howl: 0.20,
+        subBeating: 0.25,
+        rumbleResonance: 0.40,
+        coneLimit: 0.60,
+        knockLevel: 0.0,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    },
+    'heterodyne-howl': {
+      id: 'heterodyne-howl',
+      name: 'Heterodyne Howl (Animal Roar)',
+      description: 'Isolates the deep, undulating 135 Hz cabinet body cavity resonance driven by quadratic valve difference tones (f2 - f1).',
+      params: {
+        ampHum: 0.30,
+        ampHiss: 0.15,
+        tuningPreset: 'ostrich-d',
+        basePitch: 65.4,
+        detuneSpread: 8.0,
+        stringDamping: 0.22,
+        feedbackGain: 1.15,
+        couplingDistance: 4.5,
+        driftRate: 0.25,
+        sagThreshold: 0.60,
+        sagDepth: 0.50,
+        sagRecovery: 180.0,
+        sagThrob: 0.50,
+        harmonicShriek: 0.05,
+        pickupAngle: 0.35,
+        shriekBite: 0.40,
+        drive: 0.40,
+        seagullSqueal: 0.20,
+        cabinetThump: 0.35,
+        cabinetHowl: 0.95,
+        howl: 0.95,
+        subBeating: 0.80,
+        rumbleResonance: 0.60,
+        coneLimit: 0.60,
+        knockLevel: 0.15,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    },
+    'screech': {
+      id: 'screech',
+      name: 'Screech & Harmonic Bending',
+      description: 'Pre-gain harmonic screech filter forces feedback to latch onto screaming string overtones with non-linear biting wave-shaping.',
+      params: {
+        ampHum: 0.20,
+        ampHiss: 0.15,
+        tuningPreset: 'ostrich-d',
+        basePitch: 73.416,
+        detuneSpread: 5.0,
+        stringDamping: 0.50,
+        feedbackGain: 1.18,
+        couplingDistance: 2.0,
+        driftRate: 0.35,
+        sagThreshold: 0.70,
+        sagDepth: 0.40,
+        sagRecovery: 140.0,
+        sagThrob: 0.40,
+        harmonicShriek: 0.95,
+        pickupAngle: 0.70,
+        shriekBite: 0.90,
+        drive: 0.90,
+        seagullSqueal: 0.85,
+        cabinetThump: 0.05,
+        cabinetHowl: 0.05,
+        howl: 0.05,
+        subBeating: 0.10,
+        rumbleResonance: 0.30,
+        coneLimit: 0.70,
+        knockLevel: 0.0,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    },
+    'rumble-pulse': {
+      id: 'rumble-pulse',
+      name: 'Rumble & Sag Pulse (Valve Flutter)',
+      description: 'Isolates power amp sag & choke — grid conduction heavily charging the bias cap and cutting off the loop gain in a rhythmic 5.4 Hz breath.',
+      params: {
+        ampHum: 0.40,
+        ampHiss: 0.20,
+        tuningPreset: 'ostrich-d',
+        basePitch: 65.4,
+        detuneSpread: 6.0,
+        stringDamping: 0.25,
+        feedbackGain: 1.25,
+        couplingDistance: 5.0,
+        driftRate: 0.10,
+        sagThreshold: 0.40,
+        sagDepth: 0.95,
+        sagRecovery: 185.0,
+        sagThrob: 0.95,
+        harmonicShriek: 0.15,
+        pickupAngle: 0.30,
+        shriekBite: 0.20,
+        drive: 0.20,
+        seagullSqueal: 0.30,
+        cabinetThump: 0.65,
+        cabinetHowl: 0.40,
+        howl: 0.40,
+        subBeating: 0.50,
+        rumbleResonance: 0.70,
+        coneLimit: 0.60,
+        knockLevel: 0.25,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    },
+    'cabinet-boom': {
+      id: 'cabinet-boom',
+      name: 'Cabinet Boom & Cone Knock',
+      description: 'Isolates low-end speaker excursion: 55 Hz voice coil mechanical bottoming knock + 4-mode wood body resonance bank.',
+      params: {
+        ampHum: 0.35,
+        ampHiss: 0.15,
+        tuningPreset: 'ostrich-d',
+        basePitch: 50.0,
+        detuneSpread: 6.0,
+        stringDamping: 0.55,
+        feedbackGain: 0.98,
+        couplingDistance: 4.0,
+        driftRate: 0.20,
+        sagThreshold: 0.60,
+        sagDepth: 0.60,
+        sagRecovery: 160.0,
+        sagThrob: 0.60,
+        harmonicShriek: 0.0,
+        pickupAngle: 0.30,
+        shriekBite: 0.10,
+        drive: 0.10,
+        seagullSqueal: 0.0,
+        cabinetThump: 1.0,
+        cabinetHowl: 0.15,
+        howl: 0.15,
+        subBeating: 0.85,
+        rumbleResonance: 0.92,
+        coneLimit: 0.28,
+        knockLevel: 1.0,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.55
+      }
+    },
+    'full-mmm': {
+      id: 'full-mmm',
+      name: 'Twin Guitar Wall (Full MMM)',
+      description: 'The dense, multi-layered quadraphonic tapestry of Lou Reed: two microtonally detuned guitars in minor-third throat with blocking sag and chaotic room drift.',
+      params: {
+        ampHum: 0.35,
+        ampHiss: 0.20,
+        tuningPreset: 'ostrich-ad',
+        basePitch: 73.416,
+        detuneSpread: 7.0,
+        stringDamping: 0.25,
+        feedbackGain: 1.08,
+        couplingDistance: 4.0,
+        driftRate: 0.70,
+        sagThreshold: 0.60,
+        sagDepth: 0.80,
+        sagRecovery: 185.0,
+        sagThrob: 0.80,
+        harmonicShriek: 0.35,
+        pickupAngle: 0.35,
+        shriekBite: 0.75,
+        drive: 0.75,
+        seagullSqueal: 0.55,
+        cabinetThump: 0.55,
+        cabinetHowl: 0.60,
+        howl: 0.60,
+        subBeating: 0.50,
+        rumbleResonance: 0.60,
+        coneLimit: 0.50,
+        knockLevel: 0.40,
+        loop2Gain: 0.75,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.45,
+        volume: 0.50
+      }
+    },
+    'default': {
+      id: 'default',
+      name: 'Balanced Drone (Default)',
+      description: 'The baseline studio configuration with single guitar, moderate howl, and subtle sag response.',
+      params: {
+        ampHum: 0.35,
+        ampHiss: 0.20,
+        tuningPreset: 'ostrich-d',
+        basePitch: 73.416,
+        detuneSpread: 6.0,
+        stringDamping: 0.25,
+        feedbackGain: 1.04,
+        couplingDistance: 4.0,
+        driftRate: 0.25,
+        sagThreshold: 0.65,
+        sagDepth: 0.80,
+        sagRecovery: 160.0,
+        sagThrob: 0.80,
+        harmonicShriek: 0.25,
+        pickupAngle: 0.30,
+        shriekBite: 0.50,
+        drive: 0.50,
+        seagullSqueal: 0.35,
+        cabinetThump: 0.50,
+        cabinetHowl: 0.50,
+        howl: 0.50,
+        subBeating: 0.40,
+        rumbleResonance: 0.50,
+        coneLimit: 0.60,
+        knockLevel: 0.30,
+        loop2Gain: 0.0,
+        loop2Detune: 18.0,
+        loop2Distance: 7.0,
+        crossCoupling: 0.0,
+        volume: 0.50
+      }
+    }
+  }
+
+  /**
+   * Return expressive macros (MetaParameters) for MMMLab.
+   * Exposes high-level gestural controls that coordinate multiple underlying parameters.
+   * @returns {Array<Object>}
+   */
+  getMetaParamSchema() {
+    return [
+      {
+        name: 'aggression',
+        label: 'Aggression (Overdrive / Thump)',
+        description: 'Drives feedback gain, preamp drive, sag choke throb, and cabinet thump into heavy overload',
+        range: [0, 1],
+        default: 0.5,
+        mappings: [
+          {
+            param: 'feedbackGain',
+            range: [0.8, 1.8],
+            curve: 'exponential'
+          },
+          {
+            param: 'drive',
+            range: [0.1, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'sagThrob',
+            range: [0.1, 0.95],
+            curve: 'exponential'
+          },
+          {
+            param: 'cabinetThump',
+            range: [0.1, 1.0],
+            curve: 'logarithmic'
+          },
+          {
+            param: 'shriekBite',
+            range: [0.1, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'sagDepth',
+            range: [0.1, 0.95],
+            curve: 'exponential'
+          }
+        ]
+      },
+      {
+        name: 'feedbackStorm',
+        label: 'Feedback Storm (Shriek / Squeal)',
+        description: 'Drives animal howl, harmonic shriek, cross-coupling bleed, and flock-of-seagulls squeal',
+        range: [0, 1],
+        default: 0.3,
+        mappings: [
+          {
+            param: 'howl',
+            range: [0.0, 1.0],
+            curve: 'exponential'
+          },
+          {
+            param: 'cabinetHowl',
+            range: [0.0, 1.0],
+            curve: 'exponential'
+          },
+          {
+            param: 'harmonicShriek',
+            range: [0.0, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'crossCoupling',
+            range: [0.0, 0.8],
+            curve: 'linear'
+          },
+          {
+            param: 'seagullSqueal',
+            range: [0.0, 0.9],
+            curve: 'exponential'
+          }
+        ]
+      }
+    ]
+  }
+
+  /**
+   * Return the list of available presets.
+   * @returns {Array<{ id: string, name: string, description: string, params: object }>}
+   */
+  getPresets() {
+    return Object.values(MMMLabSonifier.PRESETS)
+  }
+
+  /**
+   * Apply a preset by ID.
+   * Resets worklet internal buffers/charge to ensure reproducible deterministic state.
+   * @param {string} presetId
+   * @returns {boolean}
+   */
+  applyPreset(presetId) {
+    const preset = MMMLabSonifier.PRESETS[presetId]
+    if (!preset) {
+      console.warn(`[MMMLabSonifier] Unknown preset "${presetId}"`)
+      return false
+    }
+    this._pendingPresetId = presetId
+    if (this._workletNode && this._workletNode.port) {
+      this._workletNode.port.postMessage({ type: 'reset' })
+    }
+    for (const [key, value] of Object.entries(preset.params)) {
+      this.setParam(key, value)
+    }
+    return true
   }
 
   /**
@@ -220,9 +794,12 @@ export class MMMLabSonifier extends SonifierBase {
     this._output = null
     this._workletNode = null
     this._cabinetEQ = null
+    this._cabinetEQ1 = null
+    this._cabinetEQ2 = null
     this._limiter = null
     this._masterGain = null
     this._initialized = false
+    this._pendingPresetId = null
   }
 
   async init(audioContext, outputNode) {
@@ -243,12 +820,24 @@ export class MMMLabSonifier extends SonifierBase {
     this._limiter.release.setValueAtTime(0.1, this._ctx.currentTime)
     this._limiter.connect(this._masterGain)
 
-    // 3. Speaker Cabinet Lowpass Filter (Guitar Speaker rolloff above 5.5 kHz)
-    this._cabinetEQ = this._ctx.createBiquadFilter()
-    this._cabinetEQ.type = 'lowpass'
-    this._cabinetEQ.frequency.setValueAtTime(5500, this._ctx.currentTime)
-    this._cabinetEQ.Q.setValueAtTime(0.7, this._ctx.currentTime)
-    this._cabinetEQ.connect(this._limiter)
+    // 3. 4-Pole 12" Speaker Cabinet Acoustic Filter (Authentic 12" paper cone extended high-end)
+    // Extended to preserve high-pitch (5.8-7.5 kHz) microphonic pickup squeals ("flock of seagulls")
+    // Stage 1: 7000 Hz with Q=0.85 (cone edge resonance / cutoff shoulder)
+    this._cabinetEQ1 = this._ctx.createBiquadFilter()
+    this._cabinetEQ1.type = 'lowpass'
+    this._cabinetEQ1.frequency.setValueAtTime(7000, this._ctx.currentTime)
+    this._cabinetEQ1.Q.setValueAtTime(0.85, this._ctx.currentTime)
+
+    // Stage 2: 7600 Hz with Q=0.707 (steep 24 dB/oct acoustic attenuation of ultrasonic fizz)
+    this._cabinetEQ2 = this._ctx.createBiquadFilter()
+    this._cabinetEQ2.type = 'lowpass'
+    this._cabinetEQ2.frequency.setValueAtTime(7600, this._ctx.currentTime)
+    this._cabinetEQ2.Q.setValueAtTime(0.707, this._ctx.currentTime)
+
+    this._cabinetEQ = this._cabinetEQ1 // alias for backward compatibility
+
+    this._cabinetEQ1.connect(this._cabinetEQ2)
+    this._cabinetEQ2.connect(this._limiter)
 
     // 4. Register AudioWorklet Module
     try {
@@ -264,10 +853,25 @@ export class MMMLabSonifier extends SonifierBase {
       numberOfOutputs: 1,
       outputChannelCount: [2]
     })
-    this._workletNode.connect(this._cabinetEQ)
+    this._workletNode.connect(this._cabinetEQ1)
 
-    // 6. Apply Schema Defaults
-    this.applyDefaults()
+    // Clear worklet buffers for deterministic start
+    if (this._workletNode.port) {
+      this._workletNode.port.postMessage({ type: 'reset' })
+    }
+
+    // 6. Apply Schema Defaults for unconfigured params only (do not overwrite preset/user params)
+    for (const entry of this.getParamSchema()) {
+      if (this._paramValues[entry.name] === undefined && entry.default !== undefined) {
+        this._paramValues[entry.name] = entry.default
+      }
+    }
+    if (this._pendingPresetId && MMMLabSonifier.PRESETS[this._pendingPresetId]) {
+      const preset = MMMLabSonifier.PRESETS[this._pendingPresetId]
+      for (const [k, v] of Object.entries(preset.params)) {
+        this._paramValues[k] = v
+      }
+    }
     for (const [k, v] of Object.entries(this._paramValues)) {
       this.onParam(k, v)
     }
@@ -293,6 +897,16 @@ export class MMMLabSonifier extends SonifierBase {
       return
     }
 
+    if (name === 'drive') {
+      this.onParam('shriekBite', value)
+    }
+    if (name === 'sagThrob') {
+      this.onParam('sagDepth', value)
+    }
+    if (name === 'howl') {
+      this.onParam('cabinetHowl', value)
+    }
+
     // AudioWorklet parameters
     if (this._workletNode && this._workletNode.parameters && this._workletNode.parameters.has(name)) {
       const p = this._workletNode.parameters.get(name)
@@ -316,7 +930,8 @@ export class MMMLabSonifier extends SonifierBase {
     setTimeout(() => {
       try {
         if (this._workletNode) this._workletNode.disconnect()
-        if (this._cabinetEQ) this._cabinetEQ.disconnect()
+        if (this._cabinetEQ1) this._cabinetEQ1.disconnect()
+        if (this._cabinetEQ2) this._cabinetEQ2.disconnect()
         if (this._limiter) this._limiter.disconnect()
         if (this._masterGain) this._masterGain.disconnect()
       } catch (e) {

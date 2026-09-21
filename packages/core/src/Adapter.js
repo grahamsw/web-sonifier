@@ -37,6 +37,24 @@ export class Adapter {
     this._window = []
     this._windowSize = config.autoRange?.windowSize ?? 100
     this._padding = config.autoRange?.padding ?? 0.05
+    // Pipeline transformers (decorators)
+    this._transformers = []
+  }
+
+  /**
+   * Append one or more transformer functions (decorators) to the adapter's pipeline.
+   * e.g. adapter.pipe(Quantize.scale(Scales.pentatonic))
+   *
+   * @param {...Function} transformers
+   * @returns {this} Fluent chaining
+   */
+  pipe(...transformers) {
+    for (const fn of transformers) {
+      if (typeof fn === 'function') {
+        this._transformers.push(fn)
+      }
+    }
+    return this
   }
 
   /**
@@ -57,7 +75,14 @@ export class Adapter {
       normalised = 1 - normalised
     }
     const curved = this._applyCurve(normalised)
-    return this._scale(curved, this.outputRange)
+    let output = this._scale(curved, this.outputRange)
+
+    // Apply any piped transformers (e.g. musical quantizers)
+    for (const transform of this._transformers) {
+      output = transform(output)
+    }
+
+    return output
   }
 
   /**

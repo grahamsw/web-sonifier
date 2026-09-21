@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farnell Modal Wind Chime & Event De-quantizer Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0f17;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    header {
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-bottom: 0.4rem;
+    }
+    p.subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+    .card {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .chime-rack {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .chime-tube {
+      background: linear-gradient(180deg, #334155, #1e293b);
+      border: 1px solid #475569;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding-bottom: 1.2rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .chime-tube:hover {
+      background: linear-gradient(180deg, #475569, #334155);
+      border-color: #38bdf8;
+      transform: translateY(-2px);
+    }
+    .chime-tube:active, .chime-tube.struck {
+      background: linear-gradient(180deg, #0284c7, #0369a1);
+      box-shadow: 0 0 15px #38bdf8;
+      transform: scale(0.97);
+    }
+    .tube-note {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #f8fafc;
+    }
+    .tube-freq {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 2px;
+      font-family: monospace;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 0.4rem;
+    }
+    .control-row {
+      display: grid;
+      grid-template-columns: 150px 1fr 80px;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .control-row label {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    select {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+      width: 100%;
+    }
+    .val-display {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      text-align: right;
+    }
+    .scatter-box {
+      background: #0b1329;
+      border: 1px solid #1e3a8a;
+      border-radius: 8px;
+      padding: 1.2rem;
+      margin-top: 1rem;
+    }
+    .scatter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+    .scatter-title {
+      font-weight: 600;
+      color: #60a5fa;
+      font-size: 0.95rem;
+    }
+    .scatter-status {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-family: monospace;
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    button.action-btn {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #f1f5f9;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button.action-btn:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+    button.action-btn.primary {
+      background: #0284c7;
+      border-color: #0369a1;
+    }
+    button.action-btn.primary:hover {
+      background: #0369a1;
+    }
+    .info-panel {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      line-height: 1.5;
+    }
+    .code-term {
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    /* Top Global Navigation Bar */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+    }
+
+    .site-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .site-nav-brand-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .site-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .site-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .site-nav-link:hover {
+      color: #fff;
+      background: #1f2937;
+    }
+
+    .site-nav-link.active {
+      color: #fff;
+      background: #0369a1;
+      border: 1px solid #0284c7;
+      font-weight: 600;
+    }
+
+    .site-nav-link.nav-roadmap {
+      opacity: 0.8;
+      border: 1px dashed #334155;
+    }
+
+    .site-nav-link.nav-roadmap:hover {
+      opacity: 1;
+      border-color: #38bdf8;
+    }
+
+    .nav-badge-pill {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="site-nav" aria-label="Main Navigation">
+      <a href="/demo/" class="site-nav-brand">
+        <span>web-sonifier</span>
+        <span class="site-nav-brand-badge">v0.1</span>
+      </a>
+      <ul class="site-nav-links">
+        <li><a href="/demo/" class="site-nav-link">🎛️ Data Workbench</a></li>
+        <li><a href="/packages/chime/demo/" class="site-nav-link active">🎐 Modal Chimes Lab</a></li>
+        <li><a href="/packages/bubble/demo/" class="site-nav-link">🫧 Minnaert Bubble Lab</a></li>
+        <li><a href="/packages/wind/demo/" class="site-nav-link">🌬️ Aeolian Wind Lab</a></li>
+        <li><a href="/demo/#landscape-modal" class="site-nav-link nav-roadmap">🏞️ Compound Landscapes <span class="nav-badge-pill">Soon</span></a></li>
+        <li><a href="https://github.com/grahamsw/web-sonifier" target="_blank" rel="noopener" class="site-nav-link" style="color: #38bdf8;">GitHub ↗</a></li>
+      </ul>
+    </nav>
+
+    <header>
+      <h1>Procedural Wind Chime & Event De-quantizer</h1>
+      <p class="subtitle">Euler-Bernoulli Transverse Beam Modes &middot; Pentatonic Quantizer &middot; Windowed Event Scatter</p>
+    </header>
+
+    <!-- Interactive Chime Tubes -->
+    <div class="card">
+      <div class="section-title">Pentatonic Chime Tubes (Click to Strike)</div>
+      <div class="chime-rack" id="chimeRack">
+        <div class="chime-tube" style="height: 170px;" data-note="A4" data-freq="440">
+          <span class="tube-note">A4</span>
+          <span class="tube-freq">440 Hz</span>
+        </div>
+        <div class="chime-tube" style="height: 155px;" data-note="B4" data-freq="493.88">
+          <span class="tube-note">B4</span>
+          <span class="tube-freq">494 Hz</span>
+        </div>
+        <div class="chime-tube" style="height: 140px;" data-note="C#5" data-freq="554.37">
+          <span class="tube-note">C#5</span>
+          <span class="tube-freq">554 Hz</span>
+        </div>
+        <div class="chime-tube" style="height: 125px;" data-note="E5" data-freq="659.25">
+          <span class="tube-note">E5</span>
+          <span class="tube-freq">659 Hz</span>
+        </div>
+        <div class="chime-tube" style="height: 110px;" data-note="F#5" data-freq="739.99">
+          <span class="tube-note">F#5</span>
+          <span class="tube-freq">740 Hz</span>
+        </div>
+      </div>
+      <div class="info-panel">
+        <strong>Acoustic Inharmonicity:</strong> Each tube synthesizes Euler-Bernoulli modes:
+        <span class="code-term">1.000&times;f₀</span>, <span class="code-term">2.756&times;f₀</span>, <span class="code-term">5.404&times;f₀</span>, <span class="code-term">8.933&times;f₀</span>.
+        Higher modes decay rapidly (100–250ms), producing the authentic shimmering metal attack and singing fundamental.
+      </div>
+    </div>
+
+    <!-- Batch Event De-quantizer Simulation -->
+    <div class="card">
+      <div class="section-title">Batch Event De-quantizer (EventScatterAdapter)</div>
+      <p style="font-size:0.9rem; color:#94a3b8; margin-bottom: 1rem;">
+        Simulates an analytics feed polled every 20 seconds. Instead of a robotic burst of all signups at $T=0$,
+        events are scattered across the window with randomized pentatonic pitches.
+      </p>
+
+      <div class="scatter-box">
+        <div class="scatter-header">
+          <span class="scatter-title">Simulate Periodic Polled Arrivals</span>
+          <span id="scatterStatus" class="scatter-status">Idle (0 pending)</span>
+        </div>
+        <div class="btn-row">
+          <button id="pollLight" class="action-btn">Feed: 3 Signups (Over 15s)</button>
+          <button id="pollMedium" class="action-btn primary">Feed: 8 Signups (Over 20s)</button>
+          <button id="pollHeavy" class="action-btn">Feed: 15 Signups (Over 25s)</button>
+          <button id="pollCancel" class="action-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="section-title">Physical Parameters</div>
+
+      <div class="control-row">
+        <label for="materialSelect">Metal Alloy</label>
+        <select id="materialSelect">
+          <option value="aluminum" selected>Aluminum (Singing & Long Ring)</option>
+          <option value="bronze">Bronze (Warm & Heavy)</option>
+          <option value="steel">Steel (Bright & Cutting)</option>
+        </select>
+        <span class="val-display">Alloy</span>
+      </div>
+
+      <div class="control-row">
+        <label for="dampingSlider">Damping</label>
+        <input id="dampingSlider" type="range" min="0.05" max="0.9" step="0.02" value="0.25">
+        <span id="dampingVal" class="val-display">0.25</span>
+      </div>
+
+      <div class="control-row">
+        <label for="windSlider">Ambient Wind</label>
+        <input id="windSlider" type="range" min="0" max="100" step="1" value="0">
+        <span id="windVal" class="val-display">0 km/h</span>
+      </div>
+
+      <div class="control-row">
+        <label for="volSlider">Volume</label>
+        <input id="volSlider" type="range" min="0" max="1" step="0.02" value="0.7">
+        <span id="volVal" class="val-display">0.70</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ModalChime } from '../src/ModalChime.js'
+    import { EventScatterAdapter, Quantize, Scales } from '../../core/src/index.js'
+
+    let audioCtx = null
+    let chime = null
+    let scatterAdapter = null
+
+    function getAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        chime = new ModalChime(audioCtx)
+
+        // Musical Quantizer (A Major Pentatonic around A4=440Hz)
+        const snapPitch = Quantize.scale(Scales.pentatonic, { rootFreq: 440 })
+
+        // Initialize Event Scatter Adapter
+        scatterAdapter = new EventScatterAdapter({
+          windowSeconds: 20,
+          strategy: 'random',
+          onTrigger: (payload) => {
+            // Pick a random pentatonic pitch across 2 octaves
+            const randomFreq = 440 * (0.8 + Math.random() * 1.8)
+            const musicalFreq = snapPitch(randomFreq)
+            const velocity = 0.5 + Math.random() * 0.4
+            chime.strike({ pitch: musicalFreq, velocity })
+            flashChimeVisual(musicalFreq)
+            updateStatus()
+          }
+        })
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume()
+      }
+      return { audioCtx, chime }
+    }
+
+    const chimeRack = document.getElementById('chimeRack')
+    const materialSelect = document.getElementById('materialSelect')
+    const dampingSlider = document.getElementById('dampingSlider')
+    const windSlider = document.getElementById('windSlider')
+    const volSlider = document.getElementById('volSlider')
+
+    const dampingVal = document.getElementById('dampingVal')
+    const windVal = document.getElementById('windVal')
+    const volVal = document.getElementById('volVal')
+    const scatterStatus = document.getElementById('scatterStatus')
+
+    // Click tubes manually
+    document.querySelectorAll('.chime-tube').forEach(tube => {
+      tube.addEventListener('pointerdown', () => {
+        getAudio()
+        const freq = parseFloat(tube.dataset.freq)
+        chime.strike({ pitch: freq, velocity: 0.9 })
+        tube.classList.add('struck')
+        setTimeout(() => tube.classList.remove('struck'), 350)
+      })
+    })
+
+    function flashChimeVisual(freq) {
+      // Highlight closest tube visual
+      let closestTube = null
+      let minDiff = Infinity
+      document.querySelectorAll('.chime-tube').forEach(tube => {
+        const tf = parseFloat(tube.dataset.freq)
+        const diff = Math.abs(tf - freq)
+        if (diff < minDiff) {
+          minDiff = diff
+          closestTube = tube
+        }
+      })
+      if (closestTube) {
+        closestTube.classList.add('struck')
+        setTimeout(() => closestTube.classList.remove('struck'), 250)
+      }
+    }
+
+    function updateStatus() {
+      if (!scatterAdapter) return
+      const p = scatterAdapter.pendingCount
+      scatterStatus.textContent = p > 0 ? `Active: ${p} events scheduled` : `Idle (0 pending)`
+    }
+
+    // Material
+    materialSelect.addEventListener('change', () => {
+      getAudio()
+      chime.setMaterial(materialSelect.value)
+    })
+
+    // Damping
+    dampingSlider.addEventListener('input', () => {
+      getAudio()
+      const d = parseFloat(dampingSlider.value)
+      dampingVal.textContent = d.toFixed(2)
+      chime.setDamping(d)
+    })
+
+    // Wind
+    windSlider.addEventListener('input', () => {
+      getAudio()
+      const w = parseFloat(windSlider.value)
+      windVal.textContent = `${w} km/h`
+      chime.setWindSpeed(w)
+    })
+
+    // Volume
+    volSlider.addEventListener('input', () => {
+      getAudio()
+      const v = parseFloat(volSlider.value)
+      volVal.textContent = v.toFixed(2)
+      chime.setVolume(v)
+    })
+
+    // Batch feed buttons
+    document.getElementById('pollLight').addEventListener('click', () => {
+      getAudio()
+      scatterAdapter.windowSeconds = 15
+      scatterAdapter.feed(3)
+      updateStatus()
+    })
+
+    document.getElementById('pollMedium').addEventListener('click', () => {
+      getAudio()
+      scatterAdapter.windowSeconds = 20
+      scatterAdapter.feed(8)
+      updateStatus()
+    })
+
+    document.getElementById('pollHeavy').addEventListener('click', () => {
+      getAudio()
+      scatterAdapter.windowSeconds = 25
+      scatterAdapter.feed(15)
+      updateStatus()
+    })
+
+    document.getElementById('pollCancel').addEventListener('click', () => {
+      if (scatterAdapter) {
+        scatterAdapter.cancel()
+        updateStatus()
+      }
+    })
+  </script>
+</body>
+</html>

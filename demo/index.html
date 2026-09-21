@@ -780,6 +780,91 @@
     .dialog-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
     .btn-save { background: #4caf82; color: #000; font-weight: 600; }
     .btn-cancel { background: #2a2d3a; color: #ccc; border: 1px solid #3a3d4a; }
+
+    /* Top Global Navigation Bar */
+    .site-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1080px;
+      padding: 0.6rem 1rem;
+      background: #161922;
+      border: 1px solid #282c3c;
+      border-radius: 12px;
+      margin-bottom: 0.25rem;
+    }
+
+    .site-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .site-nav-brand-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #4caf82;
+      background: rgba(76, 175, 130, 0.15);
+      border: 1px solid rgba(76, 175, 130, 0.35);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .site-nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .site-nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .site-nav-link:hover {
+      color: #fff;
+      background: #222636;
+    }
+
+    .site-nav-link.active {
+      color: #fff;
+      background: #2b3248;
+      border: 1px solid #3d4666;
+      font-weight: 600;
+    }
+
+    .site-nav-link.nav-roadmap {
+      opacity: 0.8;
+      border: 1px dashed #3a425c;
+    }
+
+    .site-nav-link.nav-roadmap:hover {
+      opacity: 1;
+      border-color: #4caf82;
+    }
+
+    .nav-badge-pill {
+      font-size: 0.65rem;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+    }
   </style>
 
   <script type="importmap">
@@ -798,12 +883,30 @@
         "@web-sonifier/ocean": "/packages/ocean/src/index.js",
         "@web-sonifier/metal-machine": "/packages/metal-machine/src/index.js",
         "@web-sonifier/mmm2": "/packages/mmm2/src/index.js",
-        "@web-sonifier/mmm-lab": "/packages/mmm-lab/src/index.js"
+        "@web-sonifier/mmm-lab": "/packages/mmm-lab/src/index.js",
+        "@web-sonifier/bubble": "/packages/bubble/src/index.js",
+        "@web-sonifier/chime": "/packages/chime/src/index.js",
+        "@web-sonifier/wind": "/packages/wind/src/index.js"
       }
     }
   </script>
 </head>
 <body>
+
+  <nav class="site-nav" aria-label="Main Navigation">
+    <a href="/demo/" class="site-nav-brand">
+      <span>web-sonifier</span>
+      <span class="site-nav-brand-badge">v0.1</span>
+    </a>
+    <ul class="site-nav-links">
+      <li><a href="/demo/" class="site-nav-link active">🎛️ Data Workbench</a></li>
+      <li><a href="/packages/chime/demo/" class="site-nav-link">🎐 Modal Chimes Lab</a></li>
+      <li><a href="/packages/bubble/demo/" class="site-nav-link">🫧 Minnaert Bubble Lab</a></li>
+      <li><a href="/packages/wind/demo/" class="site-nav-link">🌬️ Aeolian Wind Lab</a></li>
+      <li><a href="#landscape-modal" id="nav-landscapes-link" class="site-nav-link nav-roadmap">🏞️ Compound Landscapes <span class="nav-badge-pill">Soon</span></a></li>
+      <li><a href="https://github.com/grahamsw/web-sonifier" target="_blank" rel="noopener" class="site-nav-link" style="color: #4caf82;">GitHub ↗</a></li>
+    </ul>
+  </nav>
 
   <h1>web-sonifier / demo <a href="https://github.com/grahamsw/web-sonifier" style="font-size: 0.8rem; color: #4caf82; text-decoration: none; margin-left: 0.5rem; vertical-align: middle;">[view source]</a></h1>
 
@@ -839,19 +942,26 @@
         <div class="sonifier-select-group">
           <label for="sonifier-select">Sonifier:</label>
           <select id="sonifier-select">
-            <option value="tone">Continuous Tone</option>
-            <option value="geiger">Geiger Counter</option>
-            <option value="purr">Purr</option>
-            <option value="engine">Engine</option>
-            <option value="liquid">Liquid Resonator</option>
-            <option value="mallet">Mallet</option>
-            <option value="drone">Drone</option>
-            <option value="vosc">VOSC Player</option>
-            <option value="rain">Rain</option>
-            <option value="ocean">Ocean</option>
-            <option value="metal-machine">Metal Machine (Lou Reed)</option>
-            <option value="mmm2">MMM2 Drone Ecology (Lou Reed)</option>
-            <option value="mmm-lab">Metal Machine Lab (Amp & Strings)</option>
+            <optgroup label="Procedural Physics (Farnell)">
+              <option value="bubble">Minnaert Bubble (Farnell Ch. 34)</option>
+              <option value="chime">Modal Wind Chime (Farnell Ch. 24)</option>
+              <option value="wind">Aeolian Wind (Farnell Ch. 35)</option>
+            </optgroup>
+            <optgroup label="Core & Acoustic Sonifiers">
+              <option value="tone">Continuous Tone</option>
+              <option value="geiger">Geiger Counter</option>
+              <option value="purr">Purr</option>
+              <option value="engine">Engine</option>
+              <option value="liquid">Liquid Resonator</option>
+              <option value="mallet">Mallet</option>
+              <option value="drone">Drone</option>
+              <option value="vosc">VOSC Player</option>
+              <option value="rain">Rain</option>
+              <option value="ocean">Ocean</option>
+              <option value="metal-machine">Metal Machine (Lou Reed)</option>
+              <option value="mmm2">MMM2 Drone Ecology (Lou Reed)</option>
+              <option value="mmm-lab">Metal Machine Lab (Amp & Strings)</option>
+            </optgroup>
           </select>
           <button id="btn-open-load-custom" type="button" title="Load external sonifier" style="background: #2a2d3a; color: #4caf82; border: 1px solid #3a3d4a; padding: 0.35rem 0.6rem; font-size: 0.78rem; border-radius: 6px; cursor: pointer;">+ External</button>
         </div>
@@ -862,6 +972,12 @@
         <h2>Sonifier Parameters</h2>
         <span class="hint">Check to sonify via linked feed (0–100)</span>
       </div>
+
+      <!-- Preset Selector Bar (Dynamically populated if sonifier defines presets) -->
+      <div id="preset-bar-panel" style="display: none; margin-bottom: 1rem;"></div>
+
+      <!-- Macro Controls Bar (Dynamically populated if sonifier defines getMetaParamSchema) -->
+      <div id="macro-bar-panel" style="display: none; margin-bottom: 1rem;"></div>
 
       <div class="parameters-container" id="parameters-panel">
         <!-- Dynamically populated per sonifier -->
@@ -904,6 +1020,25 @@
         <button type="button" class="btn-save" id="btn-custom-load">Load</button>
         <button type="button" class="btn-cancel" id="btn-custom-cancel">Cancel</button>
       </div>
+    </div>
+  </dialog>
+
+  <!-- Compound Landscapes Info Dialog -->
+  <dialog id="compound-landscapes-dialog">
+    <h2 style="font-size: 1.15rem; margin-bottom: 0.5rem; color: #38bdf8;">🏞️ Compound Sonification Landscapes</h2>
+    <p style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5; margin-bottom: 0.75rem;">
+      Rather than single synthetic tones, production sonification composes multiple complementary physical layers into a cohesive acoustic environment:
+    </p>
+    <ul style="font-size: 0.82rem; color: #cbd5e1; margin-left: 1.2rem; margin-bottom: 1rem; line-height: 1.6;">
+      <li><strong>Ambient Bed:</strong> Continuous procedural flow (Aeolian Wind / Ocean Wash) mapped to server traffic or load.</li>
+      <li><strong>Discrete Events:</strong> Inharmonic strikes (Modal Chimes / Minnaert Bubbles) driven by de-quantized transaction/conversion feeds.</li>
+      <li><strong>Alert & Tension:</strong> Stick-slip friction and tension scrape triggered on anomaly thresholds.</li>
+    </ul>
+    <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 1rem;">
+      Architecture specification: <code>docs/architecture/procedural_and_event_sonification.md</code> (Section 4).
+    </p>
+    <div class="dialog-actions">
+      <button type="button" class="btn-save" id="btn-close-landscapes">Understood</button>
     </div>
   </dialog>
 

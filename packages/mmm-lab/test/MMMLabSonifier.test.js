@@ -31,7 +31,21 @@ describe('MMMLabSonifier', () => {
       ['harmonicShriek', mockParam(0.40)],
       ['pickupAngle', mockParam(0.30)],
       ['cabinetThump', mockParam(0.50)],
-      ['subBeating', mockParam(0.40)]
+      ['cabinetHowl', mockParam(0.50)],
+      ['subBeating', mockParam(0.40)],
+      ['rumbleResonance', mockParam(0.5)],
+      ['coneLimit', mockParam(0.6)],
+      ['knockLevel', mockParam(0.4)],
+      ['loop2Gain', mockParam(0.0)],
+      ['loop2Detune', mockParam(18.0)],
+      ['loop2Distance', mockParam(7.0)],
+      ['crossCoupling', mockParam(0.3)],
+      ['shriekBite', mockParam(0.50)],
+      ['seagullSqueal', mockParam(0.35)],
+      ['driftRate', mockParam(0.25)],
+      ['drive', mockParam(0.50)],
+      ['sagThrob', mockParam(0.80)],
+      ['howl', mockParam(0.50)]
     ])
 
     global.AudioWorkletNode = class {
@@ -82,7 +96,7 @@ describe('MMMLabSonifier', () => {
     vi.useRealTimers()
   })
 
-  it('declares the 7 sequential progressive parameter groups in schema', () => {
+  it('declares all progressive parameter groups in schema', () => {
     const schema = sonifier.getParamSchema()
     expect(Array.isArray(schema)).toBe(true)
 
@@ -93,9 +107,12 @@ describe('MMMLabSonifier', () => {
     expect(groups).toContain('4. Power Amp Sag & Choke')
     expect(groups).toContain('5. Shriek & Harmonic Bending')
     expect(groups).toContain('6. Low Rumble & Cabinet Resonance')
+    expect(groups).toContain('6b. Speaker Knocking')
     expect(groups).toContain('7. Output')
+    expect(groups).toContain('8. Second Guitar / Density')
 
     const paramNames = schema.map(p => p.name)
+    // Original params
     expect(paramNames).toContain('ampHum')
     expect(paramNames).toContain('ampHiss')
     expect(paramNames).toContain('tuningPreset')
@@ -109,16 +126,31 @@ describe('MMMLabSonifier', () => {
     expect(paramNames).toContain('sagRecovery')
     expect(paramNames).toContain('harmonicShriek')
     expect(paramNames).toContain('pickupAngle')
+    expect(paramNames).toContain('shriekBite')
+    expect(paramNames).toContain('seagullSqueal')
     expect(paramNames).toContain('cabinetThump')
+    expect(paramNames).toContain('cabinetHowl')
     expect(paramNames).toContain('subBeating')
     expect(paramNames).toContain('volume')
+    // Phase A
+    expect(paramNames).toContain('rumbleResonance')
+    // Phase B
+    expect(paramNames).toContain('coneLimit')
+    expect(paramNames).toContain('knockLevel')
+    // Phase C
+    expect(paramNames).toContain('loop2Gain')
+    expect(paramNames).toContain('loop2Detune')
+    expect(paramNames).toContain('loop2Distance')
+    expect(paramNames).toContain('crossCoupling')
   })
 
-  it('initializes the AudioWorklet, cabinet EQ, limiter, and master gain graph', async () => {
+  it('initializes the AudioWorklet, 4-pole cascaded cabinet EQ, limiter, and master gain graph', async () => {
     await sonifier.init(mockContext, mockOutput)
 
     expect(mockContext.audioWorklet.addModule).toHaveBeenCalledWith('/packages/mmm-lab/src/MMMLabProcessor.js')
-    expect(mockContext.createBiquadFilter).toHaveBeenCalled()
+    expect(mockContext.createBiquadFilter).toHaveBeenCalledTimes(2)
+    expect(sonifier._cabinetEQ1).toBeDefined()
+    expect(sonifier._cabinetEQ2).toBeDefined()
     expect(mockContext.createDynamicsCompressor).toHaveBeenCalled()
     expect(mockContext.createGain).toHaveBeenCalled()
     expect(sonifier._initialized).toBe(true)
@@ -142,6 +174,32 @@ describe('MMMLabSonifier', () => {
     sonifier.setParam('cabinetThump', 0.9)
     const thumpParam = mockWorkletParams.get('cabinetThump')
     expect(thumpParam.setTargetAtTime).toHaveBeenCalledWith(0.9, 0, 0.025)
+
+    sonifier.setParam('cabinetHowl', 0.85)
+    const howlParam = mockWorkletParams.get('cabinetHowl')
+    expect(howlParam.setTargetAtTime).toHaveBeenCalledWith(0.85, 0, 0.025)
+  })
+
+  it('updates new Phase A/B/C parameters with smoothing', async () => {
+    await sonifier.init(mockContext, mockOutput)
+
+    sonifier.setParam('rumbleResonance', 0.8)
+    expect(mockWorkletParams.get('rumbleResonance').setTargetAtTime).toHaveBeenCalledWith(0.8, 0, 0.025)
+
+    sonifier.setParam('coneLimit', 0.4)
+    expect(mockWorkletParams.get('coneLimit').setTargetAtTime).toHaveBeenCalledWith(0.4, 0, 0.025)
+
+    sonifier.setParam('knockLevel', 0.7)
+    expect(mockWorkletParams.get('knockLevel').setTargetAtTime).toHaveBeenCalledWith(0.7, 0, 0.025)
+
+    sonifier.setParam('loop2Gain', 0.6)
+    expect(mockWorkletParams.get('loop2Gain').setTargetAtTime).toHaveBeenCalledWith(0.6, 0, 0.025)
+
+    sonifier.setParam('loop2Detune', 25)
+    expect(mockWorkletParams.get('loop2Detune').setTargetAtTime).toHaveBeenCalledWith(25, 0, 0.025)
+
+    sonifier.setParam('crossCoupling', 0.5)
+    expect(mockWorkletParams.get('crossCoupling').setTargetAtTime).toHaveBeenCalledWith(0.5, 0, 0.025)
   })
 
   it('posts tuning preset changes to the worklet port', async () => {
@@ -169,6 +227,164 @@ describe('MMMLabSonifier', () => {
 
     vi.advanceTimersByTime(60)
     expect(sonifier._workletNode.disconnect).toHaveBeenCalled()
+    expect(sonifier._cabinetEQ1.disconnect).toHaveBeenCalled()
+    expect(sonifier._cabinetEQ2.disconnect).toHaveBeenCalled()
     expect(sonifier._masterGain.disconnect).toHaveBeenCalled()
+  })
+
+  it('provides all 8 component sound presets with valid schema parameter mappings', () => {
+    const presets = sonifier.getPresets()
+    expect(Array.isArray(presets)).toBe(true)
+    expect(presets.length).toBe(8)
+
+    const presetIds = presets.map(p => p.id)
+    expect(presetIds).toContain('hum')
+    expect(presetIds).toContain('basic-feedback')
+    expect(presetIds).toContain('heterodyne-howl')
+    expect(presetIds).toContain('screech')
+    expect(presetIds).toContain('rumble-pulse')
+    expect(presetIds).toContain('cabinet-boom')
+    expect(presetIds).toContain('full-mmm')
+    expect(presetIds).toContain('default')
+
+    const schemaKeys = new Set(sonifier.getParamSchema().map(p => p.name))
+    for (const preset of presets) {
+      expect(preset.name).toBeTruthy()
+      expect(preset.description).toBeTruthy()
+      expect(typeof preset.params).toBe('object')
+      // Ensure all 24 schema parameters are explicitly configured to prevent path dependency
+      expect(Object.keys(preset.params).length).toBe(schemaKeys.size)
+      for (const paramKey of Object.keys(preset.params)) {
+        expect(schemaKeys.has(paramKey)).toBe(true)
+      }
+    }
+
+    const fullPreset = presets.find(p => p.id === 'full-mmm')
+    expect(fullPreset.params.tuningPreset).toBe('ostrich-ad')
+    expect(fullPreset.params.seagullSqueal).toBe(0.55)
+  })
+
+  it('applies preset parameters with smooth automation and posts reset to worklet via applyPreset()', async () => {
+    await sonifier.init(mockContext, mockOutput)
+
+    const success = sonifier.applyPreset('hum')
+    expect(success).toBe(true)
+
+    // applyPreset should post { type: 'reset' } to clear worklet state
+    expect(sonifier._workletNode.port.postMessage).toHaveBeenCalledWith({ type: 'reset' })
+
+    // hum preset sets feedbackGain to 0 and ampHum to 0.65
+    expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)
+    expect(mockWorkletParams.get('ampHum').setTargetAtTime).toHaveBeenCalledWith(0.65, 0, 0.025)
+
+    // invalid preset returns false
+    const invalid = sonifier.applyPreset('nonexistent')
+    expect(invalid).toBe(false)
+  })
+
+  it('preserves preset parameters and resets worklet state when initialized with a pending preset', async () => {
+    sonifier.applyPreset('hum')
+    await sonifier.init(mockContext, mockOutput)
+
+    // Should post reset message to worklet
+    expect(sonifier._workletNode.port.postMessage).toHaveBeenCalledWith({ type: 'reset' })
+
+    // Should have dispatched hum params (feedbackGain = 0.0) without being overwritten by defaults
+    expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)
+    expect(mockWorkletParams.get('ampHum').setTargetAtTime).toHaveBeenCalledWith(0.65, 0, 0.025)
+  })
+
+  describe('MetaParameters (Macros)', () => {
+    it('declares expressive macros in getMetaParamSchema() with non-linear mappings', () => {
+      const metaSchema = sonifier.getMetaParamSchema()
+      expect(Array.isArray(metaSchema)).toBe(true)
+      expect(metaSchema.length).toBeGreaterThanOrEqual(2)
+
+      const names = metaSchema.map(m => m.name)
+      expect(names).toContain('aggression')
+      expect(names).toContain('feedbackStorm')
+
+      const aggression = metaSchema.find(m => m.name === 'aggression')
+      expect(aggression.label).toBeTruthy()
+      expect(aggression.description).toBeTruthy()
+      const aggTargetParams = aggression.mappings.map(m => m.param)
+      expect(aggTargetParams).toContain('feedbackGain')
+      expect(aggTargetParams).toContain('drive')
+      expect(aggTargetParams).toContain('sagThrob')
+      expect(aggTargetParams).toContain('cabinetThump')
+
+      // Verify non-linear transfer curves are declared
+      const nonLinearCurves = ['exponential', 's-curve', 'logarithmic']
+      const aggCurves = aggression.mappings.map(m => m.curve)
+      expect(aggCurves.some(c => nonLinearCurves.includes(c))).toBe(true)
+
+      const storm = metaSchema.find(m => m.name === 'feedbackStorm')
+      expect(storm.label).toBeTruthy()
+      expect(storm.description).toBeTruthy()
+      const stormTargetParams = storm.mappings.map(m => m.param)
+      expect(stormTargetParams).toContain('howl')
+      expect(stormTargetParams).toContain('harmonicShriek')
+      expect(stormTargetParams).toContain('crossCoupling')
+      expect(stormTargetParams).toContain('seagullSqueal')
+    })
+
+    it('correctly evaluates and updates underlying parameters when setMetaParam("aggression", 0.8) is called', () => {
+      const updates = sonifier.setMetaParam('aggression', 0.8)
+      expect(updates).toBeDefined()
+      expect(typeof updates).toBe('object')
+
+      // Checks returned mapped parameter values
+      expect(updates.feedbackGain).toBeGreaterThan(1.0)
+      expect(updates.drive).toBeGreaterThan(0.5)
+      expect(updates.sagThrob).toBeGreaterThan(0.4)
+      expect(updates.cabinetThump).toBeGreaterThan(0.5)
+
+      // Verifies underlying sonifier parameters are actually updated via getParam
+      expect(sonifier.getParam('feedbackGain')).toBeCloseTo(updates.feedbackGain, 4)
+      expect(sonifier.getParam('drive')).toBeCloseTo(updates.drive, 4)
+      expect(sonifier.getParam('sagThrob')).toBeCloseTo(updates.sagThrob, 4)
+      expect(sonifier.getParam('cabinetThump')).toBeCloseTo(updates.cabinetThump, 4)
+
+      // Verifies underlying DSP aliases are updated
+      expect(sonifier.getParam('shriekBite')).toBeCloseTo(updates.drive, 4)
+      expect(sonifier.getParam('sagDepth')).toBeCloseTo(updates.sagThrob, 4)
+    })
+
+    it('correctly evaluates and updates underlying parameters when setMetaParam("feedbackStorm", 0.7) is called', () => {
+      const updates = sonifier.setMetaParam('feedbackStorm', 0.7)
+      expect(updates).toBeDefined()
+      expect(typeof updates).toBe('object')
+
+      expect(updates.howl).toBeGreaterThan(0.0)
+      expect(updates.harmonicShriek).toBeGreaterThan(0.5)
+      expect(updates.crossCoupling).toBeGreaterThan(0.2)
+      expect(updates.seagullSqueal).toBeGreaterThan(0.1)
+
+      expect(sonifier.getParam('howl')).toBeCloseTo(updates.howl, 4)
+      expect(sonifier.getParam('cabinetHowl')).toBeCloseTo(updates.howl, 4)
+      expect(sonifier.getParam('harmonicShriek')).toBeCloseTo(updates.harmonicShriek, 4)
+      expect(sonifier.getParam('crossCoupling')).toBeCloseTo(updates.crossCoupling, 4)
+      expect(sonifier.getParam('seagullSqueal')).toBeCloseTo(updates.seagullSqueal, 4)
+    })
+
+    it('dispatches smoothed AudioWorklet automation for all mapped parameters when macro is modulated on an active audio graph', async () => {
+      await sonifier.init(mockContext, mockOutput)
+
+      sonifier.setMetaParam('aggression', 0.8)
+
+      const fbParam = mockWorkletParams.get('feedbackGain')
+      expect(fbParam.setTargetAtTime).toHaveBeenCalledWith(
+        sonifier.getParam('feedbackGain'),
+        0,
+        0.025
+      )
+
+      const thumpParam = mockWorkletParams.get('cabinetThump')
+      expect(thumpParam.setTargetAtTime).toHaveBeenCalledWith(
+        sonifier.getParam('cabinetThump'),
+        0,
+        0.025
+      )
+    })
   })
 })

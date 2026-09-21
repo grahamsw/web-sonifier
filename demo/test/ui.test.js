@@ -10,6 +10,13 @@ beforeEach(() => {
 
   // Build the mock DOM matching index.html with dual panels
   document.body.innerHTML = `
+    <nav class="site-nav">
+      <a href="/demo/" class="site-nav-link active">Workbench</a>
+      <a href="/packages/chime/demo/" class="site-nav-link">Chimes</a>
+      <a href="/packages/bubble/demo/" class="site-nav-link">Bubble</a>
+      <a href="/packages/wind/demo/" class="site-nav-link">Wind</a>
+      <a href="#landscape-modal" id="nav-landscapes-link" class="site-nav-link">Landscapes</a>
+    </nav>
     <div class="app-layout">
       <!-- Left: Data Feeds Panel -->
       <div class="panel feeds-panel">
@@ -43,11 +50,16 @@ beforeEach(() => {
                 <option value="metal-machine">Metal Machine</option>
                 <option value="mmm2">MMM2</option>
                 <option value="mmm-lab">Metal Machine Lab</option>
+                <option value="bubble">Minnaert Bubble</option>
+                <option value="chime">Modal Wind Chime</option>
+                <option value="wind">Aeolian Wind</option>
               </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
         </div>
 
+        <div id="preset-bar-panel"></div>
+        <div id="macro-bar-panel" style="display: none;"></div>
         <div class="parameters-container" id="parameters-panel"></div>
       </div>
     </div>
@@ -61,11 +73,19 @@ beforeEach(() => {
       <button id="btn-custom-load">Load</button>
       <button id="btn-custom-cancel">Cancel</button>
     </dialog>
+
+    <dialog id="compound-landscapes-dialog">
+      <button id="btn-close-landscapes">Understood</button>
+    </dialog>
   `
 
   const dialog = document.getElementById('custom-sonifier-dialog')
   dialog.showModal = vi.fn()
   dialog.close = vi.fn()
+
+  const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+  landscapesDialog.showModal = vi.fn()
+  landscapesDialog.close = vi.fn()
 
   const mockLocalStorage = {
     getItem: vi.fn().mockReturnValue(null),
@@ -196,6 +216,38 @@ const mmmlabSchema = [
 
 class MockMMMLabSonifier {
   getParamSchema() { return mmmlabSchema }
+  getPresets() {
+    return [
+      { id: 'hum', name: 'Amp Hum & Tube Breath', description: 'Transformer hum', params: { ampHum: 0.65, feedbackGain: 0.0 } },
+      { id: 'basic-feedback', name: 'Basic Acoustic Feedback', description: 'Acoustic loop', params: { feedbackGain: 1.02 } },
+      { id: 'default', name: 'Balanced Drone (Default)', description: 'Default baseline', params: { feedbackGain: 1.0 } }
+    ]
+  }
+  getMetaParamSchema() {
+    return [
+      {
+        name: 'aggression',
+        label: 'Aggression (Overdrive / Thump)',
+        description: 'Drives feedback, distortion, and thump',
+        range: [0, 1],
+        default: 0.5,
+        mappings: [
+          { param: 'feedbackGain', range: [0.8, 1.8], curve: 'exponential' },
+          { param: 'cabinetThump', range: [0.1, 1.0], curve: 'logarithmic' }
+        ]
+      },
+      {
+        name: 'feedbackStorm',
+        label: 'Feedback Storm (Shriek / Squeal)',
+        description: 'Drives howl, shriek, and squeal',
+        range: [0, 1],
+        default: 0.3,
+        mappings: [
+          { param: 'harmonicShriek', range: [0, 1], curve: 's-curve' }
+        ]
+      }
+    ]
+  }
 }
 
 vi.mock('@web-sonifier/core', () => ({
@@ -820,6 +872,63 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(groupHeaders).toContain('7. Output')
   })
 
+  it('should render the component sound preset bar and allow auditioning presets when sonifier supports presets', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm-lab'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    const presetBar = document.getElementById('preset-bar-panel')
+    expect(presetBar).not.toBeNull()
+    expect(presetBar.style.display).toBe('block')
+
+    const presetSelect = document.getElementById('sonifier-preset-select')
+    expect(presetSelect).not.toBeNull()
+    const options = Array.from(presetSelect.querySelectorAll('option')).map(o => o.value)
+    expect(options).toContain('hum')
+    expect(options).toContain('basic-feedback')
+
+    // Switch to hum preset
+    presetSelect.value = 'hum'
+    presetSelect.dispatchEvent(new Event('change'))
+
+    const descEl = document.getElementById('preset-description')
+    expect(descEl.textContent).toBe('Transformer hum')
+
+    // Verify hold feeds toggle
+    const holdBtn = document.getElementById('btn-toggle-hold-feeds')
+    expect(holdBtn).not.toBeNull()
+    holdBtn.click()
+    const holdText = document.getElementById('hold-feeds-text')
+    expect(holdText.textContent).toContain('Feeds Held')
+  })
+
+  it('should render MetaParameter macro sliders when sonifier defines getMetaParamSchema', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm-lab'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    const macroBar = document.getElementById('macro-bar-panel')
+    expect(macroBar).not.toBeNull()
+    expect(macroBar.style.display).toBe('block')
+
+    const aggSlider = document.getElementById('macro-slider-aggression')
+    expect(aggSlider).not.toBeNull()
+
+    const stormSlider = document.getElementById('macro-slider-feedbackStorm')
+    expect(stormSlider).not.toBeNull()
+
+    // Adjusting macro slider updates the readout display
+    aggSlider.value = '0.8'
+    aggSlider.dispatchEvent(new Event('input'))
+
+    const aggVal = document.getElementById('macro-val-aggression')
+    expect(aggVal.textContent).toBe('0.80')
+  })
+
   it('should include all @web-sonifier packages imported by main.js in index.html importmap', async () => {
     const fs = await import('fs')
     const path = await import('path')
@@ -849,6 +958,49 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
       expect(imports[pkg], `Missing importmap entry in demo/index.html for ${pkg}`).toBeDefined()
       expect(imports[pkg].startsWith('/packages/')).toBe(true)
     }
+  })
+
+  it('should render Farnell procedural physical models (bubble, chime, wind) parameter cards when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    const paramPanel = document.getElementById('parameters-panel')
+
+    // Test Bubble
+    sonifierSelect.value = 'bubble'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Bubble Radius')
+    expect(paramPanel.innerHTML).toContain('Liquid Depth')
+
+    // Test Chime
+    sonifierSelect.value = 'chime'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Base Pitch')
+    expect(paramPanel.innerHTML).toContain('Metal Alloy')
+
+    // Test Wind
+    sonifierSelect.value = 'wind'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Wind Speed')
+    expect(paramPanel.innerHTML).toContain('Turbulence')
+  })
+
+  it('should render global navigation bar and handle compound landscapes modal', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const navLinks = document.querySelectorAll('.site-nav-link')
+    expect(navLinks.length).toBeGreaterThan(0)
+
+    const landscapesLink = document.getElementById('nav-landscapes-link')
+    expect(landscapesLink).not.toBeNull()
+
+    const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+    landscapesLink.click()
+    expect(landscapesDialog.showModal).toHaveBeenCalled()
+
+    const closeBtn = document.getElementById('btn-close-landscapes')
+    closeBtn.click()
+    expect(landscapesDialog.close).toHaveBeenCalled()
   })
 })
 

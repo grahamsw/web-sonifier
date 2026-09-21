@@ -24,3 +24,14 @@ This file contains foundational mandates for all agents and developers working o
     -   **Data vs. Audio**: The `Adapter` handles data mapping; the `Sonifier` handles audio-rate transitions. Do not implement time-based smoothing in the `Adapter` as data arrival rates are unpredictable.
 
 2.  **Teardown Integrity**: Always ramp the sonifier's output gain to zero before stopping sources or disconnecting the graph in `destroy()`. Sudden disconnections cause audible "pops" or "clicks".
+
+## Local Model Delegation & Task Parallelization
+
+1.  **Local Ollama Delegation (`deepseek-r1:32b`, `qwen3-coder:30b`)**:
+    - When planning non-trivial features, the Coordinator agent should proactively look for opportunities to delegate tasks to the local model via the `local-llm` skill (`~/.gemini/config/plugins/local-ollama-assistant/skills/local-llm/scripts/query_ollama.py`).
+    - **Best Tasks for Local Delegation**:
+      - Adversarial fuzz test generation & boundary audits.
+      - Boilerplate unit test fixtures and mock generation.
+      - Mathematical derivations & DSP physics formulation review.
+      - JSDoc / API documentation generation.
+    - **Quota Savings**: Running these locally on the Mac M-series GPU preserves cloud quota for high-level architectural reasoning and coordination.

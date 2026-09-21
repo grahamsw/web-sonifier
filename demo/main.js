@@ -12,6 +12,9 @@ import { OceanSonifier } from '@web-sonifier/ocean'
 import { MetalMachineSonifier } from '@web-sonifier/metal-machine'
 import { MMM2Sonifier } from '@web-sonifier/mmm2'
 import { MMMLabSonifier } from '@web-sonifier/mmm-lab'
+import { BubbleSonifier } from '@web-sonifier/bubble'
+import { ChimeSonifier } from '@web-sonifier/chime'
+import { WindSonifier } from '@web-sonifier/wind'
 import {
   renderAutomatedEditor,
   getOutputRangeBounds,
@@ -161,7 +164,10 @@ export const SONIFIER_CLASSES = {
   ocean: OceanSonifier,
   'metal-machine': MetalMachineSonifier,
   mmm2: MMM2Sonifier,
-  'mmm-lab': MMMLabSonifier
+  'mmm-lab': MMMLabSonifier,
+  bubble: BubbleSonifier,
+  chime: ChimeSonifier,
+  wind: WindSonifier
 }
 
 export function getSonifierSchema(type) {
@@ -177,6 +183,45 @@ export function getSonifierSchema(type) {
       }
     } catch (e) {
       console.warn('Could not inspect schema for sonifier:', type, e)
+    }
+  }
+  return []
+}
+
+export function getSonifierPresets(type) {
+  if (activeSonifier && activeSonifierType === type && typeof activeSonifier.getPresets === 'function') {
+    return activeSonifier.getPresets()
+  }
+  const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+  if (SonifierClass) {
+    if (SonifierClass.PRESETS) {
+      return Object.values(SonifierClass.PRESETS)
+    }
+    try {
+      const temp = new SonifierClass()
+      if (typeof temp.getPresets === 'function') {
+        return temp.getPresets()
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return []
+}
+
+export function getSonifierMetaParams(type) {
+  if (activeSonifier && activeSonifierType === type && typeof activeSonifier.getMetaParamSchema === 'function') {
+    return activeSonifier.getMetaParamSchema()
+  }
+  const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+  if (SonifierClass) {
+    try {
+      const temp = new SonifierClass()
+      if (typeof temp.getMetaParamSchema === 'function') {
+        return temp.getMetaParamSchema()
+      }
+    } catch {
+      // Ignore
     }
   }
   return []
@@ -330,6 +375,7 @@ export const UI_CONFIGS = {
 export const defaultSettings = {
   sonifierType: 'tone',
   masterVolume: 0.8,
+  holdFeeds: false,
   feeds: [
     { id: 'A', label: 'Feed A', value: 50, rateMs: 1000, stepSize: 6 },
     { id: 'B', label: 'Feed B', value: 50, rateMs: 2000, stepSize: 4 }
@@ -489,6 +535,7 @@ export const defaultSettings = {
     volume:            0.5
   },
   'mmm-lab': {
+    activePresetId:    'default',
     sonifiedParams:    ['feedbackGain'],
     paramFeeds:        { feedbackGain: 'A', harmonicShriek: 'B', cabinetThump: 'A', ampHum: 'B', volume: 'A' },
     paramRanges:       { feedbackGain: [0.0, 2.0], harmonicShriek: [0, 1], cabinetThump: [0, 1], ampHum: [0.1, 0.8], volume: [0.1, 0.8] },
@@ -508,7 +555,15 @@ export const defaultSettings = {
     harmonicShriek:    0.40,
     pickupAngle:       0.30,
     cabinetThump:      0.50,
+    cabinetHowl:       0.50,
     subBeating:        0.40,
+    rumbleResonance:   0.5,
+    coneLimit:         0.6,
+    knockLevel:        0.4,
+    loop2Gain:         0.0,
+    loop2Detune:       18,
+    loop2Distance:     7.0,
+    crossCoupling:     0.3,
     volume:            0.5
   }
 }
@@ -804,10 +859,15 @@ export function handleFeedUpdate(feed) {
   if (valLarge) valLarge.textContent = feed.value.toFixed(1)
   if (meterBar) meterBar.style.width = `${Math.max(0, Math.min(100, feed.value))}%`
 
-  // 2. Modulate sonifier parameters linked to this feed
+  // 2. Modulate sonifier parameters linked to this feed (unless held for preset auditioning)
+  if (settings.holdFeeds) return
+
   const currentType = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   const s = settings[currentType]
   if (!s) return
+
+  // If an isolated audition preset is active, don't let feeds overwrite its preset values
+  if (s.activePresetId && s.activePresetId !== 'default') return
 
   const sonifiedList = s.sonifiedParams || []
   const paramFeeds = s.paramFeeds || {}
@@ -859,10 +919,14 @@ export function applySettings() {
   }
 
   if (activeSonifier) {
-    for (const param of schema) {
-      if (!sonifiedSet.has(param.name)) {
-        if (s[param.name] !== undefined) {
-          activeSonifier.setParam(param.name, s[param.name])
+    if (typeof activeSonifier.applyPreset === 'function' && s.activePresetId && (settings.holdFeeds || s.activePresetId !== 'default')) {
+      activeSonifier.applyPreset(s.activePresetId)
+    } else {
+      for (const param of schema) {
+        if (!sonifiedSet.has(param.name) || settings.holdFeeds) {
+          if (s[param.name] !== undefined) {
+            activeSonifier.setParam(param.name, s[param.name])
+          }
         }
       }
     }
@@ -910,7 +974,9 @@ export async function startSonifier() {
     const feed = feeds.get(linkedFeedId) || feeds.get('A')
     const feedVal = feed ? feed.value : 50
     const mapped = adapter.map(feedVal)
-    activeSonifier.setParam(paramName, mapped)
+    if (!settings.holdFeeds && !(s.activePresetId && s.activePresetId !== 'default')) {
+      activeSonifier.setParam(paramName, mapped)
+    }
 
     const mappedValEl = document.getElementById(`mapped-val-${paramName}`)
     if (mappedValEl) {
@@ -981,12 +1047,186 @@ if (masterVolumeEl) {
 }
 
 // ---------------------------------------------------------------------------
-// Parameters Panel Rendering (Automated Editor)
+// Parameters Panel Rendering (Automated Editor & Presets)
 // ---------------------------------------------------------------------------
 
-export function renderParametersPanel() {
+export function renderPresetsBar(type) {
+  let presetBarEl = document.getElementById('preset-bar-panel')
+  if (!presetBarEl && parametersPanel && parametersPanel.parentNode) {
+    presetBarEl = document.createElement('div')
+    presetBarEl.id = 'preset-bar-panel'
+    presetBarEl.style.marginBottom = '1rem'
+    parametersPanel.parentNode.insertBefore(presetBarEl, parametersPanel)
+  }
+  if (!presetBarEl) return
+
+  const presets = getSonifierPresets(type)
+  if (!presets || presets.length === 0) {
+    presetBarEl.style.display = 'none'
+    presetBarEl.innerHTML = ''
+    return
+  }
+
+  presetBarEl.style.display = 'block'
+  if (!settings[type]) settings[type] = {}
+  const currentPresetId = settings[type].activePresetId || presets[0]?.id || 'default'
+
+  presetBarEl.innerHTML = `
+    <div class="preset-bar-container" style="background: #1e2029; border: 1px solid #2e3240; border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex: 1; min-width: 250px;">
+          <label for="sonifier-preset-select" style="font-size: 0.85rem; font-weight: 600; color: #a0a8b8; white-space: nowrap;">Preset Sound:</label>
+          <select id="sonifier-preset-select" style="background: #14161f; color: #e2e8f0; border: 1px solid #3b4252; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.85rem; flex: 1; cursor: pointer;">
+            ${presets.map(p => `<option value="${p.id}" ${p.id === currentPresetId ? 'selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button id="btn-toggle-hold-feeds" type="button" style="background: ${settings.holdFeeds ? '#1e382b' : '#2a2d3d'}; border: 1px solid ${settings.holdFeeds ? '#4caf82' : '#3b4252'}; color: ${settings.holdFeeds ? '#4caf82' : '#81a1c1'}; border-radius: 6px; padding: 0.4rem 0.75rem; font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;">
+            <span>${settings.holdFeeds ? '▶' : '⏸'}</span>
+            <span id="hold-feeds-text">${settings.holdFeeds ? 'Feeds Held (Click to Resume)' : 'Hold Feeds (Isolate Sound)'}</span>
+          </button>
+        </div>
+      </div>
+      <div id="preset-description" style="font-size: 0.8rem; color: #8892b0; line-height: 1.35; padding-top: 0.35rem; border-top: 1px solid #282b38;">${presets.find(p => p.id === currentPresetId)?.description || ''}</div>
+    </div>
+  `
+
+  const selectEl = document.getElementById('sonifier-preset-select')
+  if (selectEl) {
+    selectEl.addEventListener('change', () => {
+      const presetId = selectEl.value
+      const p = presets.find(item => item.id === presetId)
+      if (!p) return
+
+      settings[type].activePresetId = presetId
+
+      const descEl = document.getElementById('preset-description')
+      if (descEl) descEl.textContent = p.description
+
+      if (activeSonifier && activeSonifierType === type && typeof activeSonifier.applyPreset === 'function') {
+        activeSonifier.applyPreset(presetId)
+      }
+
+      for (const [paramName, paramVal] of Object.entries(p.params)) {
+        settings[type][paramName] = paramVal
+        if (activeSonifier && activeSonifierType === type && typeof activeSonifier.applyPreset !== 'function') {
+          activeSonifier.setParam(paramName, paramVal)
+        }
+      }
+
+      renderPresetsBar(type)
+      renderMacroBar(type)
+      renderAutomatedEditorPanelOnly(type)
+      saveSettings(settings)
+    })
+  }
+
+  const holdBtn = document.getElementById('btn-toggle-hold-feeds')
+  if (holdBtn) {
+    holdBtn.addEventListener('click', () => {
+      settings.holdFeeds = !settings.holdFeeds
+      saveSettings(settings)
+      renderPresetsBar(type)
+    })
+  }
+}
+
+export function renderMacroBar(type) {
+  let macroBarEl = document.getElementById('macro-bar-panel')
+  if (!macroBarEl && parametersPanel && parametersPanel.parentNode) {
+    macroBarEl = document.createElement('div')
+    macroBarEl.id = 'macro-bar-panel'
+    macroBarEl.style.marginBottom = '1rem'
+    parametersPanel.parentNode.insertBefore(macroBarEl, parametersPanel)
+  }
+  if (!macroBarEl) return
+
+  const metaParams = getSonifierMetaParams(type)
+  if (!metaParams || metaParams.length === 0) {
+    macroBarEl.style.display = 'none'
+    macroBarEl.innerHTML = ''
+    return
+  }
+
+  macroBarEl.style.display = 'block'
+  if (!settings[type]) settings[type] = {}
+  if (!settings[type].macros) settings[type].macros = {}
+
+  macroBarEl.innerHTML = `
+    <div class="macro-bar-container" style="background: #181a24; border: 1px solid #2e3448; border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 0.85rem; font-weight: 700; color: #e2e8f0; letter-spacing: 0.03em; text-transform: uppercase;">
+          🎛️ Expressive Macros
+        </span>
+        <span style="font-size: 0.75rem; color: #8892b0;">Multi-parameter coordinated control</span>
+      </div>
+      <div class="macro-sliders-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem;">
+        ${metaParams.map(m => {
+          const min = m.range ? m.range[0] : 0
+          const max = m.range ? m.range[1] : 1
+          const curVal = settings[type].macros[m.name] !== undefined ? settings[type].macros[m.name] : (m.default ?? (min + (max - min) * 0.5))
+          return `
+            <div class="macro-control-card" style="background: #12141d; border: 1px solid #25293a; border-radius: 6px; padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <label for="macro-slider-${m.name}" style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1;">${m.label || m.name}</label>
+                <span id="macro-val-${m.name}" style="font-size: 0.8rem; font-weight: 600; color: #4caf82; font-variant-numeric: tabular-nums;">${Number(curVal).toFixed(2)}</span>
+              </div>
+              <input type="range" class="macro-slider" id="macro-slider-${m.name}" min="${min}" max="${max}" step="0.01" value="${curVal}" style="width: 100%; cursor: pointer; accent-color: #4caf82;">
+              ${m.description ? `<div style="font-size: 0.72rem; color: #717d96; line-height: 1.25;">${m.description}</div>` : ''}
+            </div>
+          `
+        }).join('')}
+      </div>
+    </div>
+  `
+
+  for (const m of metaParams) {
+    const slider = document.getElementById(`macro-slider-${m.name}`)
+    const valDisplay = document.getElementById(`macro-val-${m.name}`)
+    if (!slider) continue
+
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value)
+      if (valDisplay) {
+        valDisplay.textContent = val.toFixed(2)
+      }
+      settings[type].macros[m.name] = val
+
+      let updates = null
+      if (activeSonifier && activeSonifierType === type && typeof activeSonifier.setMetaParam === 'function') {
+        updates = activeSonifier.setMetaParam(m.name, val)
+      } else {
+        const metaParamInstance = activeSonifier && typeof activeSonifier.getMetaParam === 'function'
+          ? activeSonifier.getMetaParam(m.name)
+          : null
+        if (metaParamInstance) {
+          updates = metaParamInstance.evaluate(val)
+        } else {
+          const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+          if (SonifierClass) {
+            try {
+              const temp = new SonifierClass()
+              updates = temp.getMetaParam ? temp.getMetaParam(m.name)?.evaluate(val) : null
+            } catch {
+              // Ignore
+            }
+          }
+        }
+      }
+
+      if (updates) {
+        for (const [pName, pVal] of Object.entries(updates)) {
+          settings[type][pName] = pVal
+        }
+        renderAutomatedEditorPanelOnly(type)
+      }
+      saveSettings(settings)
+    })
+  }
+}
+
+export function renderAutomatedEditorPanelOnly(type) {
   if (!parametersPanel) return
-  const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   const schema = getSonifierSchema(type)
   const schemaMap = new Map(schema.map(p => [p.name, p]))
 
@@ -1090,6 +1330,14 @@ export function renderParametersPanel() {
       }
     }
   })
+}
+
+export function renderParametersPanel() {
+  if (!parametersPanel) return
+  const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
+  renderPresetsBar(type)
+  renderMacroBar(type)
+  renderAutomatedEditorPanelOnly(type)
 }
 
 // ---------------------------------------------------------------------------
@@ -1430,6 +1678,29 @@ if (btnOpenLoadCustom && customDialog) {
       }
     })
   }
+}
+
+// ---------------------------------------------------------------------------
+// Compound Landscapes Dialog Handler
+// ---------------------------------------------------------------------------
+
+const landscapesDialog = document.getElementById('compound-landscapes-dialog')
+const navLandscapesLink = document.getElementById('nav-landscapes-link')
+const btnCloseLandscapes = document.getElementById('btn-close-landscapes')
+
+if (navLandscapesLink && landscapesDialog) {
+  navLandscapesLink.addEventListener('click', (e) => {
+    e.preventDefault()
+    if (typeof landscapesDialog.showModal === 'function') {
+      landscapesDialog.showModal()
+    }
+  })
+}
+
+if (btnCloseLandscapes && landscapesDialog) {
+  btnCloseLandscapes.addEventListener('click', () => {
+    landscapesDialog.close()
+  })
 }
 
 // ---------------------------------------------------------------------------
