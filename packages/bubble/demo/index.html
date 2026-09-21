@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farnell Minnaert Bubble — Procedural Web Audio POC</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-size: 1.7rem;
+      font-weight: 600;
+      color: #58a6ff;
+      margin-bottom: 0.4rem;
+    }
+    p.subtitle {
+      color: #8b949e;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    .button-pad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 140px;
+      background: linear-gradient(135deg, #1f2937, #111827);
+      border: 2px dashed #38bdf8;
+      border-radius: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .button-pad:hover {
+      background: linear-gradient(135deg, #374151, #1f2937);
+      border-color: #60a5fa;
+      transform: translateY(-2px);
+    }
+    .button-pad:active {
+      transform: scale(0.98);
+      background: #1e3a8a;
+    }
+    .pad-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #38bdf8;
+      pointer-events: none;
+    }
+    .pad-desc {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-top: 4px;
+      pointer-events: none;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 0.4rem;
+    }
+    .control-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 70px;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .control-row label {
+      font-size: 0.9rem;
+      color: #c9d1d9;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .val-display {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #79c0ff;
+      text-align: right;
+    }
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    button.action-btn {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #c9d1d9;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    button.action-btn:hover {
+      background: #30363d;
+      color: #fff;
+    }
+    button.action-btn.active {
+      background: #238636;
+      border-color: #2ea043;
+      color: #fff;
+    }
+    .physics-formula {
+      font-size: 0.85rem;
+      color: #8b949e;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      line-height: 1.5;
+    }
+    .code-term {
+      color: #79c0ff;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Acoustic Bubble & Droplet Model</h1>
+      <p class="subtitle">Andy Farnell, <em>Designing Sound</em> (Ch 34: Water) & Marcel Minnaert's Cavity Equation</p>
+    </header>
+
+    <!-- Discrete Event Trigger Pad -->
+    <div class="card">
+      <div id="dropPad" class="button-pad">
+        <span class="pad-title">Tap or Click to Drop</span>
+        <span class="pad-desc">Dispatches instantaneous discrete droplet event (triggerBubble)</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="section-title">Physical Acoustic Parameters</div>
+
+      <div class="control-row">
+        <label for="radiusSlider">Radius (Size)</label>
+        <input id="radiusSlider" type="range" min="0.0008" max="0.025" step="0.0002" value="0.004">
+        <span id="radiusVal" class="val-display">4.0 mm</span>
+      </div>
+
+      <div class="control-row">
+        <label for="depthSlider">Depth</label>
+        <input id="depthSlider" type="range" min="0.02" max="1.5" step="0.02" value="0.10">
+        <span id="depthVal" class="val-display">10 cm</span>
+      </div>
+
+      <div class="control-row">
+        <label for="viscSlider">Viscosity</label>
+        <input id="viscSlider" type="range" min="0.05" max="1.0" step="0.05" value="0.35">
+        <span id="viscVal" class="val-display">0.35</span>
+      </div>
+
+      <div class="control-row">
+        <label for="rateSlider">Continuous Rate</label>
+        <input id="rateSlider" type="range" min="0" max="40" step="1" value="0">
+        <span id="rateVal" class="val-display">0 drops/s</span>
+      </div>
+
+      <div class="control-row">
+        <label for="volSlider">Volume</label>
+        <input id="volSlider" type="range" min="0" max="1" step="0.02" value="0.7">
+        <span id="volVal" class="val-display">0.70</span>
+      </div>
+
+      <div class="btn-row">
+        <button id="presetTiny" class="action-btn">Tiny Drips (1mm)</button>
+        <button id="presetMedium" class="action-btn">Rain Droplets (4mm)</button>
+        <button id="presetHeavy" class="action-btn">Deep Glug (18mm)</button>
+        <button id="streamToggle" class="action-btn">Stream (12 drops/s)</button>
+      </div>
+    </div>
+
+    <div class="physics-formula">
+      <strong>Acoustics Note:</strong> Natural bubble pitch is governed by Minnaert resonance:
+      <span class="code-term">f₀ ≈ 3.26 / r</span> (Hz).
+      As the cavity forms and detaches, hydrostatic relaxation induces an authentic upward chirp
+      <span class="code-term">f(t) = f₀(1 + αt)</span> with viscous damping <span class="code-term">exp(-ηt)</span>.
+    </div>
+  </div>
+
+  <script type="module">
+    import { MinnaertBubble } from '../src/MinnaertBubble.js'
+
+    let audioCtx = null
+    let bubble = null
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        bubble = new MinnaertBubble(audioCtx)
+        syncControls()
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume()
+      }
+      return audioCtx
+    }
+
+    const dropPad = document.getElementById('dropPad')
+    const radiusSlider = document.getElementById('radiusSlider')
+    const depthSlider = document.getElementById('depthSlider')
+    const viscSlider = document.getElementById('viscSlider')
+    const rateSlider = document.getElementById('rateSlider')
+    const volSlider = document.getElementById('volSlider')
+
+    const radiusVal = document.getElementById('radiusVal')
+    const depthVal = document.getElementById('depthVal')
+    const viscVal = document.getElementById('viscVal')
+    const rateVal = document.getElementById('rateVal')
+    const volVal = document.getElementById('volVal')
+
+    const streamToggle = document.getElementById('streamToggle')
+
+    function syncControls() {
+      if (!bubble) return
+      bubble.setRadius(parseFloat(radiusSlider.value))
+      bubble.setDepth(parseFloat(depthSlider.value))
+      bubble.setViscosity(parseFloat(viscSlider.value))
+      bubble.setRate(parseFloat(rateSlider.value))
+      bubble.setVolume(parseFloat(volSlider.value))
+    }
+
+    // Trigger on pad click
+    dropPad.addEventListener('pointerdown', (e) => {
+      getAudioContext()
+      // Position along pad gives subtle variation
+      const rect = dropPad.getBoundingClientRect()
+      const relY = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height))
+      const energy = 0.5 + relY * 0.5
+      bubble.trigger({ energy })
+    })
+
+    radiusSlider.addEventListener('input', () => {
+      const r = parseFloat(radiusSlider.value)
+      radiusVal.textContent = `${(r * 1000).toFixed(1)} mm`
+      if (bubble) bubble.setRadius(r)
+    })
+
+    depthSlider.addEventListener('input', () => {
+      const d = parseFloat(depthSlider.value)
+      depthVal.textContent = `${(d * 100).toFixed(0)} cm`
+      if (bubble) bubble.setDepth(d)
+    })
+
+    viscSlider.addEventListener('input', () => {
+      const v = parseFloat(viscSlider.value)
+      viscVal.textContent = v.toFixed(2)
+      if (bubble) bubble.setViscosity(v)
+    })
+
+    rateSlider.addEventListener('input', () => {
+      getAudioContext()
+      const rate = parseFloat(rateSlider.value)
+      rateVal.textContent = `${rate} drops/s`
+      if (bubble) bubble.setRate(rate)
+      streamToggle.classList.toggle('active', rate > 0)
+    })
+
+    volSlider.addEventListener('input', () => {
+      const vol = parseFloat(volSlider.value)
+      volVal.textContent = vol.toFixed(2)
+      if (bubble) bubble.setVolume(vol)
+    })
+
+    // Presets
+    document.getElementById('presetTiny').addEventListener('click', () => {
+      getAudioContext()
+      radiusSlider.value = 0.0012
+      viscSlider.value = 0.2
+      radiusSlider.dispatchEvent(new Event('input'))
+      viscSlider.dispatchEvent(new Event('input'))
+      bubble.trigger({ energy: 0.8 })
+    })
+
+    document.getElementById('presetMedium').addEventListener('click', () => {
+      getAudioContext()
+      radiusSlider.value = 0.004
+      viscSlider.value = 0.35
+      radiusSlider.dispatchEvent(new Event('input'))
+      viscSlider.dispatchEvent(new Event('input'))
+      bubble.trigger({ energy: 0.9 })
+    })
+
+    document.getElementById('presetHeavy').addEventListener('click', () => {
+      getAudioContext()
+      radiusSlider.value = 0.018
+      viscSlider.value = 0.5
+      radiusSlider.dispatchEvent(new Event('input'))
+      viscSlider.dispatchEvent(new Event('input'))
+      bubble.trigger({ energy: 1.0 })
+    })
+
+    streamToggle.addEventListener('click', () => {
+      getAudioContext()
+      if (parseFloat(rateSlider.value) > 0) {
+        rateSlider.value = 0
+      } else {
+        rateSlider.value = 12
+      }
+      rateSlider.dispatchEvent(new Event('input'))
+    })
+  </script>
+</body>
+</html>
