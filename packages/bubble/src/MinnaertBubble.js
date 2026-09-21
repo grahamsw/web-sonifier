@@ -57,6 +57,9 @@ export class MinnaertBubble {
 
     // Soft impulse buffer for impact / cavity excitation transient
     this._impulseBuffer = this._createImpulseBuffer()
+
+    // Active voice tracking for leak-free teardown
+    this._activeVoices = new Set()
   }
 
   /**
@@ -66,7 +69,8 @@ export class MinnaertBubble {
    * @param {number} r
    */
   setRadius(r) {
-    this.radius = Math.max(0.0005, Math.min(0.05, Number(r) || 0.004))
+    const num = Number(r)
+    this.radius = Math.max(0.0005, Math.min(0.05, Number.isFinite(num) ? num : 0.004))
   }
 
   /**
@@ -75,7 +79,8 @@ export class MinnaertBubble {
    * @param {number} d
    */
   setDepth(d) {
-    this.depth = Math.max(0.01, Math.min(5.0, Number(d) || 0.1))
+    const num = Number(d)
+    this.depth = Math.max(0.01, Math.min(5.0, Number.isFinite(num) ? num : 0.1))
   }
 
   /**
@@ -83,7 +88,10 @@ export class MinnaertBubble {
    * @param {number} v
    */
   setViscosity(v) {
-    this.viscosity = Math.max(0.01, Math.min(1.0, Number(v) ?? 0.5))
+    const num = Number(v)
+    this.viscosity = Number.isFinite(num)
+      ? Math.max(0.01, Math.min(1.0, num))
+      : 0.5
   }
 
   /**
@@ -93,10 +101,12 @@ export class MinnaertBubble {
    */
   setVolume(gain, rampTime = 0.02) {
     if (!this.output || !this.ctx) return
-    const g = Math.max(0, Math.min(1, Number(gain) ?? 1))
+    const num = Number(gain)
+    const g = Number.isFinite(num) ? Math.max(0, Math.min(1, num)) : 1
+    const rTime = Number.isFinite(Number(rampTime)) ? Math.max(0.001, Number(rampTime)) : 0.02
     const now = this.ctx.currentTime
     this.output.gain.cancelScheduledValues(now)
-    this.output.gain.setTargetAtTime(g, now, rampTime)
+    this.output.gain.setTargetAtTime(g, now, rTime)
   }
 
   /**
@@ -105,7 +115,9 @@ export class MinnaertBubble {
    * @param {number} rate
    */
   setRate(rate) {
-    const r = Math.max(0, Number(rate) || 0)
+    if (!this.ctx) return
+    const num = Number(rate)
+    const r = Number.isFinite(num) ? Math.max(0, num) : 0
     this.rate = r
 
     if (r > 0) {
@@ -150,12 +162,28 @@ export class MinnaertBubble {
     if (!this.ctx || !this.output) return { stop: () => {} }
 
     const now = this.ctx.currentTime
-    const startTime = Math.max(now, options.time ?? now)
+    const rawTime = Number(options.time)
+    const startTime = (Number.isFinite(rawTime) && rawTime >= now) ? rawTime : now
 
-    const r = options.radius ?? this.radius
-    const depth = options.depth ?? this.depth
-    const energy = Math.max(0.01, Math.min(1.0, options.energy ?? 1.0))
-    const visc = options.viscosity ?? this.viscosity
+    const rawRadius = Number(options.radius ?? this.radius)
+    const r = (Number.isFinite(rawRadius) && rawRadius > 0)
+      ? Math.max(0.0005, Math.min(0.05, rawRadius))
+      : this.radius
+
+    const rawDepth = Number(options.depth ?? this.depth)
+    const depth = (Number.isFinite(rawDepth) && rawDepth >= 0)
+      ? Math.max(0.01, Math.min(5.0, rawDepth))
+      : this.depth
+
+    const rawEnergy = Number(options.energy ?? 1.0)
+    const energy = Number.isFinite(rawEnergy)
+      ? Math.max(0.01, Math.min(1.0, rawEnergy))
+      : 1.0
+
+    const rawVisc = Number(options.viscosity ?? this.viscosity)
+    const visc = Number.isFinite(rawVisc)
+      ? Math.max(0.01, Math.min(1.0, rawVisc))
+      : this.viscosity
 
     // 1. Minnaert Fundamental Frequency calculation
     // f0 = (1 / (2 * pi * r)) * sqrt(3 * gamma * P / rho)
@@ -177,7 +205,7 @@ export class MinnaertBubble {
     // Farnell models this as an initial upward pitch sweep:
     // f(t) sweeps from baseFreq to baseFreq * (1 + chirpRatio)
     const chirpRatio = 0.15 + (1 - visc) * 0.25 // 15% to 40% rise
-    const endFreq = Math.min(18000, baseFreq * (1 + chirpRatio))
+    const endFreq = Math.min(18000, Math.max(80, baseFreq * (1 + chirpRatio)))
 
     // 3. Audio Node Graph Construction for this single droplet:
     // [Oscillator] ──► [Shaping Gain] ──► [Stereo Panner (if available)] ──► [output]
@@ -194,7 +222,7 @@ export class MinnaertBubble {
     const impulse = this.ctx.createBufferSource()
     impulse.buffer = this._impulseBuffer
     const impulseGain = this.ctx.createGain()
-    impulseGain.gain.setValueAtTime(0.08 * energy, startTime)
+    impulseGain.gain.setValueAtTime(Math.max(0.0001, 0.08 * energy), startTime)
     impulseGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.004)
     impulse.connect(impulseGain)
 
@@ -203,7 +231,7 @@ export class MinnaertBubble {
     const envGain = this.ctx.createGain()
     envGain.gain.setValueAtTime(0.0001, startTime)
     const attackTime = 0.0015
-    const peakGain = energy * 0.45
+    const peakGain = Math.max(0.0001, energy * 0.45)
     envGain.gain.linearRampToValueAtTime(peakGain, startTime + attackTime)
     // Decay: Farnell damp factor d = viscosity / r
     const decayTarget = Math.max(0.00001, peakGain * 0.001)
@@ -216,12 +244,15 @@ export class MinnaertBubble {
 
     // Stereo Panning
     let finalNode = envGain
+    let pannerNode = null
     if (typeof this.ctx.createStereoPanner === 'function') {
       const panner = this.ctx.createStereoPanner()
-      const panVal = options.pan ?? (Math.random() * 1.4 - 0.7) // subtle spread
+      const rawPan = Number(options.pan)
+      const panVal = Number.isFinite(rawPan) ? Math.max(-1, Math.min(1, rawPan)) : (Math.random() * 1.4 - 0.7)
       panner.pan.setValueAtTime(Math.max(-1, Math.min(1, panVal)), startTime)
       envGain.connect(panner)
       finalNode = panner
+      pannerNode = panner
     }
 
     finalNode.connect(this.output)
@@ -237,31 +268,46 @@ export class MinnaertBubble {
     }
 
     const cleanupTimeout = Math.max(10, (startTime - now + duration + 0.05) * 1000)
+    let handle = null
     const cleanupTimer = setTimeout(() => {
       try {
         osc.disconnect()
         impulse.disconnect()
         impulseGain.disconnect()
         envGain.disconnect()
-        if (finalNode !== envGain) finalNode.disconnect()
+        if (pannerNode) pannerNode.disconnect()
       } catch {
         // Already cleaned
       }
+      if (this._activeVoices && handle) {
+        this._activeVoices.delete(handle)
+      }
     }, cleanupTimeout)
 
-    return {
+    handle = {
       stop: () => {
         clearTimeout(cleanupTimer)
         try {
           osc.stop()
           impulse.stop()
           osc.disconnect()
+          impulse.disconnect()
+          impulseGain.disconnect()
           envGain.disconnect()
+          if (pannerNode) pannerNode.disconnect()
         } catch {
           // ignore
         }
+        if (this._activeVoices) {
+          this._activeVoices.delete(handle)
+        }
       }
     }
+
+    if (this._activeVoices) {
+      this._activeVoices.add(handle)
+    }
+    return handle
   }
 
   /**
@@ -269,12 +315,21 @@ export class MinnaertBubble {
    */
   destroy() {
     this._stopContinuous()
+    if (this._activeVoices) {
+      for (const v of this._activeVoices) {
+        v.stop()
+      }
+      this._activeVoices.clear()
+    }
+
     if (this.output && this.ctx) {
+      const out = this.output
       const now = this.ctx.currentTime
-      this.output.gain.setTargetAtTime(0, now, 0.01)
+      out.gain.cancelScheduledValues(now)
+      out.gain.setTargetAtTime(0, now, 0.01)
       setTimeout(() => {
         try {
-          this.output.disconnect()
+          out.disconnect()
         } catch {
           // ignored
         }

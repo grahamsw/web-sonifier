@@ -204,6 +204,31 @@ class MockMMMLabSonifier {
       { id: 'default', name: 'Balanced Drone (Default)', description: 'Default baseline', params: { feedbackGain: 1.0 } }
     ]
   }
+  getMetaParamSchema() {
+    return [
+      {
+        name: 'aggression',
+        label: 'Aggression (Overdrive / Thump)',
+        description: 'Drives feedback, distortion, and thump',
+        range: [0, 1],
+        default: 0.5,
+        mappings: [
+          { param: 'feedbackGain', range: [0.8, 1.8], curve: 'exponential' },
+          { param: 'cabinetThump', range: [0.1, 1.0], curve: 'logarithmic' }
+        ]
+      },
+      {
+        name: 'feedbackStorm',
+        label: 'Feedback Storm (Shriek / Squeal)',
+        description: 'Drives howl, shriek, and squeal',
+        range: [0, 1],
+        default: 0.3,
+        mappings: [
+          { param: 'harmonicShriek', range: [0, 1], curve: 's-curve' }
+        ]
+      }
+    ]
+  }
 }
 
 vi.mock('@web-sonifier/core', () => ({
@@ -858,6 +883,31 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     holdBtn.click()
     const holdText = document.getElementById('hold-feeds-text')
     expect(holdText.textContent).toContain('Feeds Held')
+  })
+
+  it('should render MetaParameter macro sliders when sonifier defines getMetaParamSchema', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    sonifierSelect.value = 'mmm-lab'
+    sonifierSelect.dispatchEvent(new Event('change'))
+
+    const macroBar = document.getElementById('macro-bar-panel')
+    expect(macroBar).not.toBeNull()
+    expect(macroBar.style.display).toBe('block')
+
+    const aggSlider = document.getElementById('macro-slider-aggression')
+    expect(aggSlider).not.toBeNull()
+
+    const stormSlider = document.getElementById('macro-slider-feedbackStorm')
+    expect(stormSlider).not.toBeNull()
+
+    // Adjusting macro slider updates the readout display
+    aggSlider.value = '0.8'
+    aggSlider.dispatchEvent(new Event('input'))
+
+    const aggVal = document.getElementById('macro-val-aggression')
+    expect(aggVal.textContent).toBe('0.80')
   })
 
   it('should include all @web-sonifier packages imported by main.js in index.html importmap', async () => {

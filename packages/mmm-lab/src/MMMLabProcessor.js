@@ -738,13 +738,17 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const F1_A = 2.0 * Math.sin(Math.PI * fNormA * 0.5)
       const DA = 0.24 // High-Q microphonic tank resonance (Q ≈ 4.2)
       const coilShockA = (Math.random() * 2 - 1) * 0.08 * this.seagullBurstA
-      const tankDriveA = (pickupSignalA * 0.30 + coilShockA + this.sgBandA * 0.75) * this.seagullBurstA * seagullSqueal
+      const tankDriveA = (pickupSignalA * 0.30 + coilShockA + Math.tanh(this.sgBandA) * 0.75) * this.seagullBurstA * seagullSqueal
       let highA = tankDriveA - this.sgLowA - DA * this.sgBandA
       this.sgBandA += F1_A * highA
       this.sgLowA += F1_A * this.sgBandA
+      this.sgBandA = Math.max(-4.0, Math.min(4.0, this.sgBandA))
+      this.sgLowA = Math.max(-4.0, Math.min(4.0, this.sgLowA))
       highA = tankDriveA - this.sgLowA - DA * this.sgBandA
       this.sgBandA += F1_A * highA
       this.sgLowA += F1_A * this.sgBandA
+      this.sgBandA = Math.max(-4.0, Math.min(4.0, this.sgBandA))
+      this.sgLowA = Math.max(-4.0, Math.min(4.0, this.sgLowA))
       const seagullSignalA = Math.tanh(this.sgBandA * 2.2) * this.seagullBurstA * seagullSqueal
 
       // Stack B Seagull: 6.8 kHz microphonic tank with independent swoop
@@ -763,13 +767,17 @@ class MMMLabProcessor extends AudioWorkletProcessor {
       const F1_B = 2.0 * Math.sin(Math.PI * fNormB * 0.5)
       const DB = 0.24
       const coilShockB = (Math.random() * 2 - 1) * 0.08 * this.seagullBurstB
-      const tankDriveB = (pickupSignalB * 0.30 + coilShockB + this.sgBandB * 0.75) * this.seagullBurstB * seagullSqueal
+      const tankDriveB = (pickupSignalB * 0.30 + coilShockB + Math.tanh(this.sgBandB) * 0.75) * this.seagullBurstB * seagullSqueal
       let highB = tankDriveB - this.sgLowB - DB * this.sgBandB
       this.sgBandB += F1_B * highB
       this.sgLowB += F1_B * this.sgBandB
+      this.sgBandB = Math.max(-4.0, Math.min(4.0, this.sgBandB))
+      this.sgLowB = Math.max(-4.0, Math.min(4.0, this.sgLowB))
       highB = tankDriveB - this.sgLowB - DB * this.sgBandB
       this.sgBandB += F1_B * highB
       this.sgLowB += F1_B * this.sgBandB
+      this.sgBandB = Math.max(-4.0, Math.min(4.0, this.sgBandB))
+      this.sgLowB = Math.max(-4.0, Math.min(4.0, this.sgLowB))
       const seagullSignalB = Math.tanh(this.sgBandB * 2.2) * this.seagullBurstB * seagullSqueal
 
       // Acoustic propagation delay buffer write with room microphonic bleed

@@ -157,6 +157,17 @@ export class MMMLabSonifier extends SonifierBase {
         label: 'Recovery Time',
         description: 'Time for bias capacitor to bleed off, setting the rhythm of the valve on/off flutter'
       },
+      {
+        name: 'sagThrob',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.80,
+        unit: 'depth',
+        curve: 'linear',
+        group: '4. Power Amp Sag & Choke',
+        label: 'Sag Throb',
+        description: 'Power amp blocking distortion sag and choke flutter depth'
+      },
 
       // Group 5: Shriek & Harmonic Bending
       {
@@ -193,6 +204,17 @@ export class MMMLabSonifier extends SonifierBase {
         description: 'Asymmetric non-linear biting wave-shaper intensity on the screaming harmonic overtone'
       },
       {
+        name: 'drive',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'grit',
+        curve: 'linear',
+        group: '5. Shriek & Harmonic Bending',
+        label: 'Preamp Drive',
+        description: 'Overdrive saturation and biting wave-shaping intensity'
+      },
+      {
         name: 'seagullSqueal',
         type: 'number',
         range: [0.0, 1.0],
@@ -226,6 +248,17 @@ export class MMMLabSonifier extends SonifierBase {
         group: '6. Low Rumble & Cabinet Resonance',
         label: 'Animal Howl',
         description: 'Low-mid (135 Hz) speaker cabinet cavity acoustic resonance that pitch-bends and howls like an animal'
+      },
+      {
+        name: 'howl',
+        type: 'number',
+        range: [0.0, 1.0],
+        default: 0.50,
+        unit: 'gain',
+        curve: 'linear',
+        group: '6. Low Rumble & Cabinet Resonance',
+        label: 'Cabinet Howl',
+        description: 'Low-mid (135 Hz) speaker cabinet cavity acoustic resonance'
       },
       {
         name: 'subBeating',
@@ -357,12 +390,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.65,
         sagDepth: 0.80,
         sagRecovery: 160.0,
+        sagThrob: 0.80,
         harmonicShriek: 0.0,
         pickupAngle: 0.30,
         shriekBite: 0.0,
+        drive: 0.0,
         seagullSqueal: 0.0,
         cabinetThump: 0.0,
         cabinetHowl: 0.0,
+        howl: 0.0,
         subBeating: 0.0,
         rumbleResonance: 0.5,
         coneLimit: 0.6,
@@ -391,12 +427,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.70,
         sagDepth: 0.30,
         sagRecovery: 160.0,
+        sagThrob: 0.30,
         harmonicShriek: 0.15,
         pickupAngle: 0.30,
         shriekBite: 0.30,
+        drive: 0.30,
         seagullSqueal: 0.15,
         cabinetThump: 0.20,
         cabinetHowl: 0.20,
+        howl: 0.20,
         subBeating: 0.25,
         rumbleResonance: 0.40,
         coneLimit: 0.60,
@@ -425,12 +464,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.60,
         sagDepth: 0.50,
         sagRecovery: 180.0,
+        sagThrob: 0.50,
         harmonicShriek: 0.05,
         pickupAngle: 0.35,
         shriekBite: 0.40,
+        drive: 0.40,
         seagullSqueal: 0.20,
         cabinetThump: 0.35,
         cabinetHowl: 0.95,
+        howl: 0.95,
         subBeating: 0.80,
         rumbleResonance: 0.60,
         coneLimit: 0.60,
@@ -459,12 +501,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.70,
         sagDepth: 0.40,
         sagRecovery: 140.0,
+        sagThrob: 0.40,
         harmonicShriek: 0.95,
         pickupAngle: 0.70,
         shriekBite: 0.90,
+        drive: 0.90,
         seagullSqueal: 0.85,
         cabinetThump: 0.05,
         cabinetHowl: 0.05,
+        howl: 0.05,
         subBeating: 0.10,
         rumbleResonance: 0.30,
         coneLimit: 0.70,
@@ -493,12 +538,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.40,
         sagDepth: 0.95,
         sagRecovery: 185.0,
+        sagThrob: 0.95,
         harmonicShriek: 0.15,
         pickupAngle: 0.30,
         shriekBite: 0.20,
+        drive: 0.20,
         seagullSqueal: 0.30,
         cabinetThump: 0.65,
         cabinetHowl: 0.40,
+        howl: 0.40,
         subBeating: 0.50,
         rumbleResonance: 0.70,
         coneLimit: 0.60,
@@ -527,12 +575,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.60,
         sagDepth: 0.60,
         sagRecovery: 160.0,
+        sagThrob: 0.60,
         harmonicShriek: 0.0,
         pickupAngle: 0.30,
         shriekBite: 0.10,
+        drive: 0.10,
         seagullSqueal: 0.0,
         cabinetThump: 1.0,
         cabinetHowl: 0.15,
+        howl: 0.15,
         subBeating: 0.85,
         rumbleResonance: 0.92,
         coneLimit: 0.28,
@@ -561,12 +612,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.60,
         sagDepth: 0.80,
         sagRecovery: 185.0,
+        sagThrob: 0.80,
         harmonicShriek: 0.35,
         pickupAngle: 0.35,
         shriekBite: 0.75,
+        drive: 0.75,
         seagullSqueal: 0.55,
         cabinetThump: 0.55,
         cabinetHowl: 0.60,
+        howl: 0.60,
         subBeating: 0.50,
         rumbleResonance: 0.60,
         coneLimit: 0.50,
@@ -595,12 +649,15 @@ export class MMMLabSonifier extends SonifierBase {
         sagThreshold: 0.65,
         sagDepth: 0.80,
         sagRecovery: 160.0,
+        sagThrob: 0.80,
         harmonicShriek: 0.25,
         pickupAngle: 0.30,
         shriekBite: 0.50,
+        drive: 0.50,
         seagullSqueal: 0.35,
         cabinetThump: 0.50,
         cabinetHowl: 0.50,
+        howl: 0.50,
         subBeating: 0.40,
         rumbleResonance: 0.50,
         coneLimit: 0.60,
@@ -612,6 +669,89 @@ export class MMMLabSonifier extends SonifierBase {
         volume: 0.50
       }
     }
+  }
+
+  /**
+   * Return expressive macros (MetaParameters) for MMMLab.
+   * Exposes high-level gestural controls that coordinate multiple underlying parameters.
+   * @returns {Array<Object>}
+   */
+  getMetaParamSchema() {
+    return [
+      {
+        name: 'aggression',
+        label: 'Aggression (Overdrive / Thump)',
+        description: 'Drives feedback gain, preamp drive, sag choke throb, and cabinet thump into heavy overload',
+        range: [0, 1],
+        default: 0.5,
+        mappings: [
+          {
+            param: 'feedbackGain',
+            range: [0.8, 1.8],
+            curve: 'exponential'
+          },
+          {
+            param: 'drive',
+            range: [0.1, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'sagThrob',
+            range: [0.1, 0.95],
+            curve: 'exponential'
+          },
+          {
+            param: 'cabinetThump',
+            range: [0.1, 1.0],
+            curve: 'logarithmic'
+          },
+          {
+            param: 'shriekBite',
+            range: [0.1, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'sagDepth',
+            range: [0.1, 0.95],
+            curve: 'exponential'
+          }
+        ]
+      },
+      {
+        name: 'feedbackStorm',
+        label: 'Feedback Storm (Shriek / Squeal)',
+        description: 'Drives animal howl, harmonic shriek, cross-coupling bleed, and flock-of-seagulls squeal',
+        range: [0, 1],
+        default: 0.3,
+        mappings: [
+          {
+            param: 'howl',
+            range: [0.0, 1.0],
+            curve: 'exponential'
+          },
+          {
+            param: 'cabinetHowl',
+            range: [0.0, 1.0],
+            curve: 'exponential'
+          },
+          {
+            param: 'harmonicShriek',
+            range: [0.0, 1.0],
+            curve: 's-curve'
+          },
+          {
+            param: 'crossCoupling',
+            range: [0.0, 0.8],
+            curve: 'linear'
+          },
+          {
+            param: 'seagullSqueal',
+            range: [0.0, 0.9],
+            curve: 'exponential'
+          }
+        ]
+      }
+    ]
   }
 
   /**
@@ -755,6 +895,16 @@ export class MMMLabSonifier extends SonifierBase {
         this._masterGain.gain.setTargetAtTime(value, now, rampTime)
       }
       return
+    }
+
+    if (name === 'drive') {
+      this.onParam('shriekBite', value)
+    }
+    if (name === 'sagThrob') {
+      this.onParam('sagDepth', value)
+    }
+    if (name === 'howl') {
+      this.onParam('cabinetHowl', value)
     }
 
     // AudioWorklet parameters

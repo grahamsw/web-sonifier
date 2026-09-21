@@ -39,7 +39,13 @@ describe('MMMLabSonifier', () => {
       ['loop2Gain', mockParam(0.0)],
       ['loop2Detune', mockParam(18.0)],
       ['loop2Distance', mockParam(7.0)],
-      ['crossCoupling', mockParam(0.3)]
+      ['crossCoupling', mockParam(0.3)],
+      ['shriekBite', mockParam(0.50)],
+      ['seagullSqueal', mockParam(0.35)],
+      ['driftRate', mockParam(0.25)],
+      ['drive', mockParam(0.50)],
+      ['sagThrob', mockParam(0.80)],
+      ['howl', mockParam(0.50)]
     ])
 
     global.AudioWorkletNode = class {
@@ -286,5 +292,99 @@ describe('MMMLabSonifier', () => {
     // Should have dispatched hum params (feedbackGain = 0.0) without being overwritten by defaults
     expect(mockWorkletParams.get('feedbackGain').setTargetAtTime).toHaveBeenCalledWith(0.0, 0, 0.025)
     expect(mockWorkletParams.get('ampHum').setTargetAtTime).toHaveBeenCalledWith(0.65, 0, 0.025)
+  })
+
+  describe('MetaParameters (Macros)', () => {
+    it('declares expressive macros in getMetaParamSchema() with non-linear mappings', () => {
+      const metaSchema = sonifier.getMetaParamSchema()
+      expect(Array.isArray(metaSchema)).toBe(true)
+      expect(metaSchema.length).toBeGreaterThanOrEqual(2)
+
+      const names = metaSchema.map(m => m.name)
+      expect(names).toContain('aggression')
+      expect(names).toContain('feedbackStorm')
+
+      const aggression = metaSchema.find(m => m.name === 'aggression')
+      expect(aggression.label).toBeTruthy()
+      expect(aggression.description).toBeTruthy()
+      const aggTargetParams = aggression.mappings.map(m => m.param)
+      expect(aggTargetParams).toContain('feedbackGain')
+      expect(aggTargetParams).toContain('drive')
+      expect(aggTargetParams).toContain('sagThrob')
+      expect(aggTargetParams).toContain('cabinetThump')
+
+      // Verify non-linear transfer curves are declared
+      const nonLinearCurves = ['exponential', 's-curve', 'logarithmic']
+      const aggCurves = aggression.mappings.map(m => m.curve)
+      expect(aggCurves.some(c => nonLinearCurves.includes(c))).toBe(true)
+
+      const storm = metaSchema.find(m => m.name === 'feedbackStorm')
+      expect(storm.label).toBeTruthy()
+      expect(storm.description).toBeTruthy()
+      const stormTargetParams = storm.mappings.map(m => m.param)
+      expect(stormTargetParams).toContain('howl')
+      expect(stormTargetParams).toContain('harmonicShriek')
+      expect(stormTargetParams).toContain('crossCoupling')
+      expect(stormTargetParams).toContain('seagullSqueal')
+    })
+
+    it('correctly evaluates and updates underlying parameters when setMetaParam("aggression", 0.8) is called', () => {
+      const updates = sonifier.setMetaParam('aggression', 0.8)
+      expect(updates).toBeDefined()
+      expect(typeof updates).toBe('object')
+
+      // Checks returned mapped parameter values
+      expect(updates.feedbackGain).toBeGreaterThan(1.0)
+      expect(updates.drive).toBeGreaterThan(0.5)
+      expect(updates.sagThrob).toBeGreaterThan(0.4)
+      expect(updates.cabinetThump).toBeGreaterThan(0.5)
+
+      // Verifies underlying sonifier parameters are actually updated via getParam
+      expect(sonifier.getParam('feedbackGain')).toBeCloseTo(updates.feedbackGain, 4)
+      expect(sonifier.getParam('drive')).toBeCloseTo(updates.drive, 4)
+      expect(sonifier.getParam('sagThrob')).toBeCloseTo(updates.sagThrob, 4)
+      expect(sonifier.getParam('cabinetThump')).toBeCloseTo(updates.cabinetThump, 4)
+
+      // Verifies underlying DSP aliases are updated
+      expect(sonifier.getParam('shriekBite')).toBeCloseTo(updates.drive, 4)
+      expect(sonifier.getParam('sagDepth')).toBeCloseTo(updates.sagThrob, 4)
+    })
+
+    it('correctly evaluates and updates underlying parameters when setMetaParam("feedbackStorm", 0.7) is called', () => {
+      const updates = sonifier.setMetaParam('feedbackStorm', 0.7)
+      expect(updates).toBeDefined()
+      expect(typeof updates).toBe('object')
+
+      expect(updates.howl).toBeGreaterThan(0.0)
+      expect(updates.harmonicShriek).toBeGreaterThan(0.5)
+      expect(updates.crossCoupling).toBeGreaterThan(0.2)
+      expect(updates.seagullSqueal).toBeGreaterThan(0.1)
+
+      expect(sonifier.getParam('howl')).toBeCloseTo(updates.howl, 4)
+      expect(sonifier.getParam('cabinetHowl')).toBeCloseTo(updates.howl, 4)
+      expect(sonifier.getParam('harmonicShriek')).toBeCloseTo(updates.harmonicShriek, 4)
+      expect(sonifier.getParam('crossCoupling')).toBeCloseTo(updates.crossCoupling, 4)
+      expect(sonifier.getParam('seagullSqueal')).toBeCloseTo(updates.seagullSqueal, 4)
+    })
+
+    it('dispatches smoothed AudioWorklet automation for all mapped parameters when macro is modulated on an active audio graph', async () => {
+      await sonifier.init(mockContext, mockOutput)
+
+      sonifier.setMetaParam('aggression', 0.8)
+
+      const fbParam = mockWorkletParams.get('feedbackGain')
+      expect(fbParam.setTargetAtTime).toHaveBeenCalledWith(
+        sonifier.getParam('feedbackGain'),
+        0,
+        0.025
+      )
+
+      const thumpParam = mockWorkletParams.get('cabinetThump')
+      expect(thumpParam.setTargetAtTime).toHaveBeenCalledWith(
+        sonifier.getParam('cabinetThump'),
+        0,
+        0.025
+      )
+    })
   })
 })

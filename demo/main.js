@@ -203,6 +203,24 @@ export function getSonifierPresets(type) {
   return []
 }
 
+export function getSonifierMetaParams(type) {
+  if (activeSonifier && activeSonifierType === type && typeof activeSonifier.getMetaParamSchema === 'function') {
+    return activeSonifier.getMetaParamSchema()
+  }
+  const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+  if (SonifierClass) {
+    try {
+      const temp = new SonifierClass()
+      if (typeof temp.getMetaParamSchema === 'function') {
+        return temp.getMetaParamSchema()
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return []
+}
+
 // ---------------------------------------------------------------------------
 // Default Settings & UI Facet Configurations
 // ---------------------------------------------------------------------------
@@ -1091,6 +1109,7 @@ export function renderPresetsBar(type) {
       }
 
       renderPresetsBar(type)
+      renderMacroBar(type)
       renderAutomatedEditorPanelOnly(type)
       saveSettings(settings)
     })
@@ -1102,6 +1121,100 @@ export function renderPresetsBar(type) {
       settings.holdFeeds = !settings.holdFeeds
       saveSettings(settings)
       renderPresetsBar(type)
+    })
+  }
+}
+
+export function renderMacroBar(type) {
+  let macroBarEl = document.getElementById('macro-bar-panel')
+  if (!macroBarEl && parametersPanel && parametersPanel.parentNode) {
+    macroBarEl = document.createElement('div')
+    macroBarEl.id = 'macro-bar-panel'
+    macroBarEl.style.marginBottom = '1rem'
+    parametersPanel.parentNode.insertBefore(macroBarEl, parametersPanel)
+  }
+  if (!macroBarEl) return
+
+  const metaParams = getSonifierMetaParams(type)
+  if (!metaParams || metaParams.length === 0) {
+    macroBarEl.style.display = 'none'
+    macroBarEl.innerHTML = ''
+    return
+  }
+
+  macroBarEl.style.display = 'block'
+  if (!settings[type]) settings[type] = {}
+  if (!settings[type].macros) settings[type].macros = {}
+
+  macroBarEl.innerHTML = `
+    <div class="macro-bar-container" style="background: #181a24; border: 1px solid #2e3448; border-radius: 8px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 0.85rem; font-weight: 700; color: #e2e8f0; letter-spacing: 0.03em; text-transform: uppercase;">
+          🎛️ Expressive Macros
+        </span>
+        <span style="font-size: 0.75rem; color: #8892b0;">Multi-parameter coordinated control</span>
+      </div>
+      <div class="macro-sliders-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem;">
+        ${metaParams.map(m => {
+          const min = m.range ? m.range[0] : 0
+          const max = m.range ? m.range[1] : 1
+          const curVal = settings[type].macros[m.name] !== undefined ? settings[type].macros[m.name] : (m.default ?? (min + (max - min) * 0.5))
+          return `
+            <div class="macro-control-card" style="background: #12141d; border: 1px solid #25293a; border-radius: 6px; padding: 0.6rem 0.75rem; display: flex; flex-direction: column; gap: 0.4rem;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <label for="macro-slider-${m.name}" style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1;">${m.label || m.name}</label>
+                <span id="macro-val-${m.name}" style="font-size: 0.8rem; font-weight: 600; color: #4caf82; font-variant-numeric: tabular-nums;">${Number(curVal).toFixed(2)}</span>
+              </div>
+              <input type="range" class="macro-slider" id="macro-slider-${m.name}" min="${min}" max="${max}" step="0.01" value="${curVal}" style="width: 100%; cursor: pointer; accent-color: #4caf82;">
+              ${m.description ? `<div style="font-size: 0.72rem; color: #717d96; line-height: 1.25;">${m.description}</div>` : ''}
+            </div>
+          `
+        }).join('')}
+      </div>
+    </div>
+  `
+
+  for (const m of metaParams) {
+    const slider = document.getElementById(`macro-slider-${m.name}`)
+    const valDisplay = document.getElementById(`macro-val-${m.name}`)
+    if (!slider) continue
+
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value)
+      if (valDisplay) {
+        valDisplay.textContent = val.toFixed(2)
+      }
+      settings[type].macros[m.name] = val
+
+      let updates = null
+      if (activeSonifier && activeSonifierType === type && typeof activeSonifier.setMetaParam === 'function') {
+        updates = activeSonifier.setMetaParam(m.name, val)
+      } else {
+        const metaParamInstance = activeSonifier && typeof activeSonifier.getMetaParam === 'function'
+          ? activeSonifier.getMetaParam(m.name)
+          : null
+        if (metaParamInstance) {
+          updates = metaParamInstance.evaluate(val)
+        } else {
+          const SonifierClass = SONIFIER_CLASSES[type] || runtime._registry?.[type]
+          if (SonifierClass) {
+            try {
+              const temp = new SonifierClass()
+              updates = temp.getMetaParam ? temp.getMetaParam(m.name)?.evaluate(val) : null
+            } catch {
+              // Ignore
+            }
+          }
+        }
+      }
+
+      if (updates) {
+        for (const [pName, pVal] of Object.entries(updates)) {
+          settings[type][pName] = pVal
+        }
+        renderAutomatedEditorPanelOnly(type)
+      }
+      saveSettings(settings)
     })
   }
 }
@@ -1217,6 +1330,7 @@ export function renderParametersPanel() {
   if (!parametersPanel) return
   const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
   renderPresetsBar(type)
+  renderMacroBar(type)
   renderAutomatedEditorPanelOnly(type)
 }
 

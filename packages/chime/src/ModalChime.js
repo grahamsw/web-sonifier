@@ -51,10 +51,14 @@ export class ModalChime {
 
     // Exciter buffer
     this._strikerBuffer = this._createStrikerBuffer()
+
+    // Active voice tracking for leak-free teardown
+    this._activeVoices = new Set()
   }
 
   setPitch(freq) {
-    this.pitch = Math.max(120, Math.min(4000, Number(freq) || 587.33))
+    const num = Number(freq)
+    this.pitch = Number.isFinite(num) ? Math.max(120, Math.min(4000, num)) : 587.33
   }
 
   setMaterial(mat) {
@@ -65,19 +69,24 @@ export class ModalChime {
   }
 
   setDamping(d) {
-    this.damping = Math.max(0.02, Math.min(1.0, Number(d) ?? 0.3))
+    const num = Number(d)
+    this.damping = Number.isFinite(num) ? Math.max(0.02, Math.min(1.0, num)) : 0.3
   }
 
   setVolume(gain, rampTime = 0.02) {
     if (!this.output || !this.ctx) return
-    const g = Math.max(0, Math.min(1, Number(gain) ?? 1))
+    const num = Number(gain)
+    const g = Number.isFinite(num) ? Math.max(0, Math.min(1, num)) : 1
+    const rTime = Number.isFinite(Number(rampTime)) ? Math.max(0.001, Number(rampTime)) : 0.02
     const now = this.ctx.currentTime
     this.output.gain.cancelScheduledValues(now)
-    this.output.gain.setTargetAtTime(g, now, rampTime)
+    this.output.gain.setTargetAtTime(g, now, rTime)
   }
 
   setWindSpeed(speed) {
-    const s = Math.max(0, Math.min(100, Number(speed) || 0))
+    if (!this.ctx) return
+    const num = Number(speed)
+    const s = Number.isFinite(num) ? Math.max(0, Math.min(100, num)) : 0
     this.windSpeed = s
 
     if (s > 0) {
@@ -114,10 +123,23 @@ export class ModalChime {
     if (!this.ctx || !this.output) return { stop: () => {} }
 
     const now = this.ctx.currentTime
-    const startTime = Math.max(now, options.time ?? now)
-    const f0 = options.pitch ?? this.pitch
-    const velocity = Math.max(0.01, Math.min(1.0, options.velocity ?? 0.8))
-    const damp = options.damping ?? this.damping
+    const rawTime = Number(options.time)
+    const startTime = (Number.isFinite(rawTime) && rawTime >= now) ? rawTime : now
+
+    const rawPitch = Number(options.pitch ?? this.pitch)
+    const f0 = (Number.isFinite(rawPitch) && rawPitch > 0)
+      ? Math.max(60, Math.min(8000, rawPitch))
+      : this.pitch
+
+    const rawVel = Number(options.velocity ?? 0.8)
+    const velocity = Number.isFinite(rawVel)
+      ? Math.max(0.01, Math.min(1.0, rawVel))
+      : 0.8
+
+    const rawDamp = Number(options.damping ?? this.damping)
+    const damp = Number.isFinite(rawDamp)
+      ? Math.max(0.02, Math.min(1.0, rawDamp))
+      : this.damping
 
     // Material decay multipliers
     // Aluminum rings long; bronze is warmer/shorter; steel is bright & dense
@@ -143,7 +165,7 @@ export class ModalChime {
     strikeMasterGain.gain.setValueAtTime(1.0, startTime)
 
     for (const [ratio, relGain, modeDecayRatio] of modes) {
-      const modeFreq = Math.min(18000, f0 * ratio)
+      const modeFreq = Math.min(18000, Math.max(20, f0 * ratio))
       const modeDuration = Math.max(0.05, baseDecaySeconds * modeDecayRatio)
 
       // Sinusoidal modal resonator
@@ -152,14 +174,14 @@ export class ModalChime {
       osc.frequency.setValueAtTime(modeFreq, startTime)
 
       // Slight natural micro-pitch drift under vibration
-      osc.frequency.linearRampToValueAtTime(modeFreq * 1.0008, startTime + 0.04)
+      osc.frequency.linearRampToValueAtTime(Math.min(19000, modeFreq * 1.0008), startTime + 0.04)
 
       // Modal amplitude envelope
       const modeGain = this.ctx.createGain()
       modeGain.gain.setValueAtTime(0.0001, startTime)
 
       // 1.5ms soft attack avoids synthetic clicking
-      const peak = velocity * relGain * 0.25
+      const peak = Math.max(0.0001, velocity * relGain * 0.25)
       modeGain.gain.linearRampToValueAtTime(peak, startTime + 0.0015)
 
       // Natural exponential decay
@@ -184,7 +206,7 @@ export class ModalChime {
     const striker = this.ctx.createBufferSource()
     striker.buffer = this._strikerBuffer
     const strikerGain = this.ctx.createGain()
-    strikerGain.gain.setValueAtTime(0.06 * velocity, startTime)
+    strikerGain.gain.setValueAtTime(Math.max(0.0001, 0.06 * velocity), startTime)
     strikerGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.008)
     striker.connect(strikerGain)
     strikerGain.connect(strikeMasterGain)
@@ -201,7 +223,8 @@ export class ModalChime {
     let finalNode = strikeMasterGain
     if (typeof this.ctx.createStereoPanner === 'function') {
       const panner = this.ctx.createStereoPanner()
-      const panVal = options.pan ?? (Math.random() * 1.2 - 0.6)
+      const rawPan = Number(options.pan)
+      const panVal = Number.isFinite(rawPan) ? Math.max(-1, Math.min(1, rawPan)) : (Math.random() * 1.2 - 0.6)
       panner.pan.setValueAtTime(Math.max(-1, Math.min(1, panVal)), startTime)
       strikeMasterGain.connect(panner)
       finalNode = panner
@@ -212,6 +235,7 @@ export class ModalChime {
 
     const totalDuration = baseDecaySeconds + 0.05
     const cleanupTimeout = Math.max(10, (startTime - now + totalDuration) * 1000)
+    let handle = null
     const cleanupTimer = setTimeout(() => {
       try {
         for (const n of activeNodes) {
@@ -221,9 +245,12 @@ export class ModalChime {
       } catch {
         // Already disconnected
       }
+      if (this._activeVoices && handle) {
+        this._activeVoices.delete(handle)
+      }
     }, cleanupTimeout)
 
-    return {
+    handle = {
       stop: () => {
         clearTimeout(cleanupTimer)
         try {
@@ -235,18 +262,33 @@ export class ModalChime {
         } catch {
           // Ignored
         }
+        if (this._activeVoices) {
+          this._activeVoices.delete(handle)
+        }
       }
     }
+
+    this._activeVoices.add(handle)
+    return handle
   }
 
   destroy() {
     this._stopWind()
+    if (this._activeVoices) {
+      for (const v of this._activeVoices) {
+        v.stop()
+      }
+      this._activeVoices.clear()
+    }
+
     if (this.output && this.ctx) {
+      const out = this.output
       const now = this.ctx.currentTime
-      this.output.gain.setTargetAtTime(0, now, 0.01)
+      out.gain.cancelScheduledValues(now)
+      out.gain.setTargetAtTime(0, now, 0.01)
       setTimeout(() => {
         try {
-          this.output.disconnect()
+          out.disconnect()
         } catch {
           // Ignored
         }
