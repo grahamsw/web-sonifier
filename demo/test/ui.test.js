@@ -985,6 +985,42 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     expect(paramPanel.innerHTML).toContain('Turbulence')
   })
 
+  it('should register procedural physics sonifiers with runtime and support playback transport', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    // Verify runtime.register calls
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('bubble', expect.any(Function))
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('chime', expect.any(Function))
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('wind', expect.any(Function))
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    const btnPlay = document.getElementById('btn-play')
+    const btnStop = document.getElementById('btn-stop')
+    const statusEl = document.getElementById('status')
+
+    for (const type of ['bubble', 'chime', 'wind']) {
+      sonifierSelect.value = type
+      sonifierSelect.dispatchEvent(new Event('change'))
+
+      // Trigger Play
+      btnPlay.click()
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      expect(mockRuntimeInstance.create).toHaveBeenCalledWith(type)
+      expect(statusEl.textContent).toBe('Sonifying…')
+      expect(statusEl.classList.contains('active')).toBe(true)
+      expect(btnPlay.disabled).toBe(true)
+      expect(btnStop.disabled).toBe(false)
+
+      // Trigger Stop
+      btnStop.click()
+      expect(mockRuntimeInstance.destroy).toHaveBeenCalledWith(type)
+      expect(statusEl.textContent).toBe('Stopped')
+      expect(btnPlay.disabled).toBe(false)
+      expect(btnStop.disabled).toBe(true)
+    }
+  })
+
   it('should render global navigation bar and handle compound landscapes modal', async () => {
     await import('../main.js?t=' + Date.now())
 

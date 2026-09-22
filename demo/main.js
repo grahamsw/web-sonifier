@@ -565,6 +565,41 @@ export const defaultSettings = {
     loop2Distance:     7.0,
     crossCoupling:     0.3,
     volume:            0.5
+  },
+  bubble: {
+    sonifiedParams:    ['rate', 'radius'],
+    paramFeeds:        { rate: 'A', radius: 'B', depth: 'A', viscosity: 'B', volume: 'A' },
+    paramRanges:       { rate: [2, 30], radius: [0.001, 0.015], depth: [0.01, 0.5], viscosity: [0.1, 0.8], volume: [0.1, 0.9] },
+    paramCurves:       { rate: 'exponential', radius: 'logarithmic' },
+    paramInverts:      {},
+    radius:            0.004,
+    depth:             0.1,
+    viscosity:         0.4,
+    rate:              8,
+    volume:            0.7
+  },
+  chime: {
+    sonifiedParams:    ['windSpeed', 'pitch'],
+    paramFeeds:        { windSpeed: 'A', pitch: 'B', damping: 'A', volume: 'A' },
+    paramRanges:       { windSpeed: [10, 65], pitch: [220, 1200], damping: [0.1, 0.7], volume: [0.1, 0.9] },
+    paramCurves:       { pitch: 'exponential' },
+    paramInverts:      {},
+    pitch:             587.33,
+    material:          'aluminum',
+    damping:           0.25,
+    windSpeed:         25,
+    volume:            0.7
+  },
+  wind: {
+    sonifiedParams:    ['speed', 'cavity'],
+    paramFeeds:        { speed: 'A', cavity: 'B', turbulence: 'A', volume: 'A' },
+    paramRanges:       { speed: [5, 75], cavity: [0.05, 0.8], turbulence: [0.1, 0.8], volume: [0.1, 0.9] },
+    paramCurves:       {},
+    paramInverts:      {},
+    speed:             35,
+    turbulence:        0.4,
+    cavity:            0.3,
+    volume:            0.7
   }
 }
 
@@ -586,6 +621,9 @@ runtime.register('ocean', OceanSonifier)
 runtime.register('metal-machine', MetalMachineSonifier)
 runtime.register('mmm2', MMM2Sonifier)
 runtime.register('mmm-lab', MMMLabSonifier)
+runtime.register('bubble', BubbleSonifier)
+runtime.register('chime', ChimeSonifier)
+runtime.register('wind', WindSonifier)
 
 export let activeSonifier = null
 export let activeSonifierType = null
@@ -943,8 +981,21 @@ export function applySettings() {
 
 export async function startSonifier() {
   const type = sonifierSelectEl ? sonifierSelectEl.value : settings.sonifierType
-  const s = settings[type]
-  if (!s) return
+  let s = settings[type]
+  if (!s) {
+    s = {
+      sonifiedParams: [],
+      paramFeeds: {},
+      paramRanges: {},
+      paramCurves: {},
+      paramInverts: {}
+    }
+    const schema = getSonifierSchema(type)
+    for (const p of schema) {
+      if (p.default !== undefined) s[p.name] = p.default
+    }
+    settings[type] = s
+  }
 
   activeSonifier = runtime.create(type)
   activeSonifierType = type
@@ -1026,13 +1077,13 @@ if (btnStop) {
 if (sonifierSelectEl) {
   sonifierSelectEl.addEventListener('change', async () => {
     const isPlaying = !!activeSonifier
+    settings.sonifierType = sonifierSelectEl.value
+    saveSettings(settings)
+    renderParametersPanel()
     if (isPlaying) {
       stopSonifier()
       startSonifier()
     }
-    settings.sonifierType = sonifierSelectEl.value
-    saveSettings(settings)
-    renderParametersPanel()
   })
 }
 
