@@ -274,6 +274,23 @@ export class Landscape {
       } else if (entry.panner) {
         entry.panner.pan.value = value
       }
+      if (typeof entry.sonifier.getParamSchema === 'function') {
+        const schema = entry.sonifier.getParamSchema() || []
+        if (schema.some(p => p.name === 'pan') && typeof entry.sonifier.setParam === 'function') {
+          entry.sonifier.setParam('pan', value)
+        }
+      }
+      return
+    }
+
+    if (param === 'spread') {
+      entry.options.spread = value
+      if (typeof entry.sonifier.getParamSchema === 'function') {
+        const schema = entry.sonifier.getParamSchema() || []
+        if (schema.some(p => p.name === 'spread') && typeof entry.sonifier.setParam === 'function') {
+          entry.sonifier.setParam('spread', value)
+        }
+      }
       return
     }
 

@@ -43,6 +43,8 @@ export class ModalChime {
     this.material = 'aluminum' // 'aluminum' (bright & long ring), 'bronze' (warm), 'steel' (piercing)
     this.damping = 0.3 // 0.05 (infinite ring) to 1.0 (heavy muted tap)
     this.windSpeed = 0 // Continuous ambient wind (0 = manual strike mode, >0 = stochastic strikes)
+    this.pan = 0.45 // Localized azimuth position (-1 to 1)
+    this.spread = 0.08 // Apparent source width (point source ~0.08)
 
     // Wind scheduling state
     this._windTimer = null
@@ -54,6 +56,16 @@ export class ModalChime {
 
     // Active voice tracking for leak-free teardown
     this._activeVoices = new Set()
+  }
+
+  setPan(p) {
+    const num = Number(p)
+    this.pan = Number.isFinite(num) ? Math.max(-1, Math.min(1, num)) : 0.45
+  }
+
+  setSpread(s) {
+    const num = Number(s)
+    this.spread = Number.isFinite(num) ? Math.max(0, Math.min(1, num)) : 0.08
   }
 
   setPitch(freq) {
@@ -223,9 +235,11 @@ export class ModalChime {
     let finalNode = strikeMasterGain
     if (typeof this.ctx.createStereoPanner === 'function') {
       const panner = this.ctx.createStereoPanner()
-      const rawPan = Number(options.pan)
-      const panVal = Number.isFinite(rawPan) ? Math.max(-1, Math.min(1, rawPan)) : (Math.random() * 1.2 - 0.6)
-      panner.pan.setValueAtTime(Math.max(-1, Math.min(1, panVal)), startTime)
+      const centerPan = Number.isFinite(Number(options.pan)) ? Number(options.pan) : this.pan
+      const spread = Number.isFinite(Number(options.spread)) ? Number(options.spread) : this.spread
+      const panOffset = (Math.random() * 2 - 1) * spread
+      const panVal = Math.max(-1, Math.min(1, centerPan + panOffset))
+      panner.pan.setValueAtTime(panVal, startTime)
       strikeMasterGain.connect(panner)
       finalNode = panner
       activeNodes.push(panner)

@@ -52,6 +52,7 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(document.getElementById('wind-speed')).not.toBeNull()
     expect(document.getElementById('wind-turbulence')).not.toBeNull()
     expect(document.getElementById('wind-pan')).not.toBeNull()
+    expect(document.getElementById('wind-spread')).not.toBeNull()
 
     // 2. Rain
     expect(document.getElementById('card-rain')).not.toBeNull()
@@ -60,6 +61,7 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(document.getElementById('rain-surface')).not.toBeNull()
     expect(document.getElementById('rain-pitch')).not.toBeNull()
     expect(document.getElementById('rain-pan')).not.toBeNull()
+    expect(document.getElementById('rain-spread')).not.toBeNull()
 
     // 3. Ocean
     expect(document.getElementById('card-ocean')).not.toBeNull()
@@ -68,6 +70,7 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(document.getElementById('ocean-period')).not.toBeNull()
     expect(document.getElementById('ocean-foam')).not.toBeNull()
     expect(document.getElementById('ocean-pan')).not.toBeNull()
+    expect(document.getElementById('ocean-spread')).not.toBeNull()
 
     // 4. Chimes
     expect(document.getElementById('card-chime')).not.toBeNull()
@@ -76,6 +79,7 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(document.getElementById('btn-strike-chime')).not.toBeNull()
     expect(document.getElementById('chime-pitch')).not.toBeNull()
     expect(document.getElementById('chime-pan')).not.toBeNull()
+    expect(document.getElementById('chime-spread')).not.toBeNull()
   })
 
   it('defines the 4 natural atmospheric presets', () => {
