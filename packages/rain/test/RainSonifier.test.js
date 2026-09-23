@@ -129,6 +129,9 @@ describe('RainSonifier', () => {
     expect(pitch.default).toBe(1200)
 
     expect(dropletSize).toBeDefined()
+    const surface = schema.find(p => p.name === 'surface')
+    expect(surface).toBeDefined()
+    expect(surface.values).toEqual(['puddle', 'foliage', 'roof'])
     expect(spread).toBeDefined()
     expect(volume).toBeDefined()
   })

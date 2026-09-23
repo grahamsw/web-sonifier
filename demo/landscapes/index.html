@@ -10,8 +10,9 @@
       "imports": {
         "@web-sonifier/core": "/packages/core/src/index.js",
         "@web-sonifier/wind": "/packages/wind/src/index.js",
-        "@web-sonifier/chime": "/packages/chime/src/index.js",
-        "@web-sonifier/bubble": "/packages/bubble/src/index.js"
+        "@web-sonifier/rain": "/packages/rain/src/index.js",
+        "@web-sonifier/ocean": "/packages/ocean/src/index.js",
+        "@web-sonifier/chime": "/packages/chime/src/index.js"
       }
     }
   </script>
@@ -42,16 +43,17 @@
         <div class="title-badges">
           <span class="badge cyan">Albert Bregman ASA</span>
           <span class="badge">Model-Based Sonification</span>
-          <span class="badge">Procedural Physics</span>
+          <span class="badge">Andy Farnell Physics</span>
           <span class="badge">Shared Convolution Reverb</span>
         </div>
       </div>
 
       <!-- Atmospheric Presets -->
       <div class="presets-group">
-        <button type="button" class="preset-btn active" id="preset-alpine">🏔️ Alpine Observatory</button>
-        <button type="button" class="preset-btn" id="preset-coastal">🌊 Coastal Bay</button>
-        <button type="button" class="preset-btn" id="preset-cavern">🕳️ Deep Cavern</button>
+        <button type="button" class="preset-btn active" id="preset-rain">🌧️ Rain on Veranda</button>
+        <button type="button" class="preset-btn" id="preset-pacific">🌊 Pacific Coastline</button>
+        <button type="button" class="preset-btn" id="preset-storm">⛈️ Summer Storm</button>
+        <button type="button" class="preset-btn" id="preset-alpine">🏔️ Alpine Sanctuary</button>
       </div>
     </header>
 
@@ -97,7 +99,7 @@
       </div>
     </section>
 
-    <!-- Sound Objects & Exciters Grid -->
+    <!-- Sound Objects & Exciters Grid (4 Natural Components) -->
     <section class="objects-grid">
 
       <!-- Object 1: Wind -->
@@ -110,8 +112,27 @@
           <span class="badge cyan">Aerodynamic</span>
         </div>
 
+        <!-- Prominent Component Volume & Pan -->
+        <div class="spatial-strip">
+          <div class="section-label">🔊 Channel Volume & Pan</div>
+          <div class="control-row">
+            <div class="control-label">
+              <span>Component Volume</span>
+              <span class="control-val" id="disp-wind-volume">70%</span>
+            </div>
+            <input type="range" id="wind-volume" min="0" max="1" step="0.01" value="0.70">
+          </div>
+          <div class="control-row" style="margin-top: 0.4rem;">
+            <div class="control-label">
+              <span>Stereo Pan</span>
+              <span class="control-val" id="disp-wind-pan">Center (0.0)</span>
+            </div>
+            <input type="range" id="wind-pan" min="-1" max="1" step="0.05" value="0.0">
+          </div>
+        </div>
+
         <div>
-          <div class="section-label">⚡ Continuous Flow Exciter</div>
+          <div class="section-label">⚡ Flow Exciter & Physics</div>
           <div class="control-row">
             <div class="control-label">
               <span>Airflow Velocity (Speed)</span>
@@ -134,30 +155,136 @@
             <input type="range" id="wind-cavity" min="0" max="1" step="0.01" value="0.30">
           </div>
         </div>
+      </article>
 
+      <!-- Object 2: Rain -->
+      <article class="object-card" id="card-rain">
+        <div class="object-header">
+          <div>
+            <div class="object-title">🌧️ Acoustic Rain</div>
+            <div class="object-subtitle">Poisson Spatter & Shower Wash</div>
+          </div>
+          <span class="badge cyan">Hydraulic</span>
+        </div>
+
+        <!-- Prominent Component Volume & Pan -->
         <div class="spatial-strip">
-          <div class="section-label">📍 Spatial Channel Strip</div>
+          <div class="section-label">🔊 Channel Volume & Pan</div>
           <div class="control-row">
+            <div class="control-label">
+              <span>Component Volume</span>
+              <span class="control-val" id="disp-rain-volume">65%</span>
+            </div>
+            <input type="range" id="rain-volume" min="0" max="1" step="0.01" value="0.65">
+          </div>
+          <div class="control-row" style="margin-top: 0.4rem;">
             <div class="control-label">
               <span>Stereo Pan</span>
-              <span class="control-val" id="disp-wind-pan">Center (0.0)</span>
+              <span class="control-val" id="disp-rain-pan">Left (-0.30)</span>
             </div>
-            <input type="range" id="wind-pan" min="-1" max="1" step="0.05" value="0.0">
+            <input type="range" id="rain-pan" min="-1" max="1" step="0.05" value="-0.30">
           </div>
+        </div>
+
+        <div>
+          <div class="section-label">⚡ Droplet Exciters & Surface</div>
           <div class="control-row">
             <div class="control-label">
-              <span>Level / Reverb Send</span>
-              <span class="control-val" id="disp-wind-mix">Vol 70% • Rev 20%</span>
+              <span>Rainfall Intensity</span>
+              <span class="control-val" id="disp-rain-intensity">120 drops/s</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-              <input type="range" id="wind-gain" min="0" max="1" step="0.01" value="0.70" title="Object Gain">
-              <input type="range" id="wind-reverb" min="0" max="1" step="0.01" value="0.20" title="Reverb Send">
+            <input type="range" id="rain-intensity" min="0" max="500" step="5" value="120">
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Impact Surface Physics</span>
             </div>
+            <select id="rain-surface" class="control-select">
+              <option value="puddle" selected>Puddle (Micro-Cavity Chirps)</option>
+              <option value="foliage">Foliage / Soil (Damped Spatter)</option>
+              <option value="roof">Tin Roof (Resonant Pings)</option>
+            </select>
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Rain Pitch / Brightness</span>
+              <span class="control-val" id="disp-rain-pitch">1400 Hz</span>
+            </div>
+            <input type="range" id="rain-pitch" min="300" max="3500" step="50" value="1400">
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Droplet Size</span>
+              <span class="control-val" id="disp-rain-size">1.0x</span>
+            </div>
+            <input type="range" id="rain-size" min="0.2" max="2.0" step="0.1" value="1.0">
           </div>
         </div>
       </article>
 
-      <!-- Object 2: Chimes -->
+      <!-- Object 3: Ocean -->
+      <article class="object-card" id="card-ocean">
+        <div class="object-header">
+          <div>
+            <div class="object-title">🌊 Ocean Surf</div>
+            <div class="object-subtitle">Asymmetric Breaker & Undertow</div>
+          </div>
+          <span class="badge cyan">Hydrodynamic</span>
+        </div>
+
+        <!-- Prominent Component Volume & Pan -->
+        <div class="spatial-strip">
+          <div class="section-label">🔊 Channel Volume & Pan</div>
+          <div class="control-row">
+            <div class="control-label">
+              <span>Component Volume</span>
+              <span class="control-val" id="disp-ocean-volume">55%</span>
+            </div>
+            <input type="range" id="ocean-volume" min="0" max="1" step="0.01" value="0.55">
+          </div>
+          <div class="control-row" style="margin-top: 0.4rem;">
+            <div class="control-label">
+              <span>Stereo Pan</span>
+              <span class="control-val" id="disp-ocean-pan">Right (+0.25)</span>
+            </div>
+            <input type="range" id="ocean-pan" min="-1" max="1" step="0.05" value="0.25">
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">⚡ Swell Dynamics & Surf</div>
+          <div class="control-row">
+            <div class="control-label">
+              <span>Wave Surge Intensity</span>
+              <span class="control-val" id="disp-ocean-intensity">60%</span>
+            </div>
+            <input type="range" id="ocean-intensity" min="0" max="100" step="1" value="60">
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Swell Period (Wave Interval)</span>
+              <span class="control-val" id="disp-ocean-period">8.5s</span>
+            </div>
+            <input type="range" id="ocean-period" min="3.0" max="20.0" step="0.5" value="8.5">
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Foam & Spray Sizzle</span>
+              <span class="control-val" id="disp-ocean-foam">0.55</span>
+            </div>
+            <input type="range" id="ocean-foam" min="0" max="1" step="0.01" value="0.55">
+          </div>
+          <div class="control-row" style="margin-top: 0.6rem;">
+            <div class="control-label">
+              <span>Resonant Depth (Undertow)</span>
+              <span class="control-val" id="disp-ocean-pitch">480 Hz</span>
+            </div>
+            <input type="range" id="ocean-pitch" min="100" max="1500" step="20" value="480">
+          </div>
+        </div>
+      </article>
+
+      <!-- Object 4: Chimes -->
       <article class="object-card" id="card-chime">
         <div class="object-header">
           <div>
@@ -167,18 +294,37 @@
           <span class="badge cyan">Inharmonic</span>
         </div>
 
+        <!-- Prominent Component Volume & Pan -->
+        <div class="spatial-strip">
+          <div class="section-label">🔊 Channel Volume & Pan</div>
+          <div class="control-row">
+            <div class="control-label">
+              <span>Component Volume</span>
+              <span class="control-val" id="disp-chime-volume">75%</span>
+            </div>
+            <input type="range" id="chime-volume" min="0" max="1" step="0.01" value="0.75">
+          </div>
+          <div class="control-row" style="margin-top: 0.4rem;">
+            <div class="control-label">
+              <span>Stereo Pan</span>
+              <span class="control-val" id="disp-chime-pan">Right (+0.45)</span>
+            </div>
+            <input type="range" id="chime-pan" min="-1" max="1" step="0.05" value="0.45">
+          </div>
+        </div>
+
         <div>
           <div class="section-label">⚡ Exciters (Coupled & Discrete)</div>
           <div class="toggle-row">
             <label for="chime-wind-coupled">Wind-Driven Stochastic Strikes</label>
             <input type="checkbox" id="chime-wind-coupled" checked>
           </div>
-          <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+          <div style="margin-top: 0.5rem;">
             <button type="button" class="btn-action" id="btn-strike-chime">⚡ Strike Chime Tube</button>
           </div>
         </div>
 
-        <div>
+        <div style="margin-top: 0.4rem;">
           <div class="section-label">🔬 Physical Tube Properties</div>
           <div class="control-row">
             <div class="control-label">
@@ -203,98 +349,6 @@
               <span class="control-val" id="disp-chime-damping">0.25</span>
             </div>
             <input type="range" id="chime-damping" min="0.05" max="0.95" step="0.01" value="0.25">
-          </div>
-        </div>
-
-        <div class="spatial-strip">
-          <div class="section-label">📍 Spatial Channel Strip</div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Stereo Pan</span>
-              <span class="control-val" id="disp-chime-pan">Right (+0.35)</span>
-            </div>
-            <input type="range" id="chime-pan" min="-1" max="1" step="0.05" value="0.35">
-          </div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Level / Reverb Send</span>
-              <span class="control-val" id="disp-chime-mix">Vol 75% • Rev 45%</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-              <input type="range" id="chime-gain" min="0" max="1" step="0.01" value="0.75" title="Object Gain">
-              <input type="range" id="chime-reverb" min="0" max="1" step="0.01" value="0.45" title="Reverb Send">
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Object 3: Bubbles -->
-      <article class="object-card" id="card-bubble">
-        <div class="object-header">
-          <div>
-            <div class="object-title">🫧 Minnaert Bubbles</div>
-            <div class="object-subtitle">Fluid Cavities • Hydrostatic Chirp & Damping</div>
-          </div>
-          <span class="badge cyan">Hydraulic</span>
-        </div>
-
-        <div>
-          <div class="section-label">⚡ Exciters (Stream & Discrete)</div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Arrival Stream Rate</span>
-              <span class="control-val" id="disp-bubble-rate">6 drops/s</span>
-            </div>
-            <input type="range" id="bubble-rate" min="0" max="30" step="0.5" value="6">
-          </div>
-          <div style="margin-top: 0.6rem;">
-            <button type="button" class="btn-action" id="btn-trigger-bubble">💧 Trigger Droplet</button>
-          </div>
-        </div>
-
-        <div>
-          <div class="section-label">🔬 Fluid Cavity Physics</div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Cavity Radius (Size)</span>
-              <span class="control-val" id="disp-bubble-radius">4.0 mm</span>
-            </div>
-            <input type="range" id="bubble-radius" min="0.001" max="0.02" step="0.0005" value="0.004">
-          </div>
-          <div class="control-row" style="margin-top: 0.6rem;">
-            <div class="control-label">
-              <span>Liquid Depth</span>
-              <span class="control-val" id="disp-bubble-depth">0.12 m</span>
-            </div>
-            <input type="range" id="bubble-depth" min="0.01" max="1.5" step="0.01" value="0.12">
-          </div>
-          <div class="control-row" style="margin-top: 0.6rem;">
-            <div class="control-label">
-              <span>Viscosity</span>
-              <span class="control-val" id="disp-bubble-viscosity">0.35</span>
-            </div>
-            <input type="range" id="bubble-viscosity" min="0.05" max="1.0" step="0.01" value="0.35">
-          </div>
-        </div>
-
-        <div class="spatial-strip">
-          <div class="section-label">📍 Spatial Channel Strip</div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Stereo Pan</span>
-              <span class="control-val" id="disp-bubble-pan">Left (-0.40)</span>
-            </div>
-            <input type="range" id="bubble-pan" min="-1" max="1" step="0.05" value="-0.40">
-          </div>
-          <div class="control-row">
-            <div class="control-label">
-              <span>Level / Reverb Send</span>
-              <span class="control-val" id="disp-bubble-mix">Vol 65% • Rev 30%</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-              <input type="range" id="bubble-gain" min="0" max="1" step="0.01" value="0.65" title="Object Gain">
-              <input type="range" id="bubble-reverb" min="0" max="1" step="0.01" value="0.30" title="Reverb Send">
-            </div>
           </div>
         </div>
       </article>
