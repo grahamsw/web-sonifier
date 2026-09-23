@@ -367,24 +367,25 @@ export class OceanSonifier extends SonifierBase {
     let crashEnv = 0
     let backwashEnv = 0
 
-    if (phase < 0.45) {
-      // Phase 1: Swell Inrush (Smooth rise)
-      const p = phase / 0.45
-      swellEnv = 0.5 * (1 - Math.cos(Math.PI * p))
-      crashEnv = Math.pow(swellEnv, 3) * 0.5
-      backwashEnv = 0.2 * (1 - p)
-    } else if (phase < 0.60) {
-      // Phase 2: Crest & Breaker Peak
-      const p = (phase - 0.45) / 0.15
-      swellEnv = 1.0 - 0.25 * p
-      crashEnv = 1.0 - 0.4 * p
-      backwashEnv = 0.1 + 0.3 * p
+    if (phase < 0.65) {
+      // Phase 1: Swell Inrush & Gravity Mass Gathering (Slow organic rise over 65% of cycle)
+      const p = phase / 0.65
+      // Non-linear solitary wave steepening: swell rises gradually then accelerates near crest
+      swellEnv = Math.pow(0.5 * (1 - Math.cos(Math.PI * p)), 1.5)
+      crashEnv = Math.pow(p, 4) * 0.2
+      backwashEnv = 0.3 * (1 - p)
+    } else if (phase < 0.75) {
+      // Phase 2: Hydraulic Shock & Breaker Collapse (Sharp crash over 10% of cycle)
+      const p = (phase - 0.65) / 0.10
+      crashEnv = Math.sin(Math.PI * (0.1 + 0.9 * p))
+      swellEnv = 1.0 - 0.3 * p
+      backwashEnv = 0.1 + 0.4 * p
     } else {
-      // Phase 3: Outrush / Backwash & Undertow
-      const p = (phase - 0.60) / 0.40
-      swellEnv = 0.75 * Math.exp(-p * 3.5)
-      crashEnv = 0.6 * Math.exp(-p * 4.5)
-      backwashEnv = 0.4 + 0.6 * Math.sin(Math.PI * p)
+      // Phase 3: Spume Sizzle, Receding Foam & Undertow Suction (Remaining 25% of cycle)
+      const p = (phase - 0.75) / 0.25
+      swellEnv = 0.70 * Math.exp(-p * 3.8)
+      crashEnv = 0.90 * Math.exp(-p * 4.2)
+      backwashEnv = 0.35 + 0.65 * Math.sin(Math.PI * p)
     }
 
     // Dynamic gains modulated by swellDepth (trough level vs crest level)

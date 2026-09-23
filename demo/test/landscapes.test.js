@@ -45,32 +45,44 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(canvas).not.toBeNull()
   })
 
-  it('contains all 3 physical sound object cards with exciters and spatial strips', () => {
-    // Wind
+  it('contains all 4 natural sound components with dedicated volume sliders and exciters', () => {
+    // 1. Wind
     expect(document.getElementById('card-wind')).not.toBeNull()
+    expect(document.getElementById('wind-volume')).not.toBeNull()
     expect(document.getElementById('wind-speed')).not.toBeNull()
     expect(document.getElementById('wind-turbulence')).not.toBeNull()
     expect(document.getElementById('wind-pan')).not.toBeNull()
 
-    // Chimes
+    // 2. Rain
+    expect(document.getElementById('card-rain')).not.toBeNull()
+    expect(document.getElementById('rain-volume')).not.toBeNull()
+    expect(document.getElementById('rain-intensity')).not.toBeNull()
+    expect(document.getElementById('rain-surface')).not.toBeNull()
+    expect(document.getElementById('rain-pitch')).not.toBeNull()
+    expect(document.getElementById('rain-pan')).not.toBeNull()
+
+    // 3. Ocean
+    expect(document.getElementById('card-ocean')).not.toBeNull()
+    expect(document.getElementById('ocean-volume')).not.toBeNull()
+    expect(document.getElementById('ocean-intensity')).not.toBeNull()
+    expect(document.getElementById('ocean-period')).not.toBeNull()
+    expect(document.getElementById('ocean-foam')).not.toBeNull()
+    expect(document.getElementById('ocean-pan')).not.toBeNull()
+
+    // 4. Chimes
     expect(document.getElementById('card-chime')).not.toBeNull()
+    expect(document.getElementById('chime-volume')).not.toBeNull()
     expect(document.getElementById('chime-wind-coupled')).not.toBeNull()
     expect(document.getElementById('btn-strike-chime')).not.toBeNull()
     expect(document.getElementById('chime-pitch')).not.toBeNull()
     expect(document.getElementById('chime-pan')).not.toBeNull()
-
-    // Bubbles
-    expect(document.getElementById('card-bubble')).not.toBeNull()
-    expect(document.getElementById('bubble-rate')).not.toBeNull()
-    expect(document.getElementById('btn-trigger-bubble')).not.toBeNull()
-    expect(document.getElementById('bubble-radius')).not.toBeNull()
-    expect(document.getElementById('bubble-pan')).not.toBeNull()
   })
 
-  it('defines the 3 atmospheric presets', () => {
+  it('defines the 4 natural atmospheric presets', () => {
+    expect(document.getElementById('preset-rain')).not.toBeNull()
+    expect(document.getElementById('preset-pacific')).not.toBeNull()
+    expect(document.getElementById('preset-storm')).not.toBeNull()
     expect(document.getElementById('preset-alpine')).not.toBeNull()
-    expect(document.getElementById('preset-coastal')).not.toBeNull()
-    expect(document.getElementById('preset-cavern')).not.toBeNull()
   })
 
   it('has valid importmap in index.html for browser es modules', () => {
@@ -79,7 +91,8 @@ describe('Landscapes Studio UI & Integration', () => {
     const parsed = JSON.parse(importmapEl.textContent)
     expect(parsed.imports['@web-sonifier/core']).toBe('/packages/core/src/index.js')
     expect(parsed.imports['@web-sonifier/wind']).toBe('/packages/wind/src/index.js')
+    expect(parsed.imports['@web-sonifier/rain']).toBe('/packages/rain/src/index.js')
+    expect(parsed.imports['@web-sonifier/ocean']).toBe('/packages/ocean/src/index.js')
     expect(parsed.imports['@web-sonifier/chime']).toBe('/packages/chime/src/index.js')
-    expect(parsed.imports['@web-sonifier/bubble']).toBe('/packages/bubble/src/index.js')
   })
 })

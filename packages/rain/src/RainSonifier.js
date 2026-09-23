@@ -54,6 +54,15 @@ export class RainSonifier extends SonifierBase {
         description: 'Droplet spatter weight and duration'
       },
       {
+        name: 'surface',
+        type: 'enum',
+        values: ['puddle', 'foliage', 'roof'],
+        default: 'puddle',
+        group: 'Rainfall Character',
+        label: 'Impact Surface',
+        description: 'Physical impact material (puddle = micro-cavity chirp, foliage = damped spatter, roof = bright ping)'
+      },
+      {
         name: 'spread',
         type: 'number',
         range: [0, 1],
@@ -280,24 +289,41 @@ export class RainSonifier extends SonifierBase {
     const basePitch = this.getParam('pitch') || 1200
     const size = this.getParam('dropletSize') || 1.0
     const spread = this.getParam('spread') ?? 0.8
+    const surface = this.getParam('surface') || 'puddle'
 
-    // Warm water droplet frequency range (300 Hz - 2800 Hz)
+    // Warm water droplet frequency range (300 Hz - 3200 Hz)
     const pitchJitter = 1 + (Math.random() - 0.5) * 0.4
-    const dropFreq = Math.min(2800, Math.max(300, basePitch * 0.8 * pitchJitter))
+    const dropFreq = Math.min(3200, Math.max(300, basePitch * 0.8 * pitchJitter))
 
     const source = this._ctx.createBufferSource()
     source.buffer = this._dropImpulseBuffer
 
-    // Lowpass/bandpass filter with low Q (0.7): soft, round droplet sound without harsh fire snaps
     const filter = this._ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(dropFreq, time)
-    filter.Q.setValueAtTime(0.7, time)
+    const dropDuration = 0.018 * size
+
+    if (surface === 'puddle') {
+      // Andy Farnell Ch. 34: Rain on water / micro-cavity Minnaert upward chirp
+      filter.type = 'bandpass'
+      filter.Q.setValueAtTime(3.8, time)
+      filter.frequency.setValueAtTime(dropFreq, time)
+      if (typeof filter.frequency.exponentialRampToValueAtTime === 'function') {
+        filter.frequency.exponentialRampToValueAtTime(dropFreq * 1.35, time + dropDuration)
+      }
+    } else if (surface === 'roof') {
+      // Hard surface / metallic ping
+      filter.type = 'bandpass'
+      filter.Q.setValueAtTime(2.2, time)
+      filter.frequency.setValueAtTime(dropFreq * 1.4, time)
+    } else {
+      // Foliage / soft soil: lowpass damped tap
+      filter.type = 'lowpass'
+      filter.Q.setValueAtTime(0.7, time)
+      filter.frequency.setValueAtTime(dropFreq, time)
+    }
 
     // Smooth amplitude envelope with 3ms soft attack and gentle decay
     const dropGain = this._ctx.createGain()
     const peakGain = (0.02 + Math.random() * 0.02) * Math.min(1.2, size)
-    const dropDuration = 0.018 * size
 
     dropGain.gain.setValueAtTime(0, time)
     dropGain.gain.linearRampToValueAtTime(peakGain, time + 0.003)

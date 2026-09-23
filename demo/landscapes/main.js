@@ -1,7 +1,8 @@
 import { Landscape } from '@web-sonifier/core'
 import { WindSonifier } from '@web-sonifier/wind'
+import { RainSonifier } from '@web-sonifier/rain'
+import { OceanSonifier } from '@web-sonifier/ocean'
 import { ChimeSonifier } from '@web-sonifier/chime'
-import { BubbleSonifier } from '@web-sonifier/bubble'
 
 // ---------------------------------------------------------------------------
 // State & Instances
@@ -10,13 +11,14 @@ import { BubbleSonifier } from '@web-sonifier/bubble'
 export const landscape = new Landscape()
 
 let windInstance = null
+let rainInstance = null
+let oceanInstance = null
 let chimeInstance = null
-let bubbleInstance = null
 let isPlaying = false
 
-// Soundstage visualizer animation frame
+// Visualizer state
 let animFrameId = null
-const pulses = [] // Array<{ x, y, radius, maxRadius, color, alpha }>
+const pulses = []
 
 // ---------------------------------------------------------------------------
 // DOM Elements
@@ -26,6 +28,7 @@ const btnPlay = document.getElementById('btn-play')
 const btnStop = document.getElementById('btn-stop')
 const statusEl = document.getElementById('landscape-status')
 
+// Space Controls
 const masterVolSlider = document.getElementById('master-volume')
 const masterVolDisp = document.getElementById('val-master-vol')
 const reverbDecaySlider = document.getElementById('reverb-decay')
@@ -36,19 +39,49 @@ const spaceWarmthSlider = document.getElementById('space-warmth')
 const spaceWarmthDisp = document.getElementById('val-space-warmth')
 
 // Wind Elements
+const windVolSlider = document.getElementById('wind-volume')
+const windVolDisp = document.getElementById('disp-wind-volume')
+const windPanSlider = document.getElementById('wind-pan')
+const windPanDisp = document.getElementById('disp-wind-pan')
 const windSpeedSlider = document.getElementById('wind-speed')
 const windSpeedDisp = document.getElementById('disp-wind-speed')
 const windTurbulenceSlider = document.getElementById('wind-turbulence')
 const windTurbulenceDisp = document.getElementById('disp-wind-turbulence')
 const windCavitySlider = document.getElementById('wind-cavity')
 const windCavityDisp = document.getElementById('disp-wind-cavity')
-const windPanSlider = document.getElementById('wind-pan')
-const windPanDisp = document.getElementById('disp-wind-pan')
-const windGainSlider = document.getElementById('wind-gain')
-const windReverbSlider = document.getElementById('wind-reverb')
-const windMixDisp = document.getElementById('disp-wind-mix')
+
+// Rain Elements
+const rainVolSlider = document.getElementById('rain-volume')
+const rainVolDisp = document.getElementById('disp-rain-volume')
+const rainPanSlider = document.getElementById('rain-pan')
+const rainPanDisp = document.getElementById('disp-rain-pan')
+const rainIntensitySlider = document.getElementById('rain-intensity')
+const rainIntensityDisp = document.getElementById('disp-rain-intensity')
+const rainSurfaceSelect = document.getElementById('rain-surface')
+const rainPitchSlider = document.getElementById('rain-pitch')
+const rainPitchDisp = document.getElementById('disp-rain-pitch')
+const rainSizeSlider = document.getElementById('rain-size')
+const rainSizeDisp = document.getElementById('disp-rain-size')
+
+// Ocean Elements
+const oceanVolSlider = document.getElementById('ocean-volume')
+const oceanVolDisp = document.getElementById('disp-ocean-volume')
+const oceanPanSlider = document.getElementById('ocean-pan')
+const oceanPanDisp = document.getElementById('disp-ocean-pan')
+const oceanIntensitySlider = document.getElementById('ocean-intensity')
+const oceanIntensityDisp = document.getElementById('disp-ocean-intensity')
+const oceanPeriodSlider = document.getElementById('ocean-period')
+const oceanPeriodDisp = document.getElementById('disp-ocean-period')
+const oceanFoamSlider = document.getElementById('ocean-foam')
+const oceanFoamDisp = document.getElementById('disp-ocean-foam')
+const oceanPitchSlider = document.getElementById('ocean-pitch')
+const oceanPitchDisp = document.getElementById('disp-ocean-pitch')
 
 // Chime Elements
+const chimeVolSlider = document.getElementById('chime-volume')
+const chimeVolDisp = document.getElementById('disp-chime-volume')
+const chimePanSlider = document.getElementById('chime-pan')
+const chimePanDisp = document.getElementById('disp-chime-pan')
 const chimeCoupledCheck = document.getElementById('chime-wind-coupled')
 const btnStrikeChime = document.getElementById('btn-strike-chime')
 const chimeMaterialSelect = document.getElementById('chime-material')
@@ -56,34 +89,14 @@ const chimePitchSlider = document.getElementById('chime-pitch')
 const chimePitchDisp = document.getElementById('disp-chime-pitch')
 const chimeDampingSlider = document.getElementById('chime-damping')
 const chimeDampingDisp = document.getElementById('disp-chime-damping')
-const chimePanSlider = document.getElementById('chime-pan')
-const chimePanDisp = document.getElementById('disp-chime-pan')
-const chimeGainSlider = document.getElementById('chime-gain')
-const chimeReverbSlider = document.getElementById('chime-reverb')
-const chimeMixDisp = document.getElementById('disp-chime-mix')
 
-// Bubble Elements
-const bubbleRateSlider = document.getElementById('bubble-rate')
-const bubbleRateDisp = document.getElementById('disp-bubble-rate')
-const btnTriggerBubble = document.getElementById('btn-trigger-bubble')
-const bubbleRadiusSlider = document.getElementById('bubble-radius')
-const bubbleRadiusDisp = document.getElementById('disp-bubble-radius')
-const bubbleDepthSlider = document.getElementById('bubble-depth')
-const bubbleDepthDisp = document.getElementById('disp-bubble-depth')
-const bubbleViscositySlider = document.getElementById('bubble-viscosity')
-const bubbleViscosityDisp = document.getElementById('disp-bubble-viscosity')
-const bubblePanSlider = document.getElementById('bubble-pan')
-const bubblePanDisp = document.getElementById('disp-bubble-pan')
-const bubbleGainSlider = document.getElementById('bubble-gain')
-const bubbleReverbSlider = document.getElementById('bubble-reverb')
-const bubbleMixDisp = document.getElementById('disp-bubble-mix')
-
-// Presets Buttons
+// Presets
+const presetRainBtn = document.getElementById('preset-rain')
+const presetPacificBtn = document.getElementById('preset-pacific')
+const presetStormBtn = document.getElementById('preset-storm')
 const presetAlpineBtn = document.getElementById('preset-alpine')
-const presetCoastalBtn = document.getElementById('preset-coastal')
-const presetCavernBtn = document.getElementById('preset-cavern')
 
-// Soundstage Canvas
+// Canvas
 const canvas = document.getElementById('soundstage-canvas')
 const ctx2d = canvas ? canvas.getContext('2d') : null
 
@@ -97,27 +110,36 @@ export async function playLandscape() {
   if (!windInstance) {
     windInstance = new WindSonifier()
     landscape.addObject('wind', windInstance, {
-      gain: parseFloat(windGainSlider?.value || 0.7),
+      gain: parseFloat(windVolSlider?.value || 0.70),
       pan: parseFloat(windPanSlider?.value || 0.0),
-      reverbSend: parseFloat(windReverbSlider?.value || 0.2)
+      reverbSend: 0.25
+    })
+  }
+
+  if (!rainInstance) {
+    rainInstance = new RainSonifier()
+    landscape.addObject('rain', rainInstance, {
+      gain: parseFloat(rainVolSlider?.value || 0.65),
+      pan: parseFloat(rainPanSlider?.value || -0.30),
+      reverbSend: 0.35
+    })
+  }
+
+  if (!oceanInstance) {
+    oceanInstance = new OceanSonifier()
+    landscape.addObject('ocean', oceanInstance, {
+      gain: parseFloat(oceanVolSlider?.value || 0.55),
+      pan: parseFloat(oceanPanSlider?.value || 0.25),
+      reverbSend: 0.30
     })
   }
 
   if (!chimeInstance) {
     chimeInstance = new ChimeSonifier()
     landscape.addObject('chimes', chimeInstance, {
-      gain: parseFloat(chimeGainSlider?.value || 0.75),
-      pan: parseFloat(chimePanSlider?.value || 0.35),
-      reverbSend: parseFloat(chimeReverbSlider?.value || 0.45)
-    })
-  }
-
-  if (!bubbleInstance) {
-    bubbleInstance = new BubbleSonifier()
-    landscape.addObject('bubbles', bubbleInstance, {
-      gain: parseFloat(bubbleGainSlider?.value || 0.65),
-      pan: parseFloat(bubblePanSlider?.value || -0.40),
-      reverbSend: parseFloat(bubbleReverbSlider?.value || 0.30)
+      gain: parseFloat(chimeVolSlider?.value || 0.75),
+      pan: parseFloat(chimePanSlider?.value || 0.45),
+      reverbSend: 0.45
     })
   }
 
@@ -132,8 +154,9 @@ export async function playLandscape() {
   if (btnStop) btnStop.disabled = false
 
   emitPulse('wind', '#38bdf8')
+  emitPulse('rain', '#60a5fa')
+  emitPulse('ocean', '#06b6d4')
   emitPulse('chimes', '#818cf8')
-  emitPulse('bubbles', '#10b981')
 }
 
 export async function stopLandscape() {
@@ -151,73 +174,83 @@ export async function stopLandscape() {
 export function syncAllParams() {
   if (!isPlaying) return
 
-  // Space
+  // Master Space
   const decay = parseFloat(reverbDecaySlider?.value || 2.5)
   const wet = parseFloat(reverbWetSlider?.value || 0.28)
   const warmth = parseFloat(spaceWarmthSlider?.value || 0.65)
   landscape.setSpace({ decay, wet, warmth })
 
-  // Master Vol
+  // Master Volume
   const masterVol = parseFloat(masterVolSlider?.value || 0.8)
   landscape.setMasterVolume(masterVol)
 
-  // Wind
-  const speed = parseFloat(windSpeedSlider?.value || 35)
-  const turbulence = parseFloat(windTurbulenceSlider?.value || 0.45)
-  const cavity = parseFloat(windCavitySlider?.value || 0.3)
+  // 1. Wind
+  const windGain = parseFloat(windVolSlider?.value || 0.70)
   const windPan = parseFloat(windPanSlider?.value || 0.0)
-  const windGain = parseFloat(windGainSlider?.value || 0.7)
-  const windRev = parseFloat(windReverbSlider?.value || 0.2)
+  const windSpeed = parseFloat(windSpeedSlider?.value || 35)
+  const windTurb = parseFloat(windTurbulenceSlider?.value || 0.45)
+  const windCav = parseFloat(windCavitySlider?.value || 0.30)
 
-  landscape.setParam('wind', 'speed', speed)
-  landscape.setParam('wind', 'turbulence', turbulence)
-  landscape.setParam('wind', 'cavity', cavity)
-  landscape.setParam('wind', 'pan', windPan)
   landscape.setParam('wind', 'gain', windGain)
-  landscape.setParam('wind', 'reverbSend', windRev)
+  landscape.setParam('wind', 'pan', windPan)
+  landscape.setParam('wind', 'speed', windSpeed)
+  landscape.setParam('wind', 'turbulence', windTurb)
+  landscape.setParam('wind', 'cavity', windCav)
 
-  // Chimes
-  const chimePitch = parseFloat(chimePitchSlider?.value || 587)
-  const chimeDamping = parseFloat(chimeDampingSlider?.value || 0.25)
+  // 2. Rain
+  const rainGain = parseFloat(rainVolSlider?.value || 0.65)
+  const rainPan = parseFloat(rainPanSlider?.value || -0.30)
+  const rainInt = parseFloat(rainIntensitySlider?.value || 120)
+  const rainSurf = rainSurfaceSelect?.value || 'puddle'
+  const rainPitch = parseFloat(rainPitchSlider?.value || 1400)
+  const rainSize = parseFloat(rainSizeSlider?.value || 1.0)
+
+  landscape.setParam('rain', 'gain', rainGain)
+  landscape.setParam('rain', 'pan', rainPan)
+  landscape.setParam('rain', 'intensity', rainInt)
+  landscape.setParam('rain', 'surface', rainSurf)
+  landscape.setParam('rain', 'pitch', rainPitch)
+  landscape.setParam('rain', 'dropletSize', rainSize)
+
+  // 3. Ocean
+  const oceanGain = parseFloat(oceanVolSlider?.value || 0.55)
+  const oceanPan = parseFloat(oceanPanSlider?.value || 0.25)
+  const oceanInt = parseFloat(oceanIntensitySlider?.value || 60)
+  const oceanPer = parseFloat(oceanPeriodSlider?.value || 8.5)
+  const oceanFoam = parseFloat(oceanFoamSlider?.value || 0.55)
+  const oceanPitch = parseFloat(oceanPitchSlider?.value || 480)
+
+  landscape.setParam('ocean', 'gain', oceanGain)
+  landscape.setParam('ocean', 'pan', oceanPan)
+  landscape.setParam('ocean', 'intensity', oceanInt)
+  landscape.setParam('ocean', 'swellPeriod', oceanPer)
+  landscape.setParam('ocean', 'foam', oceanFoam)
+  landscape.setParam('ocean', 'pitch', oceanPitch)
+
+  // 4. Chimes
+  const chimeGain = parseFloat(chimeVolSlider?.value || 0.75)
+  const chimePan = parseFloat(chimePanSlider?.value || 0.45)
+  const chimeCoupled = chimeCoupledCheck ? chimeCoupledCheck.checked : true
   const chimeMat = chimeMaterialSelect?.value || 'aluminum'
-  const chimePan = parseFloat(chimePanSlider?.value || 0.35)
-  const chimeGain = parseFloat(chimeGainSlider?.value || 0.75)
-  const chimeRev = parseFloat(chimeReverbSlider?.value || 0.45)
-  const chimeWindCoupled = chimeCoupledCheck ? chimeCoupledCheck.checked : true
+  const chimePitch = parseFloat(chimePitchSlider?.value || 587)
+  const chimeDamp = parseFloat(chimeDampingSlider?.value || 0.25)
 
-  landscape.setParam('chimes', 'pitch', chimePitch)
-  landscape.setParam('chimes', 'damping', chimeDamping)
-  landscape.setParam('chimes', 'material', chimeMat)
-  landscape.setParam('chimes', 'pan', chimePan)
   landscape.setParam('chimes', 'gain', chimeGain)
-  landscape.setParam('chimes', 'reverbSend', chimeRev)
-  landscape.setParam('chimes', 'windSpeed', chimeWindCoupled ? speed * 0.8 : 0)
-
-  // Bubbles
-  const bubbleRate = parseFloat(bubbleRateSlider?.value || 6)
-  const bubbleRad = parseFloat(bubbleRadiusSlider?.value || 0.004)
-  const bubbleDepth = parseFloat(bubbleDepthSlider?.value || 0.12)
-  const bubbleVisc = parseFloat(bubbleViscositySlider?.value || 0.35)
-  const bubblePan = parseFloat(bubblePanSlider?.value || -0.40)
-  const bubbleGain = parseFloat(bubbleGainSlider?.value || 0.65)
-  const bubbleRev = parseFloat(bubbleReverbSlider?.value || 0.30)
-
-  landscape.setParam('bubbles', 'rate', bubbleRate)
-  landscape.setParam('bubbles', 'radius', bubbleRad)
-  landscape.setParam('bubbles', 'depth', bubbleDepth)
-  landscape.setParam('bubbles', 'viscosity', bubbleVisc)
-  landscape.setParam('bubbles', 'pan', bubblePan)
-  landscape.setParam('bubbles', 'gain', bubbleGain)
-  landscape.setParam('bubbles', 'reverbSend', bubbleRev)
+  landscape.setParam('chimes', 'pan', chimePan)
+  landscape.setParam('chimes', 'material', chimeMat)
+  landscape.setParam('chimes', 'pitch', chimePitch)
+  landscape.setParam('chimes', 'damping', chimeDamp)
+  landscape.setParam('chimes', 'windSpeed', chimeCoupled ? windSpeed * 0.8 : 0)
 }
 
 // ---------------------------------------------------------------------------
-// Event Listeners & Sliders
+// Event Listeners
 // ---------------------------------------------------------------------------
 
 if (btnPlay) btnPlay.addEventListener('click', playLandscape)
 if (btnStop) btnStop.addEventListener('click', stopLandscape)
 
+// Master Sliders
 if (masterVolSlider) {
   masterVolSlider.addEventListener('input', e => {
     const val = parseFloat(e.target.value)
@@ -250,7 +283,23 @@ if (spaceWarmthSlider) {
   })
 }
 
-// Wind Sliders
+// 1. Wind Sliders
+if (windVolSlider) {
+  windVolSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (windVolDisp) windVolDisp.textContent = `${Math.round(val * 100)}%`
+    landscape.setParam('wind', 'gain', val)
+  })
+}
+
+if (windPanSlider) {
+  windPanSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (windPanDisp) windPanDisp.textContent = formatPan(val)
+    landscape.setParam('wind', 'pan', val)
+  })
+}
+
 if (windSpeedSlider) {
   windSpeedSlider.addEventListener('input', e => {
     const v = parseFloat(e.target.value)
@@ -279,25 +328,121 @@ if (windCavitySlider) {
   })
 }
 
-if (windPanSlider) {
-  windPanSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (windPanDisp) windPanDisp.textContent = formatPan(v)
-    landscape.setParam('wind', 'pan', v)
+// 2. Rain Sliders
+if (rainVolSlider) {
+  rainVolSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (rainVolDisp) rainVolDisp.textContent = `${Math.round(val * 100)}%`
+    landscape.setParam('rain', 'gain', val)
   })
 }
 
-function updateWindMix() {
-  const g = parseFloat(windGainSlider?.value || 0.7)
-  const r = parseFloat(windReverbSlider?.value || 0.2)
-  if (windMixDisp) windMixDisp.textContent = `Vol ${Math.round(g * 100)}% • Rev ${Math.round(r * 100)}%`
-  landscape.setParam('wind', 'gain', g)
-  landscape.setParam('wind', 'reverbSend', r)
+if (rainPanSlider) {
+  rainPanSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (rainPanDisp) rainPanDisp.textContent = formatPan(val)
+    landscape.setParam('rain', 'pan', val)
+  })
 }
-if (windGainSlider) windGainSlider.addEventListener('input', updateWindMix)
-if (windReverbSlider) windReverbSlider.addEventListener('input', updateWindMix)
 
-// Chime Controls
+if (rainIntensitySlider) {
+  rainIntensitySlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (rainIntensityDisp) rainIntensityDisp.textContent = `${v} drops/s`
+    landscape.setParam('rain', 'intensity', v)
+    if (v > 0) emitPulse('rain', '#60a5fa')
+  })
+}
+
+if (rainSurfaceSelect) {
+  rainSurfaceSelect.addEventListener('change', e => {
+    landscape.setParam('rain', 'surface', e.target.value)
+  })
+}
+
+if (rainPitchSlider) {
+  rainPitchSlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (rainPitchDisp) rainPitchDisp.textContent = `${v} Hz`
+    landscape.setParam('rain', 'pitch', v)
+  })
+}
+
+if (rainSizeSlider) {
+  rainSizeSlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (rainSizeDisp) rainSizeDisp.textContent = `${v.toFixed(1)}x`
+    landscape.setParam('rain', 'dropletSize', v)
+  })
+}
+
+// 3. Ocean Sliders
+if (oceanVolSlider) {
+  oceanVolSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (oceanVolDisp) oceanVolDisp.textContent = `${Math.round(val * 100)}%`
+    landscape.setParam('ocean', 'gain', val)
+  })
+}
+
+if (oceanPanSlider) {
+  oceanPanSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (oceanPanDisp) oceanPanDisp.textContent = formatPan(val)
+    landscape.setParam('ocean', 'pan', val)
+  })
+}
+
+if (oceanIntensitySlider) {
+  oceanIntensitySlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (oceanIntensityDisp) oceanIntensityDisp.textContent = `${v}%`
+    landscape.setParam('ocean', 'intensity', v)
+    emitPulse('ocean', '#06b6d4')
+  })
+}
+
+if (oceanPeriodSlider) {
+  oceanPeriodSlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (oceanPeriodDisp) oceanPeriodDisp.textContent = `${v.toFixed(1)}s`
+    landscape.setParam('ocean', 'swellPeriod', v)
+  })
+}
+
+if (oceanFoamSlider) {
+  oceanFoamSlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (oceanFoamDisp) oceanFoamDisp.textContent = v.toFixed(2)
+    landscape.setParam('ocean', 'foam', v)
+  })
+}
+
+if (oceanPitchSlider) {
+  oceanPitchSlider.addEventListener('input', e => {
+    const v = parseFloat(e.target.value)
+    if (oceanPitchDisp) oceanPitchDisp.textContent = `${v} Hz`
+    landscape.setParam('ocean', 'pitch', v)
+  })
+}
+
+// 4. Chime Sliders
+if (chimeVolSlider) {
+  chimeVolSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (chimeVolDisp) chimeVolDisp.textContent = `${Math.round(val * 100)}%`
+    landscape.setParam('chimes', 'gain', val)
+  })
+}
+
+if (chimePanSlider) {
+  chimePanSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (chimePanDisp) chimePanDisp.textContent = formatPan(val)
+    landscape.setParam('chimes', 'pan', val)
+  })
+}
+
 if (chimeCoupledCheck) {
   chimeCoupledCheck.addEventListener('change', e => {
     const coupled = e.target.checked
@@ -336,84 +481,6 @@ if (chimeDampingSlider) {
   })
 }
 
-if (chimePanSlider) {
-  chimePanSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (chimePanDisp) chimePanDisp.textContent = formatPan(v)
-    landscape.setParam('chimes', 'pan', v)
-  })
-}
-
-function updateChimeMix() {
-  const g = parseFloat(chimeGainSlider?.value || 0.75)
-  const r = parseFloat(chimeReverbSlider?.value || 0.45)
-  if (chimeMixDisp) chimeMixDisp.textContent = `Vol ${Math.round(g * 100)}% • Rev ${Math.round(r * 100)}%`
-  landscape.setParam('chimes', 'gain', g)
-  landscape.setParam('chimes', 'reverbSend', r)
-}
-if (chimeGainSlider) chimeGainSlider.addEventListener('input', updateChimeMix)
-if (chimeReverbSlider) chimeReverbSlider.addEventListener('input', updateChimeMix)
-
-// Bubble Controls
-if (bubbleRateSlider) {
-  bubbleRateSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (bubbleRateDisp) bubbleRateDisp.textContent = `${v} drops/s`
-    landscape.setParam('bubbles', 'rate', v)
-    if (v > 0) emitPulse('bubbles', '#10b981')
-  })
-}
-
-if (btnTriggerBubble) {
-  btnTriggerBubble.addEventListener('click', async () => {
-    if (!isPlaying) await playLandscape()
-    landscape.trigger('bubbles', 'triggerBubble', { energy: 0.9 })
-    emitPulse('bubbles', '#10b981', 50)
-  })
-}
-
-if (bubbleRadiusSlider) {
-  bubbleRadiusSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (bubbleRadiusDisp) bubbleRadiusDisp.textContent = `${(v * 1000).toFixed(1)} mm`
-    landscape.setParam('bubbles', 'radius', v)
-  })
-}
-
-if (bubbleDepthSlider) {
-  bubbleDepthSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (bubbleDepthDisp) bubbleDepthDisp.textContent = `${v.toFixed(2)} m`
-    landscape.setParam('bubbles', 'depth', v)
-  })
-}
-
-if (bubbleViscositySlider) {
-  bubbleViscositySlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (bubbleViscosityDisp) bubbleViscosityDisp.textContent = v.toFixed(2)
-    landscape.setParam('bubbles', 'viscosity', v)
-  })
-}
-
-if (bubblePanSlider) {
-  bubblePanSlider.addEventListener('input', e => {
-    const v = parseFloat(e.target.value)
-    if (bubblePanDisp) bubblePanDisp.textContent = formatPan(v)
-    landscape.setParam('bubbles', 'pan', v)
-  })
-}
-
-function updateBubbleMix() {
-  const g = parseFloat(bubbleGainSlider?.value || 0.65)
-  const r = parseFloat(bubbleReverbSlider?.value || 0.30)
-  if (bubbleMixDisp) bubbleMixDisp.textContent = `Vol ${Math.round(g * 100)}% • Rev ${Math.round(r * 100)}%`
-  landscape.setParam('bubbles', 'gain', g)
-  landscape.setParam('bubbles', 'reverbSend', r)
-}
-if (bubbleGainSlider) bubbleGainSlider.addEventListener('input', updateBubbleMix)
-if (bubbleReverbSlider) bubbleReverbSlider.addEventListener('input', updateBubbleMix)
-
 function formatPan(val) {
   if (Math.abs(val) < 0.04) return 'Center (0.0)'
   if (val < 0) return `Left (${val.toFixed(2)})`
@@ -425,82 +492,137 @@ function formatPan(val) {
 // ---------------------------------------------------------------------------
 
 function clearActivePresetButtons() {
+  presetRainBtn?.classList.remove('active')
+  presetPacificBtn?.classList.remove('active')
+  presetStormBtn?.classList.remove('active')
   presetAlpineBtn?.classList.remove('active')
-  presetCoastalBtn?.classList.remove('active')
-  presetCavernBtn?.classList.remove('active')
 }
 
 export function applyPreset(name) {
   clearActivePresetButtons()
 
-  if (name === 'alpine') {
+  if (name === 'rain') {
+    presetRainBtn?.classList.add('active')
+    setSlider(reverbDecaySlider, 2.6, reverbDecayDisp, '2.6s')
+    setSlider(reverbWetSlider, 0.32, reverbWetDisp, '32%')
+    setSlider(spaceWarmthSlider, 0.65, spaceWarmthDisp, '65%')
+
+    // Rain focus
+    setSlider(rainVolSlider, 0.80, rainVolDisp, '80%')
+    setSlider(rainIntensitySlider, 140, rainIntensityDisp, '140 drops/s')
+    if (rainSurfaceSelect) rainSurfaceSelect.value = 'puddle'
+    setSlider(rainPitchSlider, 1300, rainPitchDisp, '1300 Hz')
+    setSlider(rainPanSlider, -0.30, rainPanDisp, 'Left (-0.30)')
+
+    // Gentle wind
+    setSlider(windVolSlider, 0.40, windVolDisp, '40%')
+    setSlider(windSpeedSlider, 18, windSpeedDisp, '18 km/h')
+    setSlider(windTurbulenceSlider, 0.30, windTurbulenceDisp, '0.30')
+    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (0.0)')
+
+    // Soft singing chimes
+    setSlider(chimeVolSlider, 0.65, chimeVolDisp, '65%')
+    if (chimeMaterialSelect) chimeMaterialSelect.value = 'aluminum'
+    setSlider(chimePitchSlider, 587, chimePitchDisp, '587 Hz')
+    setSlider(chimeDampingSlider, 0.22, chimeDampingDisp, '0.22')
+    setSlider(chimePanSlider, 0.40, chimePanDisp, 'Right (+0.40)')
+    if (chimeCoupledCheck) chimeCoupledCheck.checked = true
+
+    // Ocean muted
+    setSlider(oceanVolSlider, 0.0, oceanVolDisp, '0%')
+
+  } else if (name === 'pacific') {
+    presetPacificBtn?.classList.add('active')
+    setSlider(reverbDecaySlider, 3.2, reverbDecayDisp, '3.2s')
+    setSlider(reverbWetSlider, 0.30, reverbWetDisp, '30%')
+    setSlider(spaceWarmthSlider, 0.50, spaceWarmthDisp, '50%')
+
+    // Ocean focus
+    setSlider(oceanVolSlider, 0.85, oceanVolDisp, '85%')
+    setSlider(oceanIntensitySlider, 75, oceanIntensityDisp, '75%')
+    setSlider(oceanPeriodSlider, 9.0, oceanPeriodDisp, '9.0s')
+    setSlider(oceanFoamSlider, 0.60, oceanFoamDisp, '0.60')
+    setSlider(oceanPitchSlider, 450, oceanPitchDisp, '450 Hz')
+    setSlider(oceanPanSlider, 0.20, oceanPanDisp, 'Right (+0.20)')
+
+    // Coastal breeze
+    setSlider(windVolSlider, 0.60, windVolDisp, '60%')
+    setSlider(windSpeedSlider, 32, windSpeedDisp, '32 km/h')
+    setSlider(windTurbulenceSlider, 0.40, windTurbulenceDisp, '0.40')
+    setSlider(windPanSlider, -0.20, windPanDisp, 'Left (-0.20)')
+
+    // Distant chimes
+    setSlider(chimeVolSlider, 0.45, chimeVolDisp, '45%')
+    if (chimeMaterialSelect) chimeMaterialSelect.value = 'bronze'
+    setSlider(chimePitchSlider, 523, chimePitchDisp, '523 Hz')
+    setSlider(chimeDampingSlider, 0.35, chimeDampingDisp, '0.35')
+    setSlider(chimePanSlider, 0.55, chimePanDisp, 'Right (+0.55)')
+
+    // Light sea mist rain
+    setSlider(rainVolSlider, 0.25, rainVolDisp, '25%')
+    setSlider(rainIntensitySlider, 40, rainIntensityDisp, '40 drops/s')
+
+  } else if (name === 'storm') {
+    presetStormBtn?.classList.add('active')
+    setSlider(reverbDecaySlider, 4.5, reverbDecayDisp, '4.5s')
+    setSlider(reverbWetSlider, 0.40, reverbWetDisp, '40%')
+    setSlider(spaceWarmthSlider, 0.70, spaceWarmthDisp, '70%')
+
+    // Torrential rain
+    setSlider(rainVolSlider, 0.90, rainVolDisp, '90%')
+    setSlider(rainIntensitySlider, 320, rainIntensityDisp, '320 drops/s')
+    if (rainSurfaceSelect) rainSurfaceSelect.value = 'roof'
+    setSlider(rainPitchSlider, 1600, rainPitchDisp, '1600 Hz')
+    setSlider(rainPanSlider, -0.40, rainPanDisp, 'Left (-0.40)')
+
+    // Howling gale
+    setSlider(windVolSlider, 0.85, windVolDisp, '85%')
+    setSlider(windSpeedSlider, 68, windSpeedDisp, '68 km/h')
+    setSlider(windTurbulenceSlider, 0.75, windTurbulenceDisp, '0.75')
+    setSlider(windCavitySlider, 0.60, windCavityDisp, '0.60')
+    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (0.0)')
+
+    // Distant turbulent surf
+    setSlider(oceanVolSlider, 0.50, oceanVolDisp, '50%')
+    setSlider(oceanIntensitySlider, 80, oceanIntensityDisp, '80%')
+    setSlider(oceanPeriodSlider, 6.0, oceanPeriodDisp, '6.0s')
+
+    // Clattering chimes
+    setSlider(chimeVolSlider, 0.80, chimeVolDisp, '80%')
+    if (chimeMaterialSelect) chimeMaterialSelect.value = 'steel'
+    setSlider(chimePitchSlider, 659, chimePitchDisp, '659 Hz')
+    setSlider(chimeDampingSlider, 0.18, chimeDampingDisp, '0.18')
+    setSlider(chimePanSlider, 0.45, chimePanDisp, 'Right (+0.45)')
+
+  } else if (name === 'alpine') {
     presetAlpineBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 3.8, reverbDecayDisp, '3.8s')
+    setSlider(reverbDecaySlider, 4.2, reverbDecayDisp, '4.2s')
     setSlider(reverbWetSlider, 0.35, reverbWetDisp, '35%')
     setSlider(spaceWarmthSlider, 0.75, spaceWarmthDisp, '75%')
 
-    setSlider(windSpeedSlider, 48, windSpeedDisp, '48 km/h')
-    setSlider(windTurbulenceSlider, 0.65, windTurbulenceDisp, '0.65')
-    setSlider(windCavitySlider, 0.40, windCavityDisp, '0.40')
+    // Mountain wind
+    setSlider(windVolSlider, 0.75, windVolDisp, '75%')
+    setSlider(windSpeedSlider, 45, windSpeedDisp, '45 km/h')
+    setSlider(windTurbulenceSlider, 0.60, windTurbulenceDisp, '0.60')
+    setSlider(windCavitySlider, 0.45, windCavityDisp, '0.45')
     setSlider(windPanSlider, 0.0, windPanDisp, 'Center (0.0)')
 
+    // High ringing aluminum chimes
+    setSlider(chimeVolSlider, 0.85, chimeVolDisp, '85%')
     if (chimeMaterialSelect) chimeMaterialSelect.value = 'aluminum'
     setSlider(chimePitchSlider, 659, chimePitchDisp, '659 Hz')
     setSlider(chimeDampingSlider, 0.20, chimeDampingDisp, '0.20')
-    setSlider(chimePanSlider, 0.45, chimePanDisp, 'Right (+0.45)')
-    if (chimeCoupledCheck) chimeCoupledCheck.checked = true
+    setSlider(chimePanSlider, 0.40, chimePanDisp, 'Right (+0.40)')
 
-    setSlider(bubbleRateSlider, 0.0, bubbleRateDisp, '0 drops/s')
-    setSlider(bubbleRadiusSlider, 0.003, bubbleRadiusDisp, '3.0 mm')
-    setSlider(bubblePanSlider, -0.45, bubblePanDisp, 'Left (-0.45)')
-  } else if (name === 'coastal') {
-    presetCoastalBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 2.4, reverbDecayDisp, '2.4s')
-    setSlider(reverbWetSlider, 0.25, reverbWetDisp, '25%')
-    setSlider(spaceWarmthSlider, 0.50, spaceWarmthDisp, '50%')
+    // Soft alpine drizzle
+    setSlider(rainVolSlider, 0.35, rainVolDisp, '35%')
+    setSlider(rainIntensitySlider, 35, rainIntensityDisp, '35 drops/s')
+    if (rainSurfaceSelect) rainSurfaceSelect.value = 'foliage'
 
-    setSlider(windSpeedSlider, 22, windSpeedDisp, '22 km/h')
-    setSlider(windTurbulenceSlider, 0.30, windTurbulenceDisp, '0.30')
-    setSlider(windCavitySlider, 0.15, windCavityDisp, '0.15')
-    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (0.0)')
-
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'bronze'
-    setSlider(chimePitchSlider, 587, chimePitchDisp, '587 Hz')
-    setSlider(chimeDampingSlider, 0.35, chimeDampingDisp, '0.35')
-    setSlider(chimePanSlider, 0.30, chimePanDisp, 'Right (+0.30)')
-    if (chimeCoupledCheck) chimeCoupledCheck.checked = true
-
-    setSlider(bubbleRateSlider, 9.0, bubbleRateDisp, '9 drops/s')
-    setSlider(bubbleRadiusSlider, 0.005, bubbleRadiusDisp, '5.0 mm')
-    setSlider(bubbleDepthSlider, 0.18, bubbleDepthDisp, '0.18 m')
-    setSlider(bubblePanSlider, -0.40, bubblePanDisp, 'Left (-0.40)')
-  } else if (name === 'cavern') {
-    presetCavernBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 5.5, reverbDecayDisp, '5.5s')
-    setSlider(reverbWetSlider, 0.48, reverbWetDisp, '48%')
-    setSlider(spaceWarmthSlider, 0.85, spaceWarmthDisp, '85%')
-
-    setSlider(windSpeedSlider, 12, windSpeedDisp, '12 km/h')
-    setSlider(windTurbulenceSlider, 0.20, windTurbulenceDisp, '0.20')
-    setSlider(windCavitySlider, 0.85, windCavityDisp, '0.85')
-    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (0.0)')
-
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'steel'
-    setSlider(chimePitchSlider, 440, chimePitchDisp, '440 Hz')
-    setSlider(chimeDampingSlider, 0.15, chimeDampingDisp, '0.15')
-    setSlider(chimePanSlider, 0.55, chimePanDisp, 'Right (+0.55)')
-    if (chimeCoupledCheck) chimeCoupledCheck.checked = false
-
-    setSlider(bubbleRateSlider, 14.0, bubbleRateDisp, '14 drops/s')
-    setSlider(bubbleRadiusSlider, 0.008, bubbleRadiusDisp, '8.0 mm')
-    setSlider(bubbleDepthSlider, 0.45, bubbleDepthDisp, '0.45 m')
-    setSlider(bubbleViscositySlider, 0.55, bubbleViscosityDisp, '0.55')
-    setSlider(bubblePanSlider, -0.50, bubblePanDisp, 'Left (-0.50)')
+    // Ocean off
+    setSlider(oceanVolSlider, 0.0, oceanVolDisp, '0%')
   }
 
-  updateWindMix()
-  updateChimeMix()
-  updateBubbleMix()
   syncAllParams()
 }
 
@@ -510,9 +632,10 @@ function setSlider(el, val, dispEl, dispText) {
   if (dispEl && dispText) dispEl.textContent = dispText
 }
 
+if (presetRainBtn) presetRainBtn.addEventListener('click', () => applyPreset('rain'))
+if (presetPacificBtn) presetPacificBtn.addEventListener('click', () => applyPreset('pacific'))
+if (presetStormBtn) presetStormBtn.addEventListener('click', () => applyPreset('storm'))
 if (presetAlpineBtn) presetAlpineBtn.addEventListener('click', () => applyPreset('alpine'))
-if (presetCoastalBtn) presetCoastalBtn.addEventListener('click', () => applyPreset('coastal'))
-if (presetCavernBtn) presetCavernBtn.addEventListener('click', () => applyPreset('cavern'))
 
 // ---------------------------------------------------------------------------
 // 2D Soundstage Visualizer Radar
@@ -537,15 +660,19 @@ function getObjectCoordinates(id, w, h) {
   const centerX = w / 2
   if (id === 'wind') {
     const pan = parseFloat(windPanSlider?.value || 0.0)
-    return { x: centerX + pan * (w * 0.4), y: h * 0.32, label: '🌬️ Wind' }
+    return { x: centerX + pan * (w * 0.4), y: h * 0.28, label: '🌬️ Wind' }
+  }
+  if (id === 'rain') {
+    const pan = parseFloat(rainPanSlider?.value || -0.30)
+    return { x: centerX + pan * (w * 0.4), y: h * 0.42, label: '🌧️ Rain' }
+  }
+  if (id === 'ocean') {
+    const pan = parseFloat(oceanPanSlider?.value || 0.25)
+    return { x: centerX + pan * (w * 0.4), y: h * 0.44, label: '🌊 Ocean' }
   }
   if (id === 'chimes') {
-    const pan = parseFloat(chimePanSlider?.value || 0.35)
-    return { x: centerX + pan * (w * 0.4), y: h * 0.45, label: '🎐 Chimes' }
-  }
-  if (id === 'bubbles') {
-    const pan = parseFloat(bubblePanSlider?.value || -0.40)
-    return { x: centerX + pan * (w * 0.4), y: h * 0.48, label: '🫧 Bubbles' }
+    const pan = parseFloat(chimePanSlider?.value || 0.45)
+    return { x: centerX + pan * (w * 0.4), y: h * 0.52, label: '🎐 Chimes' }
   }
   return { x: centerX, y: h * 0.5, label: id }
 }
@@ -615,17 +742,17 @@ function renderSoundstage() {
     }
   }
 
-  // Draw the 3 Sound Objects
+  // Draw the 4 Sound Objects
   const objects = [
     { id: 'wind', color: '#38bdf8' },
-    { id: 'chimes', color: '#818cf8' },
-    { id: 'bubbles', color: '#10b981' }
+    { id: 'rain', color: '#60a5fa' },
+    { id: 'ocean', color: '#06b6d4' },
+    { id: 'chimes', color: '#818cf8' }
   ]
 
   for (const obj of objects) {
     const pos = getObjectCoordinates(obj.id, w, h)
 
-    // Glowing dot
     ctx2d.shadowColor = obj.color
     ctx2d.shadowBlur = isPlaying ? 10 * dpr : 2 * dpr
     ctx2d.fillStyle = obj.color
@@ -634,20 +761,23 @@ function renderSoundstage() {
     ctx2d.fill()
     ctx2d.shadowBlur = 0
 
-    // Label
     ctx2d.fillStyle = '#f8fafc'
     ctx2d.font = `600 ${11 * dpr}px sans-serif`
     ctx2d.textAlign = 'center'
     ctx2d.fillText(pos.label, pos.x, pos.y - 12 * dpr)
   }
 
-  // Continuous gentle bubbling / wind micro-pulses when active
-  if (isPlaying && Math.random() < 0.05) {
-    const bubbleRate = parseFloat(bubbleRateSlider?.value || 0)
-    if (bubbleRate > 0) emitPulse('bubbles', '#10b981', 30)
-  }
-  if (isPlaying && Math.random() < 0.03) {
-    emitPulse('wind', '#38bdf8', 35)
+  // Micro-pulses for active sound components
+  if (isPlaying) {
+    if (Math.random() < 0.03 && parseFloat(windVolSlider?.value || 0) > 0.05) {
+      emitPulse('wind', '#38bdf8', 35)
+    }
+    if (Math.random() < 0.05 && parseFloat(rainVolSlider?.value || 0) > 0.05) {
+      emitPulse('rain', '#60a5fa', 32)
+    }
+    if (Math.random() < 0.02 && parseFloat(oceanVolSlider?.value || 0) > 0.05) {
+      emitPulse('ocean', '#06b6d4', 40)
+    }
   }
 
   animFrameId = requestAnimationFrame(renderSoundstage)
