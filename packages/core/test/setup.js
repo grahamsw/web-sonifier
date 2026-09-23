@@ -44,6 +44,22 @@ export class AudioBufferMock {
   }
 }
 
+export class StereoPannerNodeMock {
+  constructor() {
+    this.pan = new AudioParamMock()
+  }
+  connect() {}
+  disconnect() {}
+}
+
+export class ConvolverNodeMock {
+  constructor() {
+    this.buffer = null
+  }
+  connect() {}
+  disconnect() {}
+}
+
 export class AudioContextMock {
   constructor() {
     this.currentTime = 0
@@ -51,6 +67,8 @@ export class AudioContextMock {
   }
   createGain() { return new GainNodeMock() }
   createOscillator() { return new OscillatorNodeMock() }
+  createStereoPanner() { return new StereoPannerNodeMock() }
+  createConvolver() { return new ConvolverNodeMock() }
   createBuffer(channels, length, sampleRate) {
     return new AudioBufferMock(channels, length, sampleRate)
   }
