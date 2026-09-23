@@ -145,44 +145,57 @@ export async function playLandscape() {
       await landscape._audioContext.resume()
     }
 
-    // 1. Aeolian Wind
+    // 1. Aeolian Wind (Bed Layer, Ambient Ground)
     if (!windInstance) {
       windInstance = new WindSonifier()
       landscape.addObject('wind', windInstance, {
+        layer: 'bed',
         gain: parseFloat(windVolSlider?.value || 0.70),
         pan: parseFloat(windPanSlider?.value || 0.0),
+        distance: 10,
         reverbSend: 0.20
       })
     }
 
-    // 2. Acoustic Rain
+    // 2. Acoustic Rain (Texture Layer, Granular Surface Flux)
     if (!rainInstance) {
       rainInstance = new RainSonifier()
       landscape.addObject('rain', rainInstance, {
+        layer: 'texture',
         gain: parseFloat(rainVolSlider?.value || 0.65),
         pan: parseFloat(rainPanSlider?.value || 0.0),
+        distance: 5,
         reverbSend: 0.25
       })
     }
 
-    // 3. Ocean Surf
+    // 3. Ocean Surf (Bed Layer, Low-frequency Inertial Ground)
     if (!oceanInstance) {
       oceanInstance = new OceanSonifier()
       landscape.addObject('ocean', oceanInstance, {
+        layer: 'bed',
         gain: parseFloat(oceanVolSlider?.value || 0.55),
         pan: parseFloat(oceanPanSlider?.value || 0.25),
+        distance: 16,
         reverbSend: 0.35
       })
     }
 
-    // 4. Modal Wind Chimes
+    // 4. Modal Wind Chimes (Figure Layer, Foreground Transients with Olivocochlear Ducking)
     if (!chimeInstance) {
       chimeInstance = new ChimeSonifier()
       landscape.addObject('chimes', chimeInstance, {
+        layer: 'figure',
         gain: parseFloat(chimeVolSlider?.value || 0.75),
         pan: parseFloat(chimePanSlider?.value || 0.45),
+        distance: 2,
         reverbSend: 0.45
       })
+    }
+
+    // Declarative Inter-Object Coupling (Wind Speed -> Chimes Excitation)
+    if (chimeCoupledCheck && chimeCoupledCheck.checked) {
+      landscape.couple('wind', 'speed', 'chimes', 'windSpeed', { scale: 0.8 })
     }
 
     isPlaying = true
@@ -377,9 +390,6 @@ if (windSpeedSlider) {
     const v = parseFloat(e.target.value)
     if (windSpeedDisp) windSpeedDisp.textContent = `${v} km/h`
     landscape.setParam('wind', 'speed', v)
-    if (chimeCoupledCheck && chimeCoupledCheck.checked) {
-      landscape.setParam('chimes', 'windSpeed', v * 0.8)
-    }
     emitPulse('wind', '#38bdf8')
   })
 }
@@ -543,8 +553,14 @@ if (chimeSpreadSlider) {
 if (chimeCoupledCheck) {
   chimeCoupledCheck.addEventListener('change', e => {
     const coupled = e.target.checked
-    const speed = parseFloat(windSpeedSlider?.value || 35)
-    landscape.setParam('chimes', 'windSpeed', coupled ? speed * 0.8 : 0)
+    if (coupled) {
+      landscape.couple('wind', 'speed', 'chimes', 'windSpeed', { scale: 0.8 })
+      const speed = parseFloat(windSpeedSlider?.value || 35)
+      landscape.setParam('chimes', 'windSpeed', speed * 0.8)
+    } else {
+      landscape.uncouple('wind', 'speed', 'chimes', 'windSpeed')
+      landscape.setParam('chimes', 'windSpeed', 0)
+    }
   })
 }
 
