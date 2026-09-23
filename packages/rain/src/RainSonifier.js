@@ -278,32 +278,25 @@ export class RainSonifier extends SonifierBase {
   _createPuddleBuffer(f0, duration) {
     const sampleRate = this._ctx.sampleRate || 44100
     const frameCount = Math.max(1, Math.floor(sampleRate * duration))
-    const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
-    const data = buffer.getChannelData(0)
-    const tau = duration * 0.30 // ~12ms decay
-    const beta = 0.38 // 38% upward Minnaert frequency chirp
-    const attackFrames = Math.max(1, Math.floor(sampleRate * 0.0015)) // 1.5ms soft attack
+    const noise = new Float32Array(frameCount)
+    const attackFrames = Math.max(1, Math.floor(sampleRate * 0.0008)) // 0.8ms quick fluid onset
+    const tau = 0.013
 
     for (let i = 0; i < frameCount; i++) {
       const t = i / sampleRate
-      // Phase integral for linear upward chirp f(t) = f0 * (1 + beta * (t/duration))
-      const phase = 2 * Math.PI * f0 * (t + (beta / 2) * (t * t / duration))
-      const bubble = Math.sin(phase)
+      const white = Math.random() * 2 - 1
+      const env = (i < attackFrames) ? (i / attackFrames) : Math.exp(-(t - 0.0008) / tau)
+      noise[i] = white * env
+    }
 
-      let env
-      if (i < attackFrames) {
-        env = (i / attackFrames) * Math.exp(-t / tau)
-      } else {
-        env = Math.exp(-t / tau)
-      }
+    // Natural fluid cavity resonance: resonant bandpass filter on noise
+    const bp = this._applyBiquadBP(noise, f0, 4.0, sampleRate)
 
-      // Initial surface tension splash click in first 1.5ms
-      let click = 0
-      if (t < 0.0015) {
-        click = (Math.random() * 2 - 1) * (1 - t / 0.0015) * 0.16
-      }
-
-      data[i] = (bubble + click) * env * 0.85
+    const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < frameCount; i++) {
+      // 75% resonant liquid cavity + 25% wet splash noise
+      data[i] = (bp[i] * 1.6 + noise[i] * 0.22) * 0.85
     }
     return buffer
   }
@@ -311,36 +304,89 @@ export class RainSonifier extends SonifierBase {
   _createRoofBuffer(f0, duration) {
     const sampleRate = this._ctx.sampleRate || 44100
     const frameCount = Math.max(1, Math.floor(sampleRate * duration))
-    const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
-    const data = buffer.getChannelData(0)
-
-    // Thin sheet metal plate inharmonic modes
-    const modes = [
-      { freq: f0 * 1.00, amp: 0.60, tau: 0.035 },
-      { freq: f0 * 1.77, amp: 0.35, tau: 0.024 },
-      { freq: f0 * 2.64, amp: 0.20, tau: 0.016 },
-      { freq: f0 * 3.73, amp: 0.10, tau: 0.009 }
-    ]
+    const noise = new Float32Array(frameCount)
+    const attackFrames = Math.max(1, Math.floor(sampleRate * 0.00025)) // 0.25ms crisp impact
+    const tau = 0.018
 
     for (let i = 0; i < frameCount; i++) {
       const t = i / sampleRate
-      let sample = 0
+      const white = Math.random() * 2 - 1
+      const env = (i < attackFrames) ? (i / attackFrames) : Math.exp(-(t - 0.00025) / tau)
+      noise[i] = white * env
+    }
 
-      // Sharp metallic impact transient in first 0.8ms
-      if (t < 0.0008) {
-        sample += (Math.random() * 2 - 1) * (1 - t / 0.0008) * 0.42
-      }
+    // Highpass filter above 2 kHz: removes low mud, leaves crisp metallic snap
+    const hp = this._applyBiquadHP(noise, 2200, 0.7, sampleRate)
 
-      for (const m of modes) {
-        if (m.freq < sampleRate * 0.48) {
-          sample += m.amp * Math.exp(-t / m.tau) * Math.sin(2 * Math.PI * m.freq * t)
-        }
-      }
+    // Plate inharmonic resonant bands
+    const bp1 = this._applyBiquadBP(hp, f0 * 1.0, 5.5, sampleRate)
+    const bp2 = this._applyBiquadBP(hp, f0 * 1.65, 6.5, sampleRate)
 
-      const microRamp = Math.min(1, i / Math.max(1, sampleRate * 0.0003))
-      data[i] = sample * microRamp * 0.80
+    // Comb reflection (~0.45ms delay for corrugated metal plate reflection)
+    const delaySamples = Math.floor(sampleRate * 0.00045)
+    const buffer = this._ctx.createBuffer(1, frameCount, sampleRate)
+    const data = buffer.getChannelData(0)
+
+    for (let i = 0; i < frameCount; i++) {
+      const delayed = (i >= delaySamples) ? hp[i - delaySamples] : 0
+      data[i] = (hp[i] * 0.35 + bp1[i] * 1.05 + bp2[i] * 0.55 - delayed * 0.30) * 0.80
     }
     return buffer
+  }
+
+  _applyBiquadBP(input, f0, Q, sampleRate) {
+    const safeF0 = Math.max(100, Math.min(sampleRate * 0.45, f0))
+    const safeQ = Math.max(0.5, Q)
+    const w0 = 2 * Math.PI * safeF0 / sampleRate
+    const alpha = Math.sin(w0) / (2 * safeQ)
+    const b0 = alpha
+    const b1 = 0
+    const b2 = -alpha
+    const a0 = 1 + alpha
+    const a1 = -2 * Math.cos(w0)
+    const a2 = 1 - alpha
+
+    const output = new Float32Array(input.length)
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0
+
+    for (let i = 0; i < input.length; i++) {
+      const x0 = input[i]
+      const y0 = (b0 / a0) * x0 + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2
+      output[i] = y0
+      x2 = x1
+      x1 = x0
+      y2 = y1
+      y1 = y0
+    }
+    return output
+  }
+
+  _applyBiquadHP(input, f0, Q, sampleRate) {
+    const safeF0 = Math.max(100, Math.min(sampleRate * 0.45, f0))
+    const safeQ = Math.max(0.5, Q)
+    const w0 = 2 * Math.PI * safeF0 / sampleRate
+    const alpha = Math.sin(w0) / (2 * safeQ)
+    const cosw0 = Math.cos(w0)
+    const b0 = (1 + cosw0) / 2
+    const b1 = -(1 + cosw0)
+    const b2 = (1 + cosw0) / 2
+    const a0 = 1 + alpha
+    const a1 = -2 * cosw0
+    const a2 = 1 - alpha
+
+    const output = new Float32Array(input.length)
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0
+
+    for (let i = 0; i < input.length; i++) {
+      const x0 = input[i]
+      const y0 = (b0 / a0) * x0 + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2
+      output[i] = y0
+      x2 = x1
+      x1 = x0
+      y2 = y1
+      y1 = y0
+    }
+    return output
   }
 
   _createFoliageBuffer(duration) {
