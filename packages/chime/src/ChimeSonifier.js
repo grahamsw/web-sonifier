@@ -65,6 +65,28 @@ export class ChimeSonifier extends SonifierBase {
         group: 'Output',
         label: 'Volume',
         description: 'Master output gain'
+      },
+      {
+        name: 'pan',
+        type: 'number',
+        range: [-1, 1],
+        default: 0.45,
+        unit: 'pan',
+        curve: 'linear',
+        group: 'Acoustic Space',
+        label: 'Stereo Pan',
+        description: 'Stereo azimuth position (-1 left, 0 center, +1 right)'
+      },
+      {
+        name: 'spread',
+        type: 'number',
+        range: [0, 1],
+        default: 0.08,
+        unit: 'norm',
+        curve: 'linear',
+        group: 'Acoustic Space',
+        label: 'Stereo Spread',
+        description: 'Apparent source width / spatial extent (localized point 0.05 to wider cluster)'
       }
     ]
   }
@@ -100,6 +122,12 @@ export class ChimeSonifier extends SonifierBase {
         break
       case 'volume':
         this._chimeModel.setVolume(value)
+        break
+      case 'pan':
+        this._chimeModel.setPan(value)
+        break
+      case 'spread':
+        this._chimeModel.setSpread(value)
         break
     }
   }

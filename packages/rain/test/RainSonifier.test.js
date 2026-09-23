@@ -201,4 +201,40 @@ describe('RainSonifier', () => {
     expect(sonifier._gainNode).toBeNull()
     expect(sonifier._timer).toBeNull()
   })
+
+  it('populates distinct physical variation buffer pools for puddle, roof, and foliage', () => {
+    sonifier.init(mockContext, mockOutput)
+    expect(sonifier._surfaceBuffers).toBeDefined()
+    expect(sonifier._surfaceBuffers.puddle).toHaveLength(6)
+    expect(sonifier._surfaceBuffers.roof).toHaveLength(6)
+    expect(sonifier._surfaceBuffers.foliage).toHaveLength(6)
+  })
+
+  it('supports runtime surface switching and spatial pan/spread parameters', () => {
+    vi.useFakeTimers()
+    sonifier.init(mockContext, mockOutput)
+
+    // Switch surface to roof
+    sonifier.setParam('surface', 'roof')
+    expect(sonifier.getParam('surface')).toBe('roof')
+
+    // Switch surface to foliage
+    sonifier.setParam('surface', 'foliage')
+    expect(sonifier.getParam('surface')).toBe('foliage')
+
+    // Set pan and spread
+    sonifier.setParam('pan', -0.5)
+    expect(sonifier.getParam('pan')).toBe(-0.5)
+
+    sonifier.setParam('spread', 0.3)
+    expect(sonifier.getParam('spread')).toBe(0.3)
+
+    // Schedule droplets with new surface & spatial settings
+    sonifier.setParam('intensity', 80)
+    mockContext.currentTime += 0.2
+    vi.advanceTimersByTime(120)
+
+    expect(mockContext.createStereoPanner).toHaveBeenCalled()
+  })
 })
+
