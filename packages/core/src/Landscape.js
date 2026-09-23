@@ -21,8 +21,15 @@ export class Landscape {
     this._reverbGain = null
     this._convolver = null
 
-    // Map<string, { sonifier, channelGain, panner, sendGain, options }>
+    // Map<string, { sonifier, channelGain, panner, sendGain, layer, options }>
     this._objects = new Map()
+
+    // Map<string, { name, gainNode, baseGain, ducking }>
+    this._layers = new Map()
+
+    // Array<{ sourceId, sourceParam, targetId, targetParam, scale, offset, curve, clamp, transform }>
+    this._couplings = []
+    this._dispatchStack = new Set()
 
     this._spaceSettings = {
       decay: 2.2,
@@ -71,6 +78,48 @@ export class Landscape {
       const ir = this._generateImpulseResponse(this._spaceSettings.decay, this._spaceSettings.warmth)
       if (ir) this._convolver.buffer = ir
       this._convolver.connect(this._reverbGain)
+    }
+
+    // Initialize or wire layer buses
+    this._initLayerBuses(ctx)
+  }
+
+  _initLayerBuses(ctx) {
+    if (!ctx || !this._dryGain) return
+
+    // Ensure built-in standard layers exist if not yet defined
+    if (!this._layers.has('bed')) {
+      this.defineLayer('bed', { gain: 1.0 })
+    }
+    if (!this._layers.has('texture')) {
+      this.defineLayer('texture', { gain: 1.0 })
+    }
+    if (!this._layers.has('figure')) {
+      this.defineLayer('figure', {
+        gain: 1.0,
+        ducking: { targets: ['bed', 'texture'], depth: 0.35, attack: 0.015, release: 0.25 }
+      })
+    }
+    if (!this._layers.has('event')) {
+      this.defineLayer('event', {
+        gain: 1.0,
+        ducking: { targets: ['bed', 'texture'], depth: 0.35, attack: 0.015, release: 0.25 }
+      })
+    }
+    if (!this._layers.has('alert')) {
+      this.defineLayer('alert', {
+        gain: 1.0,
+        ducking: { targets: ['bed', 'texture', 'figure', 'event'], depth: 0.60, attack: 0.01, release: 0.40 }
+      })
+    }
+
+    // For any layer defined before init(), create and connect its gainNode
+    for (const layer of this._layers.values()) {
+      if (!layer.gainNode && typeof ctx.createGain === 'function') {
+        layer.gainNode = ctx.createGain()
+        layer.gainNode.gain.value = layer.baseGain
+        layer.gainNode.connect(this._dryGain)
+      }
     }
   }
 
@@ -146,15 +195,267 @@ export class Landscape {
     return { ...this._spaceSettings }
   }
 
+  // ---------------------------------------------------------------------------
+  // Layer Management (Open Attentional Buses)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Define or reconfigure an attentional layer bus.
+   *
+   * @param {string} name - Layer identifier (e.g. 'bed', 'texture', 'figure', 'event', 'alert' or custom)
+   * @param {Object} [options]
+   * @param {number} [options.gain=1.0] - Baseline layer volume (0..1)
+   * @param {Object} [options.ducking] - Ducking behavior when objects in this layer trigger events
+   * @param {string[]} [options.ducking.targets] - Target layer names to duck
+   * @param {number} [options.ducking.depth=0.35] - Attenuation factor (0..1, e.g. 0.35 = -3.7 dB)
+   * @param {number} [options.ducking.attack=0.015] - Duck attack ramp time in seconds
+   * @param {number} [options.ducking.release=0.25] - Duck recovery time in seconds
+   * @returns {Object}
+   */
+  defineLayer(name, { gain = 1.0, ducking = null } = {}) {
+    let layer = this._layers.get(name)
+    if (!layer) {
+      let gainNode = null
+      if (this._audioContext && this._dryGain && typeof this._audioContext.createGain === 'function') {
+        gainNode = this._audioContext.createGain()
+        gainNode.gain.value = gain
+        gainNode.connect(this._dryGain)
+      }
+      layer = {
+        name,
+        gainNode,
+        baseGain: gain,
+        ducking: ducking ? { ...ducking } : null
+      }
+      this._layers.set(name, layer)
+    } else {
+      layer.baseGain = gain
+      if (ducking !== undefined) layer.ducking = ducking ? { ...ducking } : null
+      if (layer.gainNode && this._audioContext) {
+        if (typeof layer.gainNode.gain.setTargetAtTime === 'function') {
+          layer.gainNode.gain.setTargetAtTime(gain, this._audioContext.currentTime, 0.02)
+        } else {
+          layer.gainNode.gain.value = gain
+        }
+      }
+    }
+    return layer
+  }
+
+  /**
+   * Retrieve a layer by name, dynamically creating it with sensible defaults if needed.
+   * @param {string} name
+   * @returns {Object}
+   */
+  getLayer(name) {
+    if (!this._layers.has(name)) {
+      if (name === 'bed' || name === 'texture') {
+        return this.defineLayer(name, { gain: 1.0 })
+      }
+      if (name === 'figure' || name === 'event') {
+        return this.defineLayer(name, {
+          gain: 1.0,
+          ducking: { targets: ['bed', 'texture'], depth: 0.35, attack: 0.015, release: 0.25 }
+        })
+      }
+      if (name === 'alert') {
+        return this.defineLayer(name, {
+          gain: 1.0,
+          ducking: { targets: ['bed', 'texture', 'figure', 'event'], depth: 0.60, attack: 0.01, release: 0.40 }
+        })
+      }
+      return this.defineLayer(name, { gain: 1.0 })
+    }
+    return this._layers.get(name)
+  }
+
+  listLayers() {
+    return Array.from(this._layers.keys())
+  }
+
+  /**
+   * Set overall baseline gain for an entire layer bus.
+   * @param {string} name
+   * @param {number} value
+   * @param {number} [rampTime=0.02]
+   */
+  setLayerGain(name, value, rampTime = 0.02) {
+    const layer = this.getLayer(name)
+    if (!layer) return
+    layer.baseGain = Math.max(0, value)
+    if (layer.gainNode && this._audioContext) {
+      if (typeof layer.gainNode.gain.setTargetAtTime === 'function') {
+        layer.gainNode.gain.setTargetAtTime(layer.baseGain, this._audioContext.currentTime, rampTime)
+      } else {
+        layer.gainNode.gain.value = layer.baseGain
+      }
+    }
+  }
+
+  getLayerGain(name) {
+    const layer = this._layers.get(name)
+    return layer ? layer.baseGain : null
+  }
+
+  /**
+   * Temporarily duck a target layer bus (simulating the biological olivocochlear acoustic reflex).
+   *
+   * @param {string} targetLayerName
+   * @param {Object} [options]
+   * @param {number} [options.depth=0.35] - Attenuation factor (0..1)
+   * @param {number} [options.attack=0.015] - Attack time in seconds
+   * @param {number} [options.release=0.25] - Release time constant in seconds
+   */
+  duckLayer(targetLayerName, { depth = 0.35, attack = 0.015, release = 0.25 } = {}) {
+    const layer = this._layers.get(targetLayerName)
+    if (!layer || !layer.gainNode || !this._audioContext) return
+
+    const ctx = this._audioContext
+    const t0 = ctx.currentTime || 0
+    const clampedDepth = Math.min(1, Math.max(0, depth))
+    const duckedGain = layer.baseGain * (1.0 - clampedDepth)
+    const param = layer.gainNode.gain
+
+    if (typeof param.cancelScheduledValues === 'function') {
+      param.cancelScheduledValues(t0)
+    }
+    if (typeof param.setValueAtTime === 'function') {
+      param.setValueAtTime(param.value !== undefined ? param.value : layer.baseGain, t0)
+    }
+    if (typeof param.linearRampToValueAtTime === 'function') {
+      param.linearRampToValueAtTime(duckedGain, t0 + attack)
+    } else if (typeof param.setTargetAtTime === 'function') {
+      param.setTargetAtTime(duckedGain, t0, attack)
+    } else {
+      param.value = duckedGain
+    }
+
+    if (typeof param.setTargetAtTime === 'function') {
+      param.setTargetAtTime(layer.baseGain, t0 + attack, release)
+    }
+  }
+
+  /**
+   * Trigger ducking on all target layers configured for the specified source layer.
+   * @param {string} sourceLayerName
+   */
+  triggerDucking(sourceLayerName) {
+    const layer = this._layers.get(sourceLayerName)
+    if (!layer || !layer.ducking || !Array.isArray(layer.ducking.targets)) return
+
+    const { targets, depth, attack, release } = layer.ducking
+    for (const target of targets) {
+      this.duckLayer(target, { depth, attack, release })
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Declarative Inter-Object Coupling Bus
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Declaratively couple a parameter from a source object to a target object parameter.
+   *
+   * @param {string} sourceId - ID of emitting object
+   * @param {string} sourceParam - Parameter on source object
+   * @param {string} targetId - ID of receiving object
+   * @param {string} targetParam - Parameter on receiving object
+   * @param {Object} [options]
+   * @param {number} [options.scale=1.0] - Scaling factor
+   * @param {number} [options.offset=0.0] - Additive offset
+   * @param {'linear'|'exponential'|'logarithmic'} [options.curve='linear'] - Transfer curve
+   * @param {[number, number]} [options.clamp] - [min, max] boundary clamp
+   * @param {Function} [options.transform] - Custom mapping function (value) => mappedValue
+   */
+  couple(sourceId, sourceParam, targetId, targetParam, options = {}) {
+    this.uncouple(sourceId, sourceParam, targetId, targetParam)
+    this._couplings.push({
+      sourceId,
+      sourceParam,
+      targetId,
+      targetParam,
+      ...options
+    })
+  }
+
+  /**
+   * Remove an active coupling between source and target parameters.
+   */
+  uncouple(sourceId, sourceParam, targetId, targetParam) {
+    this._couplings = this._couplings.filter(c =>
+      !(c.sourceId === sourceId &&
+        c.sourceParam === sourceParam &&
+        c.targetId === targetId &&
+        c.targetParam === targetParam)
+    )
+  }
+
+  /**
+   * List active couplings, optionally filtered by objectId.
+   * @param {string} [objectId]
+   * @returns {Object[]}
+   */
+  listCouplings(objectId = null) {
+    if (!objectId) return [...this._couplings]
+    return this._couplings.filter(c => c.sourceId === objectId || c.targetId === objectId)
+  }
+
+  _dispatchCouplings(sourceId, sourceParam, value) {
+    const key = `${sourceId}:${sourceParam}`
+    if (this._dispatchStack.has(key)) {
+      // Prevent cyclic recursion
+      return
+    }
+
+    this._dispatchStack.add(key)
+    try {
+      for (const c of this._couplings) {
+        if (c.sourceId === sourceId && c.sourceParam === sourceParam) {
+          let targetVal = value
+          if (typeof c.transform === 'function') {
+            targetVal = c.transform(value)
+          } else {
+            const scale = c.scale !== undefined ? c.scale : 1.0
+            const offset = c.offset !== undefined ? c.offset : 0.0
+
+            if (c.curve === 'exponential') {
+              const sign = Math.sign(value)
+              targetVal = sign * Math.pow(Math.abs(value), scale) + offset
+            } else if (c.curve === 'logarithmic') {
+              const sign = Math.sign(value)
+              targetVal = sign * Math.log1p(Math.abs(value)) * scale + offset
+            } else {
+              targetVal = value * scale + offset
+            }
+          }
+
+          if (Array.isArray(c.clamp) && c.clamp.length === 2) {
+            targetVal = Math.max(c.clamp[0], Math.min(c.clamp[1], targetVal))
+          }
+
+          this.setParam(c.targetId, c.targetParam, targetVal)
+        }
+      }
+    } finally {
+      this._dispatchStack.delete(key)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sound Object Lifecycle & Spatial Routing
+  // ---------------------------------------------------------------------------
+
   /**
    * Register a sound-producing object (resonator) into the landscape.
    *
    * @param {string} id - Unique identifier for the object
    * @param {Object} sonifierInstance - An instantiated Sonifier (SonifierBase)
    * @param {Object} [options]
-   * @param {number} [options.gain=1.0] - Object channel gain (0..1)
+   * @param {string} [options.layer='bed'] - Layer bus role ('bed', 'texture', 'figure', 'event', 'alert', or custom)
+   * @param {number} [options.gain=1.0] - Object channel baseline gain (0..1)
    * @param {number} [options.pan=0.0] - Stereo azimuth position (-1.0 left to +1.0 right)
-   * @param {number} [options.reverbSend=0.3] - Send level to shared room reverb (0..1)
+   * @param {number} [options.distance=0.0] - Distance in meters from listener (0..50)
+   * @param {number} [options.reverbSend=0.3] - Base send level to shared room reverb (0..1)
    */
   addObject(id, sonifierInstance, options = {}) {
     if (this._objects.has(id)) {
@@ -166,19 +467,27 @@ export class Landscape {
     }
 
     const ctx = this._audioContext
-    const channelGain = ctx.createGain()
-    channelGain.gain.value = options.gain !== undefined ? options.gain : 1.0
+    const layerName = options.layer || options.role || 'bed'
+    const layer = this.getLayer(layerName)
 
-    // Spatial panner
+    const baseGain = options.gain !== undefined ? options.gain : 1.0
+    const distance = options.distance !== undefined ? Math.max(0, options.distance) : 0
+    const distAtten = 1 / Math.sqrt(1 + 0.1 * distance)
+
+    const channelGain = ctx.createGain()
+    channelGain.gain.value = baseGain * distAtten
+
+    // Spatial panner (X-axis azimuth)
     let panner = null
     if (typeof ctx.createStereoPanner === 'function') {
       panner = ctx.createStereoPanner()
       panner.pan.value = options.pan !== undefined ? options.pan : 0.0
     }
 
-    // Reverb send
+    // Reverb send (Z-axis distance increases wet reflection)
+    const baseSend = options.reverbSend !== undefined ? options.reverbSend : 0.3
     const sendGain = ctx.createGain()
-    sendGain.gain.value = options.reverbSend !== undefined ? options.reverbSend : 0.3
+    sendGain.gain.value = Math.min(1.0, baseSend + 0.04 * distance)
 
     // Initialize sonifier into channelGain
     if (typeof sonifierInstance.init === 'function') {
@@ -188,13 +497,15 @@ export class Landscape {
       sonifierInstance.applyDefaults()
     }
 
-    // Connect audio routing
+    // Connect audio routing to the layer bus
+    const layerDestination = (layer && layer.gainNode) ? layer.gainNode : this._dryGain
+
     if (panner) {
       channelGain.connect(panner)
-      panner.connect(this._dryGain)
+      panner.connect(layerDestination)
       panner.connect(sendGain)
     } else {
-      channelGain.connect(this._dryGain)
+      channelGain.connect(layerDestination)
       channelGain.connect(sendGain)
     }
 
@@ -209,7 +520,14 @@ export class Landscape {
       channelGain,
       panner,
       sendGain,
-      options: { ...options }
+      layer: layerName,
+      options: {
+        ...options,
+        layer: layerName,
+        gain: baseGain,
+        distance,
+        reverbSend: baseSend
+      }
     }
 
     this._objects.set(id, entry)
@@ -223,6 +541,9 @@ export class Landscape {
   removeObject(id) {
     const entry = this._objects.get(id)
     if (!entry) return
+
+    // Clean up active couplings involving this object
+    this._couplings = this._couplings.filter(c => c.sourceId !== id && c.targetId !== id)
 
     try {
       if (typeof entry.sonifier.destroy === 'function') {
@@ -252,7 +573,8 @@ export class Landscape {
 
   /**
    * Route continuous parameter updates with audio-rate smoothing.
-   * Handles channel strip params ('pan', 'gain', 'reverbSend') or forwards to sonifier.
+   * Handles channel strip params ('pan', 'spread', 'gain', 'distance', 'reverbSend') or forwards to sonifier.
+   * Dispatches active inter-object couplings.
    *
    * @param {string} objectId
    * @param {string} param
@@ -280,6 +602,7 @@ export class Landscape {
           entry.sonifier.setParam('pan', value)
         }
       }
+      this._dispatchCouplings(objectId, param, value)
       return
     }
 
@@ -291,26 +614,57 @@ export class Landscape {
           entry.sonifier.setParam('spread', value)
         }
       }
+      this._dispatchCouplings(objectId, param, value)
       return
     }
 
     if (param === 'gain' || param === 'volume') {
       entry.options.gain = value
+      const dist = entry.options.distance || 0
+      const distAtten = 1 / Math.sqrt(1 + 0.1 * dist)
+      const effectiveGain = value * distAtten
+
       if (entry.channelGain && typeof entry.channelGain.gain.setTargetAtTime === 'function') {
-        entry.channelGain.gain.setTargetAtTime(value, t, 0.02)
+        entry.channelGain.gain.setTargetAtTime(effectiveGain, t, 0.02)
       } else if (entry.channelGain) {
-        entry.channelGain.gain.value = value
+        entry.channelGain.gain.value = effectiveGain
       }
+      this._dispatchCouplings(objectId, param, value)
+      return
+    }
+
+    if (param === 'distance') {
+      entry.options.distance = Math.max(0, value)
+      const distAtten = 1 / Math.sqrt(1 + 0.1 * entry.options.distance)
+      const effectiveGain = (entry.options.gain ?? 1.0) * distAtten
+
+      if (entry.channelGain && typeof entry.channelGain.gain.setTargetAtTime === 'function') {
+        entry.channelGain.gain.setTargetAtTime(effectiveGain, t, 0.02)
+      } else if (entry.channelGain) {
+        entry.channelGain.gain.value = effectiveGain
+      }
+
+      const effectiveSend = Math.min(1.0, (entry.options.reverbSend ?? 0.3) + 0.04 * entry.options.distance)
+      if (entry.sendGain && typeof entry.sendGain.gain.setTargetAtTime === 'function') {
+        entry.sendGain.gain.setTargetAtTime(effectiveSend, t, 0.02)
+      } else if (entry.sendGain) {
+        entry.sendGain.gain.value = effectiveSend
+      }
+      this._dispatchCouplings(objectId, param, value)
       return
     }
 
     if (param === 'reverbSend') {
       entry.options.reverbSend = value
+      const dist = entry.options.distance || 0
+      const effectiveSend = Math.min(1.0, value + 0.04 * dist)
+
       if (entry.sendGain && typeof entry.sendGain.gain.setTargetAtTime === 'function') {
-        entry.sendGain.gain.setTargetAtTime(value, t, 0.02)
+        entry.sendGain.gain.setTargetAtTime(effectiveSend, t, 0.02)
       } else if (entry.sendGain) {
-        entry.sendGain.gain.value = value
+        entry.sendGain.gain.value = effectiveSend
       }
+      this._dispatchCouplings(objectId, param, value)
       return
     }
 
@@ -318,10 +672,14 @@ export class Landscape {
     if (typeof entry.sonifier.setParam === 'function') {
       entry.sonifier.setParam(param, value)
     }
+
+    // Dispatch any active inter-object couplings
+    this._dispatchCouplings(objectId, param, value)
   }
 
   /**
    * Trigger a discrete event on a sound object (e.g. strike, triggerBubble).
+   * Automatically triggers olivocochlear ducking on lower layers if configured.
    *
    * @param {string} objectId
    * @param {string} method
@@ -331,10 +689,18 @@ export class Landscape {
     const entry = this._objects.get(objectId)
     if (!entry) return null
 
+    let result = null
     if (typeof entry.sonifier[method] === 'function') {
-      return entry.sonifier[method](...args)
+      result = entry.sonifier[method](...args)
     }
-    return null
+
+    // Trigger olivocochlear ducking if object's layer has ducking configured
+    const optOut = args[0] && typeof args[0] === 'object' && args[0].duck === false
+    if (!optOut && entry.layer) {
+      this.triggerDucking(entry.layer)
+    }
+
+    return result
   }
 
   /**
@@ -344,7 +710,11 @@ export class Landscape {
   setMasterVolume(value) {
     const clamped = Math.min(1, Math.max(0, value))
     if (this._masterGain && this._audioContext) {
-      this._masterGain.gain.setTargetAtTime(clamped, this._audioContext.currentTime, 0.02)
+      if (typeof this._masterGain.gain.setTargetAtTime === 'function') {
+        this._masterGain.gain.setTargetAtTime(clamped, this._audioContext.currentTime, 0.02)
+      } else {
+        this._masterGain.gain.value = clamped
+      }
     }
   }
 
@@ -371,7 +741,11 @@ export class Landscape {
    */
   async stop() {
     if (this._masterGain && this._audioContext) {
-      this._masterGain.gain.setTargetAtTime(0, this._audioContext.currentTime, 0.03)
+      if (typeof this._masterGain.gain.setTargetAtTime === 'function') {
+        this._masterGain.gain.setTargetAtTime(0, this._audioContext.currentTime, 0.03)
+      } else {
+        this._masterGain.gain.value = 0
+      }
       await new Promise(r => setTimeout(r, 40))
     }
     if (this._audioContext && typeof this._audioContext.suspend === 'function') {
@@ -387,8 +761,25 @@ export class Landscape {
       this.removeObject(id)
     }
 
+    this._couplings = []
+    this._dispatchStack.clear()
+
+    // Disconnect all layer gain nodes
+    for (const layer of this._layers.values()) {
+      if (layer.gainNode) {
+        try {
+          layer.gainNode.disconnect()
+        } catch {}
+      }
+    }
+    this._layers.clear()
+
     if (this._masterGain && this._audioContext) {
-      this._masterGain.gain.setTargetAtTime(0, this._audioContext.currentTime, 0.02)
+      if (typeof this._masterGain.gain.setTargetAtTime === 'function') {
+        this._masterGain.gain.setTargetAtTime(0, this._audioContext.currentTime, 0.02)
+      } else {
+        this._masterGain.gain.value = 0
+      }
     }
 
     if (this._dryGain) this._dryGain.disconnect()
@@ -407,3 +798,4 @@ export class Landscape {
     this._convolver = null
   }
 }
+

@@ -9,8 +9,18 @@ export class AudioParamMock {
     this.value = 0
   }
   setTargetAtTime(value, startTime, timeConstant) {
+    if (!startTime || startTime <= 0) {
+      this.value = value
+    }
+    this._target = value
+  }
+  setValueAtTime(value, startTime) {
     this.value = value
   }
+  linearRampToValueAtTime(value, endTime) {
+    this.value = value
+  }
+  cancelScheduledValues(startTime) {}
 }
 
 export class GainNodeMock {
