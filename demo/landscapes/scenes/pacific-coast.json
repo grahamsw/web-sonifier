@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "name": "Pacific Coast",
+  "space": {
+    "decay": 3.4,
+    "wet": 0.30,
+    "warmth": 0.50
+  },
+  "masterVolume": 0.85,
+  "layers": {
+    "bed": { "gain": 1.0 },
+    "texture": { "gain": 1.0 },
+    "figure": {
+      "gain": 1.0,
+      "ducking": { "targets": ["bed", "texture"], "depth": 0.35, "attack": 0.015, "release": 0.25 }
+    }
+  },
+  "objects": {
+    "ocean": {
+      "type": "ocean",
+      "layer": "bed",
+      "gain": 0.88,
+      "pan": -0.35,
+      "distance": 14,
+      "spread": 0.55,
+      "reverbSend": 0.35,
+      "params": {
+        "intensity": 75,
+        "swellPeriod": 9.0,
+        "foam": 0.60,
+        "pitch": 450
+      }
+    },
+    "wind": {
+      "type": "wind",
+      "layer": "bed",
+      "gain": 0.60,
+      "pan": 0.10,
+      "distance": 10,
+      "spread": 0.75,
+      "reverbSend": 0.20,
+      "params": {
+        "speed": 34,
+        "turbulence": 0.40,
+        "cavityResonance": 0.30
+      }
+    },
+    "chimes": {
+      "type": "chime",
+      "layer": "figure",
+      "gain": 0.45,
+      "pan": 0.60,
+      "distance": 4,
+      "spread": 0.08,
+      "reverbSend": 0.45,
+      "params": {
+        "material": "bronze",
+        "pitch": 523,
+        "damping": 0.35,
+        "windSpeed": 27.2
+      }
+    },
+    "rain": {
+      "type": "rain",
+      "layer": "texture",
+      "gain": 0.0,
+      "pan": 0.0,
+      "distance": 8,
+      "spread": 0.95,
+      "reverbSend": 0.25,
+      "params": {
+        "intensity": 0,
+        "surface": "puddle",
+        "pitch": 1400,
+        "dropletSize": 1.0
+      }
+    }
+  },
+  "couplings": [
+    {
+      "sourceId": "wind",
+      "sourceParam": "speed",
+      "targetId": "chimes",
+      "targetParam": "windSpeed",
+      "scale": 0.8
+    }
+  ]
+}

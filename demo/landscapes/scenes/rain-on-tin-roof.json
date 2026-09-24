@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "name": "Rain on Tin Roof",
+  "space": {
+    "decay": 2.8,
+    "wet": 0.32,
+    "warmth": 0.65
+  },
+  "masterVolume": 0.85,
+  "layers": {
+    "bed": { "gain": 1.0 },
+    "texture": { "gain": 1.0 },
+    "figure": {
+      "gain": 1.0,
+      "ducking": { "targets": ["bed", "texture"], "depth": 0.35, "attack": 0.015, "release": 0.25 }
+    }
+  },
+  "objects": {
+    "rain": {
+      "type": "rain",
+      "layer": "texture",
+      "gain": 0.85,
+      "pan": 0.0,
+      "distance": 4,
+      "spread": 0.95,
+      "reverbSend": 0.25,
+      "params": {
+        "intensity": 160,
+        "surface": "roof",
+        "pitch": 1450,
+        "dropletSize": 1.1
+      }
+    },
+    "wind": {
+      "type": "wind",
+      "layer": "bed",
+      "gain": 0.35,
+      "pan": -0.20,
+      "distance": 12,
+      "spread": 0.70,
+      "reverbSend": 0.20,
+      "params": {
+        "speed": 18,
+        "turbulence": 0.30,
+        "cavityResonance": 0.30
+      }
+    },
+    "chimes": {
+      "type": "chime",
+      "layer": "figure",
+      "gain": 0.65,
+      "pan": 0.45,
+      "distance": 3,
+      "spread": 0.08,
+      "reverbSend": 0.45,
+      "params": {
+        "material": "aluminum",
+        "pitch": 587,
+        "damping": 0.22,
+        "windSpeed": 14.4
+      }
+    },
+    "ocean": {
+      "type": "ocean",
+      "layer": "bed",
+      "gain": 0.0,
+      "pan": 0.25,
+      "distance": 20,
+      "spread": 0.50,
+      "reverbSend": 0.35,
+      "params": {
+        "intensity": 0,
+        "swellPeriod": 8.5,
+        "foam": 0.55,
+        "pitch": 480
+      }
+    }
+  },
+  "couplings": [
+    {
+      "sourceId": "wind",
+      "sourceParam": "speed",
+      "targetId": "chimes",
+      "targetParam": "windSpeed",
+      "scale": 0.8
+    }
+  ]
+}

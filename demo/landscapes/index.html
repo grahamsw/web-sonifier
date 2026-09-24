@@ -55,10 +55,33 @@
         <button type="button" class="preset-btn" id="preset-storm">⛈️ Summer Storm</button>
         <button type="button" class="preset-btn" id="preset-alpine">🏔️ Alpine Sanctuary</button>
       </div>
+
+      <!-- Scene Document & View Mode Toolbar -->
+      <div class="scene-tools-group">
+        <button type="button" class="btn-tool" id="btn-export-scene" title="Export current scene configuration to JSON">📥 Export Scene</button>
+        <button type="button" class="btn-tool" id="btn-load-scene" title="Load custom scene JSON">📤 Load Scene</button>
+        <button type="button" class="btn-tool toggle-mode" id="btn-toggle-mode" title="Toggle between Studio and Player modes">🎧 Mode: Studio</button>
+      </div>
     </header>
 
-    <!-- Master Transport & Shared Spatial Container -->
-    <section class="master-bar">
+    <!-- Minimal Player Mode Card (End-User View) -->
+    <section class="player-card" id="player-view" style="display: none;">
+      <div class="player-status-badge" id="player-status-badge">READY TO PLAY</div>
+      <h2 class="player-scene-title" id="player-scene-title">🌧️ Rain on Veranda</h2>
+      <p class="player-scene-subtitle" id="player-scene-subtitle">Ambient Acoustic Ecology • 4 Coupled Resonators</p>
+      
+      <div class="player-controls">
+        <button type="button" class="btn-transport" id="btn-player-play">▶ Play</button>
+        <button type="button" class="btn-transport stop" id="btn-player-stop" disabled>■ Stop</button>
+        <div class="player-volume-group">
+          <label for="player-volume">Master Volume <span id="val-player-vol">80%</span></label>
+          <input type="range" id="player-volume" min="0" max="1" step="0.01" value="0.8">
+        </div>
+      </div>
+    </section>
+
+    <!-- Master Transport & Shared Spatial Container (Studio Mode) -->
+    <section class="master-bar" id="studio-master-bar">
       <div class="transport-group">
         <button type="button" class="btn-transport" id="btn-play">▶ Play Landscape</button>
         <button type="button" class="btn-transport stop" id="btn-stop" disabled>■ Stop</button>
@@ -384,6 +407,23 @@
 
     </section>
 
+  </div>
+
+  <!-- Scene Document JSON Modal -->
+  <div class="modal-backdrop" id="scene-modal" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-title">Scene Document (JSON)</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-modal" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="scene-json-textarea" class="scene-json-textarea" spellcheck="false" placeholder="Paste Scene JSON here..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-action secondary" id="btn-modal-copy">📋 Copy to Clipboard</button>
+        <button type="button" class="btn-action" id="btn-modal-apply">Apply Scene</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/demo/landscapes/main.js"></script>
