@@ -3,6 +3,7 @@ import { WindSonifier } from '@web-sonifier/wind'
 import { RainSonifier } from '@web-sonifier/rain'
 import { OceanSonifier } from '@web-sonifier/ocean'
 import { ChimeSonifier } from '@web-sonifier/chime'
+import { PRESET_SCENES } from './presets.js'
 
 // ---------------------------------------------------------------------------
 // State & Instances
@@ -10,11 +11,16 @@ import { ChimeSonifier } from '@web-sonifier/chime'
 
 export const landscape = new Landscape()
 
-let windInstance = null
-let rainInstance = null
-let oceanInstance = null
-let chimeInstance = null
+// Register sonifier plugins for declarative scene hydration
+landscape.register('wind', WindSonifier)
+landscape.register('rain', RainSonifier)
+landscape.register('ocean', OceanSonifier)
+landscape.register('chime', ChimeSonifier)
+landscape.register('chimes', ChimeSonifier)
+
 let isPlaying = false
+let isPlayerMode = false
+let currentPresetName = 'rain'
 
 // Visualizer state
 let animFrameId = null
@@ -27,6 +33,34 @@ const pulses = []
 const btnPlay = document.getElementById('btn-play')
 const btnStop = document.getElementById('btn-stop')
 const statusEl = document.getElementById('landscape-status')
+
+// Toolbar & Scene Elements
+const btnExportScene = document.getElementById('btn-export-scene')
+const btnLoadScene = document.getElementById('btn-load-scene')
+const btnToggleMode = document.getElementById('btn-toggle-mode')
+
+// Player Elements
+const playerView = document.getElementById('player-view')
+const playerStatusBadge = document.getElementById('player-status-badge')
+const playerSceneTitle = document.getElementById('player-scene-title')
+const playerSceneSubtitle = document.getElementById('player-scene-subtitle')
+const btnPlayerPlay = document.getElementById('btn-player-play')
+const btnPlayerStop = document.getElementById('btn-player-stop')
+const playerVolSlider = document.getElementById('player-volume')
+const playerVolDisp = document.getElementById('val-player-vol')
+
+// Studio Master Bar & Sections
+const studioMasterBar = document.getElementById('studio-master-bar')
+const soundstageCard = document.querySelector('.soundstage-card')
+const objectsGrid = document.querySelector('.objects-grid')
+
+// Scene Modal Elements
+const sceneModal = document.getElementById('scene-modal')
+const modalTitle = document.getElementById('modal-title')
+const btnCloseModal = document.getElementById('btn-close-modal')
+const sceneJsonTextarea = document.getElementById('scene-json-textarea')
+const btnModalCopy = document.getElementById('btn-modal-copy')
+const btnModalApply = document.getElementById('btn-modal-apply')
 
 // Space Controls
 const masterVolSlider = document.getElementById('master-volume')
@@ -127,6 +161,24 @@ function formatSpread(val) {
   return `${deg}° (Enveloping)`
 }
 
+function updateTransportUI(active) {
+  if (statusEl) {
+    statusEl.textContent = active ? 'Active (4 Elements)' : 'Stopped'
+    if (active) statusEl.classList.add('active')
+    else statusEl.classList.remove('active')
+  }
+  if (btnPlay) btnPlay.disabled = active
+  if (btnStop) btnStop.disabled = !active
+
+  if (playerStatusBadge) {
+    playerStatusBadge.textContent = active ? 'PLAYING NOW' : 'READY TO PLAY'
+    if (active) playerStatusBadge.classList.add('active')
+    else playerStatusBadge.classList.remove('active')
+  }
+  if (btnPlayerPlay) btnPlayerPlay.disabled = active
+  if (btnPlayerStop) btnPlayerStop.disabled = !active
+}
+
 // ---------------------------------------------------------------------------
 // Landscape Lifecycle
 // ---------------------------------------------------------------------------
@@ -145,66 +197,13 @@ export async function playLandscape() {
       await landscape._audioContext.resume()
     }
 
-    // 1. Aeolian Wind (Bed Layer, Ambient Ground)
-    if (!windInstance) {
-      windInstance = new WindSonifier()
-      landscape.addObject('wind', windInstance, {
-        layer: 'bed',
-        gain: parseFloat(windVolSlider?.value || 0.70),
-        pan: parseFloat(windPanSlider?.value || 0.0),
-        distance: 10,
-        reverbSend: 0.20
-      })
-    }
-
-    // 2. Acoustic Rain (Texture Layer, Granular Surface Flux)
-    if (!rainInstance) {
-      rainInstance = new RainSonifier()
-      landscape.addObject('rain', rainInstance, {
-        layer: 'texture',
-        gain: parseFloat(rainVolSlider?.value || 0.65),
-        pan: parseFloat(rainPanSlider?.value || 0.0),
-        distance: 5,
-        reverbSend: 0.25
-      })
-    }
-
-    // 3. Ocean Surf (Bed Layer, Low-frequency Inertial Ground)
-    if (!oceanInstance) {
-      oceanInstance = new OceanSonifier()
-      landscape.addObject('ocean', oceanInstance, {
-        layer: 'bed',
-        gain: parseFloat(oceanVolSlider?.value || 0.55),
-        pan: parseFloat(oceanPanSlider?.value || 0.25),
-        distance: 16,
-        reverbSend: 0.35
-      })
-    }
-
-    // 4. Modal Wind Chimes (Figure Layer, Foreground Transients with Olivocochlear Ducking)
-    if (!chimeInstance) {
-      chimeInstance = new ChimeSonifier()
-      landscape.addObject('chimes', chimeInstance, {
-        layer: 'figure',
-        gain: parseFloat(chimeVolSlider?.value || 0.75),
-        pan: parseFloat(chimePanSlider?.value || 0.45),
-        distance: 2,
-        reverbSend: 0.45
-      })
-    }
-
-    // Declarative Inter-Object Coupling (Wind Speed -> Chimes Excitation)
-    if (chimeCoupledCheck && chimeCoupledCheck.checked) {
-      landscape.couple('wind', 'speed', 'chimes', 'windSpeed', { scale: 0.8 })
+    if (landscape._objects.size === 0) {
+      const scene = PRESET_SCENES[currentPresetName] || PRESET_SCENES.rain
+      await landscape.loadScene(scene)
     }
 
     isPlaying = true
-    if (statusEl) {
-      statusEl.textContent = 'Active (4 Elements)'
-      statusEl.classList.add('active')
-    }
-    if (btnPlay) btnPlay.disabled = true
-    if (btnStop) btnStop.disabled = false
+    updateTransportUI(true)
 
     syncAllParams()
 
@@ -224,18 +223,8 @@ export function stopLandscape() {
 
   try {
     landscape.destroy()
-    windInstance = null
-    rainInstance = null
-    oceanInstance = null
-    chimeInstance = null
     isPlaying = false
-
-    if (statusEl) {
-      statusEl.textContent = 'Stopped'
-      statusEl.classList.remove('active')
-    }
-    if (btnPlay) btnPlay.disabled = false
-    if (btnStop) btnStop.disabled = true
+    updateTransportUI(false)
   } catch (err) {
     console.error('[Landscapes] Stop error:', err)
   }
@@ -595,8 +584,14 @@ if (chimeDampingSlider) {
 }
 
 // ---------------------------------------------------------------------------
-// Atmospheric Presets
+// Atmospheric Presets & Scene Document Ingestion
 // ---------------------------------------------------------------------------
+
+function setSlider(el, val, dispEl, dispText) {
+  if (!el) return
+  el.value = val
+  if (dispEl && dispText) dispEl.textContent = dispText
+}
 
 function clearActivePresetButtons() {
   presetRainBtn?.classList.remove('active')
@@ -605,158 +600,336 @@ function clearActivePresetButtons() {
   presetAlpineBtn?.classList.remove('active')
 }
 
-export function applyPreset(name) {
-  clearActivePresetButtons()
+export function syncSlidersFromScene(scene) {
+  if (!scene) return
 
-  if (name === 'rain') {
-    presetRainBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 2.8, reverbDecayDisp, '2.8s')
-    setSlider(reverbWetSlider, 0.32, reverbWetDisp, '32%')
-    setSlider(spaceWarmthSlider, 0.65, spaceWarmthDisp, '65%')
-
-    // Rain on Tin Roof (Resonant Pings Drumming Overhead)
-    setSlider(rainVolSlider, 0.85, rainVolDisp, '85%')
-    setSlider(rainIntensitySlider, 160, rainIntensityDisp, '160 drops/s')
-    if (rainSurfaceSelect) rainSurfaceSelect.value = 'roof'
-    setSlider(rainPitchSlider, 1450, rainPitchDisp, '1450 Hz')
-    setSlider(rainSizeSlider, 1.1, rainSizeDisp, '1.1x')
-    setSlider(rainPanSlider, 0.0, rainPanDisp, 'Center (90°)')
-    setSlider(rainSpreadSlider, 0.95, rainSpreadDisp, formatSpread(0.95))
-
-    // Gentle wind breeze
-    setSlider(windVolSlider, 0.35, windVolDisp, '35%')
-    setSlider(windSpeedSlider, 18, windSpeedDisp, '18 km/h')
-    setSlider(windTurbulenceSlider, 0.30, windTurbulenceDisp, '0.30')
-    setSlider(windPanSlider, -0.20, windPanDisp, 'Left (72°)')
-    setSlider(windSpreadSlider, 0.70, windSpreadDisp, formatSpread(0.70))
-
-    // Soft singing porch chimes (localized point source)
-    setSlider(chimeVolSlider, 0.65, chimeVolDisp, '65%')
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'aluminum'
-    setSlider(chimePitchSlider, 587, chimePitchDisp, '587 Hz')
-    setSlider(chimeDampingSlider, 0.22, chimeDampingDisp, '0.22')
-    setSlider(chimePanSlider, 0.45, chimePanDisp, 'Right (130°)')
-    setSlider(chimeSpreadSlider, 0.08, chimeSpreadDisp, formatSpread(0.08))
-    if (chimeCoupledCheck) chimeCoupledCheck.checked = true
-
-    // Ocean muted
-    setSlider(oceanVolSlider, 0.0, oceanVolDisp, '0%')
-
-  } else if (name === 'pacific') {
-    presetPacificBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 3.4, reverbDecayDisp, '3.4s')
-    setSlider(reverbWetSlider, 0.30, reverbWetDisp, '30%')
-    setSlider(spaceWarmthSlider, 0.50, spaceWarmthDisp, '50%')
-
-    // Ocean focus (wide coastal breaker arc on the left)
-    setSlider(oceanVolSlider, 0.88, oceanVolDisp, '88%')
-    setSlider(oceanIntensitySlider, 75, oceanIntensityDisp, '75%')
-    setSlider(oceanPeriodSlider, 9.0, oceanPeriodDisp, '9.0s')
-    setSlider(oceanFoamSlider, 0.60, oceanFoamDisp, '0.60')
-    setSlider(oceanPitchSlider, 450, oceanPitchDisp, '450 Hz')
-    setSlider(oceanPanSlider, -0.35, oceanPanDisp, 'Left (58°)')
-    setSlider(oceanSpreadSlider, 0.55, oceanSpreadDisp, formatSpread(0.55))
-
-    // Coastal breeze
-    setSlider(windVolSlider, 0.60, windVolDisp, '60%')
-    setSlider(windSpeedSlider, 34, windSpeedDisp, '34 km/h')
-    setSlider(windTurbulenceSlider, 0.40, windTurbulenceDisp, '0.40')
-    setSlider(windPanSlider, 0.10, windPanDisp, 'Right (99°)')
-    setSlider(windSpreadSlider, 0.75, windSpreadDisp, formatSpread(0.75))
-
-    // Distant chimes (localized point)
-    setSlider(chimeVolSlider, 0.45, chimeVolDisp, '45%')
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'bronze'
-    setSlider(chimePitchSlider, 523, chimePitchDisp, '523 Hz')
-    setSlider(chimeDampingSlider, 0.35, chimeDampingDisp, '0.35')
-    setSlider(chimePanSlider, 0.60, chimePanDisp, 'Right (144°)')
-    setSlider(chimeSpreadSlider, 0.08, chimeSpreadDisp, formatSpread(0.08))
-
-    // Rain off
-    setSlider(rainVolSlider, 0.0, rainVolDisp, '0%')
-
-  } else if (name === 'storm') {
-    presetStormBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 4.5, reverbDecayDisp, '4.5s')
-    setSlider(reverbWetSlider, 0.40, reverbWetDisp, '40%')
-    setSlider(spaceWarmthSlider, 0.70, spaceWarmthDisp, '70%')
-
-    // Torrential rain on puddle (bubbling Minnaert cavity chirps everywhere)
-    setSlider(rainVolSlider, 0.92, rainVolDisp, '92%')
-    setSlider(rainIntensitySlider, 320, rainIntensityDisp, '320 drops/s')
-    if (rainSurfaceSelect) rainSurfaceSelect.value = 'puddle'
-    setSlider(rainPitchSlider, 1200, rainPitchDisp, '1200 Hz')
-    setSlider(rainSizeSlider, 1.3, rainSizeDisp, '1.3x')
-    setSlider(rainPanSlider, 0.0, rainPanDisp, 'Center (90°)')
-    setSlider(rainSpreadSlider, 1.0, rainSpreadDisp, formatSpread(1.0))
-
-    // Howling gale
-    setSlider(windVolSlider, 0.85, windVolDisp, '85%')
-    setSlider(windSpeedSlider, 68, windSpeedDisp, '68 km/h')
-    setSlider(windTurbulenceSlider, 0.75, windTurbulenceDisp, '0.75')
-    setSlider(windCavitySlider, 0.60, windCavityDisp, '0.60')
-    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (90°)')
-    setSlider(windSpreadSlider, 0.85, windSpreadDisp, formatSpread(0.85))
-
-    // Distant turbulent surf
-    setSlider(oceanVolSlider, 0.50, oceanVolDisp, '50%')
-    setSlider(oceanIntensitySlider, 80, oceanIntensityDisp, '80%')
-    setSlider(oceanPeriodSlider, 6.0, oceanPeriodDisp, '6.0s')
-    setSlider(oceanPanSlider, -0.40, oceanPanDisp, 'Left (54°)')
-    setSlider(oceanSpreadSlider, 0.60, oceanSpreadDisp, formatSpread(0.60))
-
-    // Clattering metal chimes
-    setSlider(chimeVolSlider, 0.80, chimeVolDisp, '80%')
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'steel'
-    setSlider(chimePitchSlider, 659, chimePitchDisp, '659 Hz')
-    setSlider(chimeDampingSlider, 0.18, chimeDampingDisp, '0.18')
-    setSlider(chimePanSlider, 0.45, chimePanDisp, 'Right (130°)')
-    setSlider(chimeSpreadSlider, 0.08, chimeSpreadDisp, formatSpread(0.08))
-
-  } else if (name === 'alpine') {
-    presetAlpineBtn?.classList.add('active')
-    setSlider(reverbDecaySlider, 4.2, reverbDecayDisp, '4.2s')
-    setSlider(reverbWetSlider, 0.35, reverbWetDisp, '35%')
-    setSlider(spaceWarmthSlider, 0.75, spaceWarmthDisp, '75%')
-
-    // Mountain wind corridor
-    setSlider(windVolSlider, 0.75, windVolDisp, '75%')
-    setSlider(windSpeedSlider, 45, windSpeedDisp, '45 km/h')
-    setSlider(windTurbulenceSlider, 0.60, windTurbulenceDisp, '0.60')
-    setSlider(windCavitySlider, 0.45, windCavityDisp, '0.45')
-    setSlider(windPanSlider, 0.0, windPanDisp, 'Center (90°)')
-    setSlider(windSpreadSlider, 0.80, windSpreadDisp, formatSpread(0.80))
-
-    // High singing aluminum chimes
-    setSlider(chimeVolSlider, 0.85, chimeVolDisp, '85%')
-    if (chimeMaterialSelect) chimeMaterialSelect.value = 'aluminum'
-    setSlider(chimePitchSlider, 659, chimePitchDisp, '659 Hz')
-    setSlider(chimeDampingSlider, 0.20, chimeDampingDisp, '0.20')
-    setSlider(chimePanSlider, 0.35, chimePanDisp, 'Right (121°)')
-    setSlider(chimeSpreadSlider, 0.08, chimeSpreadDisp, formatSpread(0.08))
-
-    // Soft alpine rain on forest foliage
-    setSlider(rainVolSlider, 0.45, rainVolDisp, '45%')
-    setSlider(rainIntensitySlider, 45, rainIntensityDisp, '45 drops/s')
-    if (rainSurfaceSelect) rainSurfaceSelect.value = 'foliage'
-    setSlider(rainPitchSlider, 1050, rainPitchDisp, '1050 Hz')
-    setSlider(rainSizeSlider, 0.8, rainSizeDisp, '0.8x')
-    setSlider(rainPanSlider, -0.20, rainPanDisp, 'Left (72°)')
-    setSlider(rainSpreadSlider, 0.70, rainSpreadDisp, formatSpread(0.70))
-
-    // Ocean off
-    setSlider(oceanVolSlider, 0.0, oceanVolDisp, '0%')
+  if (scene.name && playerSceneTitle) {
+    playerSceneTitle.textContent = scene.name
   }
 
-  syncAllParams()
+  // Master Volume
+  if (scene.masterVolume !== undefined) {
+    setSlider(masterVolSlider, scene.masterVolume, masterVolDisp, scene.masterVolume.toFixed(2))
+    setSlider(playerVolSlider, scene.masterVolume, playerVolDisp, `${Math.round(scene.masterVolume * 100)}%`)
+  }
+
+  // Room Acoustics
+  if (scene.space) {
+    if (scene.space.decay !== undefined) {
+      setSlider(reverbDecaySlider, scene.space.decay, reverbDecayDisp, `${scene.space.decay.toFixed(1)}s`)
+    }
+    if (scene.space.wet !== undefined) {
+      setSlider(reverbWetSlider, scene.space.wet, reverbWetDisp, `${Math.round(scene.space.wet * 100)}%`)
+    }
+    if (scene.space.warmth !== undefined) {
+      setSlider(spaceWarmthSlider, scene.space.warmth, spaceWarmthDisp, `${Math.round(scene.space.warmth * 100)}%`)
+    }
+  }
+
+  const objs = scene.objects || {}
+
+  // 1. Wind
+  const wind = objs.wind
+  if (wind) {
+    if (wind.gain !== undefined) setSlider(windVolSlider, wind.gain, windVolDisp, `${Math.round(wind.gain * 100)}%`)
+    if (wind.pan !== undefined) setSlider(windPanSlider, wind.pan, windPanDisp, formatPan(wind.pan))
+    if (wind.spread !== undefined) setSlider(windSpreadSlider, wind.spread, windSpreadDisp, formatSpread(wind.spread))
+    if (wind.params) {
+      if (wind.params.speed !== undefined) setSlider(windSpeedSlider, wind.params.speed, windSpeedDisp, `${wind.params.speed} km/h`)
+      if (wind.params.turbulence !== undefined) setSlider(windTurbulenceSlider, wind.params.turbulence, windTurbulenceDisp, wind.params.turbulence.toFixed(2))
+      if (wind.params.cavityResonance !== undefined) setSlider(windCavitySlider, wind.params.cavityResonance, windCavityDisp, wind.params.cavityResonance.toFixed(2))
+    }
+  }
+
+  // 2. Rain
+  const rain = objs.rain
+  if (rain) {
+    if (rain.gain !== undefined) setSlider(rainVolSlider, rain.gain, rainVolDisp, `${Math.round(rain.gain * 100)}%`)
+    if (rain.pan !== undefined) setSlider(rainPanSlider, rainPanDisp, formatPan(rain.pan))
+    if (rain.spread !== undefined) setSlider(rainSpreadSlider, rain.spread, rainSpreadDisp, formatSpread(rain.spread))
+    if (rain.params) {
+      if (rain.params.intensity !== undefined) setSlider(rainIntensitySlider, rain.params.intensity, rainIntensityDisp, `${rain.params.intensity} drops/s`)
+      if (rain.params.surface !== undefined && rainSurfaceSelect) rainSurfaceSelect.value = rain.params.surface
+      if (rain.params.pitch !== undefined) setSlider(rainPitchSlider, rain.params.pitch, rainPitchDisp, `${rain.params.pitch} Hz`)
+      if (rain.params.dropletSize !== undefined) setSlider(rainSizeSlider, rain.params.dropletSize, rainSizeDisp, `${rain.params.dropletSize.toFixed(1)}x`)
+    }
+  }
+
+  // 3. Ocean
+  const ocean = objs.ocean
+  if (ocean) {
+    if (ocean.gain !== undefined) setSlider(oceanVolSlider, ocean.gain, oceanVolDisp, `${Math.round(ocean.gain * 100)}%`)
+    if (ocean.pan !== undefined) setSlider(oceanPanSlider, ocean.pan, oceanPanDisp, formatPan(ocean.pan))
+    if (ocean.spread !== undefined) setSlider(oceanSpreadSlider, ocean.spread, oceanSpreadDisp, formatSpread(ocean.spread))
+    if (ocean.params) {
+      if (ocean.params.intensity !== undefined) setSlider(oceanIntensitySlider, ocean.params.intensity, oceanIntensityDisp, `${ocean.params.intensity}%`)
+      if (ocean.params.swellPeriod !== undefined) setSlider(oceanPeriodSlider, ocean.params.swellPeriod, oceanPeriodDisp, `${ocean.params.swellPeriod.toFixed(1)}s`)
+      if (ocean.params.foam !== undefined) setSlider(oceanFoamSlider, ocean.params.foam, oceanFoamDisp, ocean.params.foam.toFixed(2))
+      if (ocean.params.pitch !== undefined) setSlider(oceanPitchSlider, ocean.params.pitch, oceanPitchDisp, `${ocean.params.pitch} Hz`)
+    }
+  }
+
+  // 4. Chimes
+  const chimes = objs.chimes || objs.chime
+  if (chimes) {
+    if (chimes.gain !== undefined) setSlider(chimeVolSlider, chimes.gain, chimeVolDisp, `${Math.round(chimes.gain * 100)}%`)
+    if (chimes.pan !== undefined) setSlider(chimePanSlider, chimes.pan, chimePanDisp, formatPan(chimes.pan))
+    if (chimes.spread !== undefined) setSlider(chimeSpreadSlider, chimes.spread, chimeSpreadDisp, formatSpread(chimes.spread))
+    if (chimes.params) {
+      if (chimes.params.material !== undefined && chimeMaterialSelect) chimeMaterialSelect.value = chimes.params.material
+      if (chimes.params.pitch !== undefined) setSlider(chimePitchSlider, chime.params.pitch, chimePitchDisp, `${chimes.params.pitch} Hz`)
+      if (chimes.params.damping !== undefined) setSlider(chimeDampingSlider, chimes.params.damping, chimeDampingDisp, chimes.params.damping.toFixed(2))
+    }
+  }
+
+  // Inter-Object Couplings
+  if (chimeCoupledCheck) {
+    const couplings = scene.couplings || []
+    const isCoupled = couplings.some(c => c.sourceId === 'wind' && c.targetId === 'chimes')
+    chimeCoupledCheck.checked = isCoupled
+  }
 }
 
-function setSlider(el, val, dispEl, dispText) {
-  if (!el) return
-  el.value = val
-  if (dispEl && dispText) dispEl.textContent = dispText
+export async function applyPreset(name) {
+  clearActivePresetButtons()
+  currentPresetName = name
+  const scene = PRESET_SCENES[name]
+  if (!scene) return
+
+  if (name === 'rain') presetRainBtn?.classList.add('active')
+  else if (name === 'pacific') presetPacificBtn?.classList.add('active')
+  else if (name === 'storm') presetStormBtn?.classList.add('active')
+  else if (name === 'alpine') presetAlpineBtn?.classList.add('active')
+
+  syncSlidersFromScene(scene)
+
+  if (isPlaying && landscape._audioContext) {
+    await landscape.loadScene(scene)
+  }
 }
 
+export function getCurrentSceneDescriptor() {
+  if (landscape._audioContext && landscape._objects.size > 0) {
+    return landscape.exportScene({ name: playerSceneTitle?.textContent || 'Custom Scene' })
+  }
+
+  return {
+    version: 1,
+    name: playerSceneTitle?.textContent || 'Custom Scene',
+    space: {
+      decay: parseFloat(reverbDecaySlider?.value || 2.5),
+      wet: parseFloat(reverbWetSlider?.value || 0.28),
+      warmth: parseFloat(spaceWarmthSlider?.value || 0.65)
+    },
+    masterVolume: parseFloat(masterVolSlider?.value || 0.85),
+    layers: {
+      bed: { gain: 1.0 },
+      texture: { gain: 1.0 },
+      figure: {
+        gain: 1.0,
+        ducking: { targets: ['bed', 'texture'], depth: 0.35, attack: 0.015, release: 0.25 }
+      }
+    },
+    objects: {
+      wind: {
+        type: 'wind',
+        layer: 'bed',
+        gain: parseFloat(windVolSlider?.value || 0.70),
+        pan: parseFloat(windPanSlider?.value || 0.0),
+        distance: 10,
+        spread: parseFloat(windSpreadSlider?.value || 0.80),
+        reverbSend: 0.20,
+        params: {
+          speed: parseFloat(windSpeedSlider?.value || 35),
+          turbulence: parseFloat(windTurbulenceSlider?.value || 0.45),
+          cavityResonance: parseFloat(windCavitySlider?.value || 0.30)
+        }
+      },
+      rain: {
+        type: 'rain',
+        layer: 'texture',
+        gain: parseFloat(rainVolSlider?.value || 0.65),
+        pan: parseFloat(rainPanSlider?.value || 0.0),
+        distance: 5,
+        spread: parseFloat(rainSpreadSlider?.value || 0.95),
+        reverbSend: 0.25,
+        params: {
+          intensity: parseFloat(rainIntensitySlider?.value || 120),
+          surface: rainSurfaceSelect?.value || 'puddle',
+          pitch: parseFloat(rainPitchSlider?.value || 1400),
+          dropletSize: parseFloat(rainSizeSlider?.value || 1.0)
+        }
+      },
+      ocean: {
+        type: 'ocean',
+        layer: 'bed',
+        gain: parseFloat(oceanVolSlider?.value || 0.55),
+        pan: parseFloat(oceanPanSlider?.value || 0.25),
+        distance: 16,
+        spread: parseFloat(oceanSpreadSlider?.value || 0.50),
+        reverbSend: 0.35,
+        params: {
+          intensity: parseFloat(oceanIntensitySlider?.value || 60),
+          swellPeriod: parseFloat(oceanPeriodSlider?.value || 8.5),
+          foam: parseFloat(oceanFoamSlider?.value || 0.55),
+          pitch: parseFloat(oceanPitchSlider?.value || 480)
+        }
+      },
+      chimes: {
+        type: 'chime',
+        layer: 'figure',
+        gain: parseFloat(chimeVolSlider?.value || 0.75),
+        pan: parseFloat(chimePanSlider?.value || 0.45),
+        distance: 2,
+        spread: parseFloat(chimeSpreadSlider?.value || 0.08),
+        reverbSend: 0.45,
+        params: {
+          material: chimeMaterialSelect?.value || 'aluminum',
+          pitch: parseFloat(chimePitchSlider?.value || 587),
+          damping: parseFloat(chimeDampingSlider?.value || 0.25),
+          windSpeed: (chimeCoupledCheck && chimeCoupledCheck.checked) ? parseFloat(windSpeedSlider?.value || 35) * 0.8 : 0
+        }
+      }
+    },
+    couplings: (chimeCoupledCheck && chimeCoupledCheck.checked) ? [
+      {
+        sourceId: 'wind',
+        sourceParam: 'speed',
+        targetId: 'chimes',
+        targetParam: 'windSpeed',
+        scale: 0.8
+      }
+    ] : []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// View Mode Toggling (Studio vs Minimal Player)
+// ---------------------------------------------------------------------------
+
+export function toggleViewMode() {
+  isPlayerMode = !isPlayerMode
+  if (isPlayerMode) {
+    if (btnToggleMode) btnToggleMode.textContent = '🎛️ Mode: Player'
+    if (playerView) playerView.style.display = 'block'
+    if (studioMasterBar) studioMasterBar.style.display = 'none'
+    if (soundstageCard) soundstageCard.style.display = 'none'
+    if (objectsGrid) objectsGrid.style.display = 'none'
+  } else {
+    if (btnToggleMode) btnToggleMode.textContent = '🎧 Mode: Studio'
+    if (playerView) playerView.style.display = 'none'
+    if (studioMasterBar) studioMasterBar.style.display = 'flex'
+    if (soundstageCard) soundstageCard.style.display = 'block'
+    if (objectsGrid) objectsGrid.style.display = 'grid'
+  }
+}
+
+if (btnToggleMode) {
+  btnToggleMode.addEventListener('click', toggleViewMode)
+}
+
+// Player Mode Controls
+if (btnPlayerPlay) btnPlayerPlay.addEventListener('click', playLandscape)
+if (btnPlayerStop) btnPlayerStop.addEventListener('click', stopLandscape)
+
+if (playerVolSlider) {
+  playerVolSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (playerVolDisp) playerVolDisp.textContent = `${Math.round(val * 100)}%`
+    if (masterVolSlider) masterVolSlider.value = val
+    if (masterVolDisp) masterVolDisp.textContent = val.toFixed(2)
+    landscape.setMasterVolume(val)
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Scene Document Modal (Export & Load JSON)
+// ---------------------------------------------------------------------------
+
+if (btnExportScene) {
+  btnExportScene.addEventListener('click', () => {
+    const desc = getCurrentSceneDescriptor()
+    if (sceneJsonTextarea) sceneJsonTextarea.value = JSON.stringify(desc, null, 2)
+    if (modalTitle) modalTitle.textContent = '📥 Export Scene Document (JSON)'
+    if (sceneModal) sceneModal.style.display = 'flex'
+  })
+}
+
+if (btnLoadScene) {
+  btnLoadScene.addEventListener('click', () => {
+    if (modalTitle) modalTitle.textContent = '📤 Load Scene Document (JSON)'
+    if (sceneModal) sceneModal.style.display = 'flex'
+    if (sceneJsonTextarea) {
+      if (!sceneJsonTextarea.value.trim()) {
+        const desc = getCurrentSceneDescriptor()
+        sceneJsonTextarea.value = JSON.stringify(desc, null, 2)
+      }
+      sceneJsonTextarea.focus()
+    }
+  })
+}
+
+if (btnCloseModal) {
+  btnCloseModal.addEventListener('click', () => {
+    if (sceneModal) sceneModal.style.display = 'none'
+  })
+}
+
+if (sceneModal) {
+  sceneModal.addEventListener('click', e => {
+    if (e.target === sceneModal) {
+      sceneModal.style.display = 'none'
+    }
+  })
+}
+
+if (btnModalCopy) {
+  btnModalCopy.addEventListener('click', async () => {
+    if (!sceneJsonTextarea) return
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(sceneJsonTextarea.value)
+      } else {
+        sceneJsonTextarea.select()
+        document.execCommand('copy')
+      }
+      const orig = btnModalCopy.textContent
+      btnModalCopy.textContent = 'Copied! ✓'
+      setTimeout(() => {
+        btnModalCopy.textContent = orig
+      }, 1500)
+    } catch (err) {
+      console.error('Clipboard copy failed:', err)
+      sceneJsonTextarea.select()
+    }
+  })
+}
+
+if (btnModalApply) {
+  btnModalApply.addEventListener('click', async () => {
+    if (!sceneJsonTextarea) return
+    try {
+      const parsed = JSON.parse(sceneJsonTextarea.value)
+      if (!parsed || typeof parsed !== 'object') {
+        alert('Invalid Scene Document: Root must be a JSON object')
+        return
+      }
+
+      clearActivePresetButtons()
+      syncSlidersFromScene(parsed)
+
+      if (isPlaying && landscape._audioContext) {
+        await landscape.loadScene(parsed)
+      }
+
+      if (sceneModal) sceneModal.style.display = 'none'
+    } catch (err) {
+      alert(`JSON Parse Error: ${err.message}`)
+    }
+  })
+}
+
+// Preset Buttons
 if (presetRainBtn) presetRainBtn.addEventListener('click', () => applyPreset('rain'))
 if (presetPacificBtn) presetPacificBtn.addEventListener('click', () => applyPreset('pacific'))
 if (presetStormBtn) presetStormBtn.addEventListener('click', () => applyPreset('storm'))

@@ -252,6 +252,138 @@ describe('Landscape Orchestrator', () => {
     expect(landscape.getMasterVolume()).toBe(0.0)
   })
 
+  it('registers and retrieves plugin classes', () => {
+    landscape.register('wind', MockWindSonifier)
+    landscape.register('chime', MockChimeSonifier)
+
+    expect(landscape.listRegistered()).toEqual(['wind', 'chime'])
+    expect(landscape.getRegistered('wind')).toBe(MockWindSonifier)
+    expect(landscape.getRegistered('unknown')).toBeNull()
+  })
+
+  it('serializes entire landscape state to a SceneDescriptor via exportScene()', () => {
+    landscape.setSpace({ decay: 3.2, wet: 0.35, warmth: 0.7 })
+    landscape.setMasterVolume(0.85)
+
+    const wind = new MockWindSonifier()
+    landscape.addObject('wind', wind, {
+      type: 'wind',
+      layer: 'bed',
+      gain: 0.7,
+      pan: -0.2,
+      distance: 8,
+      spread: 0.6,
+      reverbSend: 0.25
+    })
+    landscape.setParam('wind', 'speed', 48)
+
+    landscape.couple('wind', 'speed', 'wind', 'pan', { scale: 0.01 })
+
+    const scene = landscape.exportScene({ name: 'Test Scene' })
+    expect(scene.version).toBe(1)
+    expect(scene.name).toBe('Test Scene')
+    expect(scene.space.decay).toBe(3.2)
+    expect(scene.space.wet).toBe(0.35)
+    expect(scene.masterVolume).toBe(0.85)
+    expect(scene.layers.bed).toBeDefined()
+    expect(scene.objects.wind).toBeDefined()
+    expect(scene.objects.wind.type).toBe('wind')
+    expect(scene.objects.wind.layer).toBe('bed')
+    expect(scene.objects.wind.gain).toBe(0.7)
+    expect(scene.objects.wind.pan).toBe(-0.2)
+    expect(scene.objects.wind.distance).toBe(8)
+    expect(scene.objects.wind.spread).toBe(0.6)
+    expect(scene.objects.wind.params.speed).toBe(48)
+    expect(scene.couplings.length).toBe(1)
+    expect(scene.couplings[0].sourceId).toBe('wind')
+  })
+
+  it('loads scene descriptor and dynamically instantiates objects via registry', async () => {
+    landscape.register('wind', MockWindSonifier)
+    landscape.register('chime', MockChimeSonifier)
+
+    const sceneConfig = {
+      version: 1,
+      name: 'Dynamic Forest',
+      space: { decay: 2.8, wet: 0.3, warmth: 0.6 },
+      masterVolume: 0.9,
+      layers: {
+        bed: { gain: 0.8 },
+        figure: { gain: 1.0, ducking: { targets: ['bed'], depth: 0.4 } }
+      },
+      objects: {
+        wind: {
+          type: 'wind',
+          layer: 'bed',
+          gain: 0.65,
+          pan: -0.1,
+          distance: 5,
+          params: { speed: 38 }
+        },
+        chimes: {
+          type: 'chime',
+          layer: 'figure',
+          gain: 0.75,
+          pan: 0.5,
+          distance: 2
+        }
+      },
+      couplings: [
+        { sourceId: 'wind', sourceParam: 'speed', targetId: 'chimes', targetParam: 'speed', scale: 0.8 }
+      ]
+    }
+
+    await landscape.loadScene(sceneConfig)
+
+    expect(landscape.listObjects()).toContain('wind')
+    expect(landscape.listObjects()).toContain('chimes')
+    expect(landscape.getSpace().decay).toBe(2.8)
+    expect(landscape.getMasterVolume()).toBe(0.9)
+    expect(landscape.getObject('wind').sonifier.speed).toBe(38)
+    expect(landscape.listCouplings().length).toBe(1)
+
+    // Triggering wind speed should route to chimes via restored coupling
+    landscape.setParam('wind', 'speed', 50)
+    // chimes is MockChimeSonifier which doesn't have speed in schema, but coupling was dispatched
+    expect(landscape.listCouplings()[0].scale).toBe(0.8)
+  })
+
+  it('preserves round-trip fidelity when exporting and reloading', async () => {
+    landscape.register('wind', MockWindSonifier)
+
+    const original = {
+      version: 1,
+      name: 'RoundTrip',
+      space: { decay: 3.0, wet: 0.4, warmth: 0.8 },
+      masterVolume: 0.75,
+      layers: {
+        bed: { gain: 0.85, ducking: null }
+      },
+      objects: {
+        wind: {
+          type: 'wind',
+          layer: 'bed',
+          gain: 0.6,
+          pan: 0.2,
+          distance: 4,
+          spread: 0.5,
+          reverbSend: 0.3,
+          params: { speed: 25 }
+        }
+      },
+      couplings: []
+    }
+
+    await landscape.loadScene(original)
+    const exported = landscape.exportScene({ name: 'RoundTrip' })
+
+    expect(exported.name).toBe(original.name)
+    expect(exported.space.decay).toBe(original.space.decay)
+    expect(exported.masterVolume).toBe(original.masterVolume)
+    expect(exported.objects.wind.gain).toBe(original.objects.wind.gain)
+    expect(exported.objects.wind.params.speed).toBe(25)
+  })
+
   it('destroys entire landscape, layers, and child objects without error', async () => {
     const wind = new MockWindSonifier()
     const chime = new MockChimeSonifier()

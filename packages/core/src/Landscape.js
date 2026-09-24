@@ -27,6 +27,10 @@ export class Landscape {
     // Map<string, { name, gainNode, baseGain, ducking }>
     this._layers = new Map()
 
+    // Map<string, typeof SonifierBase> - Plugin registry for dynamic instantiation
+    this._registry = new Map()
+    this._sceneName = 'Landscape Scene'
+
     // Array<{ sourceId, sourceParam, targetId, targetParam, scale, offset, curve, clamp, transform }>
     this._couplings = []
     this._dispatchStack = new Set()
@@ -523,6 +527,7 @@ export class Landscape {
       layer: layerName,
       options: {
         ...options,
+        type: options.type || id,
         layer: layerName,
         gain: baseGain,
         distance,
@@ -796,6 +801,189 @@ export class Landscape {
     this._dryGain = null
     this._reverbGain = null
     this._convolver = null
+  }
+
+  // ---------------------------------------------------------------------------
+  // Plugin Registry
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Register a sonifier plugin class under a type name.
+   * Enables dynamic object instantiation during loadScene().
+   *
+   * @param {string} type - Identifier (e.g. 'wind', 'rain', 'ocean', 'chime')
+   * @param {typeof SonifierBase} pluginClass
+   */
+  register(type, pluginClass) {
+    this._registry.set(type, pluginClass)
+  }
+
+  /**
+   * Retrieve a registered plugin class by type name.
+   * @param {string} type
+   * @returns {typeof SonifierBase|null}
+   */
+  getRegistered(type) {
+    return this._registry.get(type) || null
+  }
+
+  /**
+   * List all registered plugin types.
+   * @returns {string[]}
+   */
+  listRegistered() {
+    return Array.from(this._registry.keys())
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scene Document I/O (Declarative Serialization & Ingestion)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Serialize the entire landscape state into a declarative SceneDescriptor.
+   *
+   * @param {Object} [options]
+   * @param {string} [options.name] - Optional scene name override
+   * @returns {Object} SceneDescriptor
+   */
+  exportScene(options = {}) {
+    const objects = {}
+    for (const [id, entry] of this._objects.entries()) {
+      const params = {}
+      if (typeof entry.sonifier.getParamSchema === 'function') {
+        const schema = entry.sonifier.getParamSchema() || []
+        for (const p of schema) {
+          const val = typeof entry.sonifier.getParam === 'function'
+            ? entry.sonifier.getParam(p.name)
+            : entry.sonifier[p.name]
+          if (val !== undefined) {
+            params[p.name] = val
+          }
+        }
+      }
+
+      objects[id] = {
+        type: entry.options.type || entry.type || id,
+        layer: entry.layer || 'bed',
+        gain: entry.options.gain !== undefined ? entry.options.gain : 1.0,
+        pan: entry.options.pan !== undefined ? entry.options.pan : 0.0,
+        distance: entry.options.distance !== undefined ? entry.options.distance : 0.0,
+        spread: entry.options.spread !== undefined ? entry.options.spread : 0.0,
+        reverbSend: entry.options.reverbSend !== undefined ? entry.options.reverbSend : 0.3,
+        params
+      }
+    }
+
+    const layers = {}
+    for (const [name, layer] of this._layers.entries()) {
+      layers[name] = {
+        gain: layer.baseGain,
+        ducking: layer.ducking ? { ...layer.ducking } : null
+      }
+    }
+
+    return {
+      version: 1,
+      name: options.name || this._sceneName || 'Landscape Scene',
+      space: this.getSpace(),
+      masterVolume: this.getMasterVolume(),
+      layers,
+      objects,
+      couplings: this.listCouplings()
+    }
+  }
+
+  /**
+   * Load and reconfigure the landscape from a declarative SceneDescriptor.
+   *
+   * @param {Object} descriptor - Scene configuration
+   * @param {Object} [options]
+   * @param {Record<string, typeof SonifierBase>} [options.plugins] - Optional plugin class overrides
+   * @returns {Promise<Landscape>}
+   */
+  async loadScene(descriptor, options = {}) {
+    if (!descriptor || typeof descriptor !== 'object') {
+      throw new Error('[web-sonify] loadScene requires a valid scene descriptor object')
+    }
+
+    this._sceneName = descriptor.name || 'Landscape Scene'
+
+    // 1. Configure master space & volume
+    if (descriptor.space) {
+      this.setSpace(descriptor.space)
+    }
+    if (descriptor.masterVolume !== undefined) {
+      this.setMasterVolume(descriptor.masterVolume)
+    }
+
+    // 2. Configure layers
+    if (descriptor.layers && typeof descriptor.layers === 'object') {
+      for (const [name, cfg] of Object.entries(descriptor.layers)) {
+        this.defineLayer(name, {
+          gain: cfg.gain !== undefined ? cfg.gain : 1.0,
+          ducking: cfg.ducking || null
+        })
+      }
+    }
+
+    // 3. Clear existing couplings (will be repopulated from descriptor)
+    this._couplings = []
+
+    // 4. Instantiate or update objects
+    if (descriptor.objects && typeof descriptor.objects === 'object') {
+      for (const [id, objCfg] of Object.entries(descriptor.objects)) {
+        const type = objCfg.type || id
+        let entry = this._objects.get(id)
+
+        if (!entry) {
+          const PluginClass = (options.plugins && options.plugins[type]) || this._registry.get(type)
+          if (!PluginClass) {
+            console.warn(`[web-sonify] Cannot instantiate object "${id}": no plugin registered for type "${type}"`)
+            continue
+          }
+          const instance = new PluginClass()
+          entry = this.addObject(id, instance, {
+            type,
+            layer: objCfg.layer || 'bed',
+            gain: objCfg.gain,
+            pan: objCfg.pan,
+            distance: objCfg.distance,
+            spread: objCfg.spread,
+            reverbSend: objCfg.reverbSend
+          })
+        } else {
+          entry.options.type = type
+          if (objCfg.layer) entry.layer = objCfg.layer
+          if (objCfg.gain !== undefined) this.setParam(id, 'gain', objCfg.gain)
+          if (objCfg.pan !== undefined) this.setParam(id, 'pan', objCfg.pan)
+          if (objCfg.distance !== undefined) this.setParam(id, 'distance', objCfg.distance)
+          if (objCfg.spread !== undefined) this.setParam(id, 'spread', objCfg.spread)
+          if (objCfg.reverbSend !== undefined) this.setParam(id, 'reverbSend', objCfg.reverbSend)
+        }
+
+        // Apply inner sonifier parameters
+        if (objCfg.params && typeof objCfg.params === 'object') {
+          for (const [paramName, paramVal] of Object.entries(objCfg.params)) {
+            this.setParam(id, paramName, paramVal)
+          }
+        }
+      }
+    }
+
+    // 5. Restore couplings
+    if (Array.isArray(descriptor.couplings)) {
+      for (const c of descriptor.couplings) {
+        this.couple(c.sourceId, c.sourceParam, c.targetId, c.targetParam, {
+          scale: c.scale,
+          offset: c.offset,
+          curve: c.curve,
+          clamp: c.clamp,
+          transform: c.transform
+        })
+      }
+    }
+
+    return this
   }
 }
 

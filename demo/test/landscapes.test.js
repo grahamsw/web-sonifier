@@ -99,4 +99,89 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(parsed.imports['@web-sonifier/ocean']).toBe('/packages/ocean/src/index.js')
     expect(parsed.imports['@web-sonifier/chime']).toBe('/packages/chime/src/index.js')
   })
+
+  it('contains scene tools toolbar buttons for export, load, and player toggle', () => {
+    const btnExport = document.getElementById('btn-export-scene')
+    const btnLoad = document.getElementById('btn-load-scene')
+    const btnToggle = document.getElementById('btn-toggle-mode')
+
+    expect(btnExport).not.toBeNull()
+    expect(btnLoad).not.toBeNull()
+    expect(btnToggle).not.toBeNull()
+    expect(btnToggle.textContent).toContain('Mode: Studio')
+  })
+
+  it('contains player mode card with minimal distraction-free controls', () => {
+    const playerView = document.getElementById('player-view')
+    const btnPlayerPlay = document.getElementById('btn-player-play')
+    const btnPlayerStop = document.getElementById('btn-player-stop')
+    const playerVolume = document.getElementById('player-volume')
+    const playerTitle = document.getElementById('player-scene-title')
+
+    expect(playerView).not.toBeNull()
+    expect(playerView.style.display).toBe('none')
+    expect(btnPlayerPlay).not.toBeNull()
+    expect(btnPlayerStop).not.toBeNull()
+    expect(btnPlayerStop.disabled).toBe(true)
+    expect(playerVolume).not.toBeNull()
+    expect(playerTitle).not.toBeNull()
+  })
+
+  it('contains scene document JSON modal and action controls', () => {
+    const modal = document.getElementById('scene-modal')
+    const textarea = document.getElementById('scene-json-textarea')
+    const btnClose = document.getElementById('btn-close-modal')
+    const btnCopy = document.getElementById('btn-modal-copy')
+    const btnApply = document.getElementById('btn-modal-apply')
+
+    expect(modal).not.toBeNull()
+    expect(modal.style.display).toBe('none')
+    expect(textarea).not.toBeNull()
+    expect(btnClose).not.toBeNull()
+    expect(btnCopy).not.toBeNull()
+    expect(btnApply).not.toBeNull()
+  })
+
+  it('verifies all 4 scene JSON preset files on disk conform to SceneDescriptor schema v1', () => {
+    const scenesDir = path.resolve(__dirname, '../landscapes/scenes')
+    const sceneFiles = [
+      'rain-on-tin-roof.json',
+      'pacific-coast.json',
+      'mountain-storm.json',
+      'alpine-meadow.json'
+    ]
+
+    for (const filename of sceneFiles) {
+      const fullPath = path.join(scenesDir, filename)
+      expect(fs.existsSync(fullPath)).toBe(true)
+
+      const content = fs.readFileSync(fullPath, 'utf-8')
+      const scene = JSON.parse(content)
+
+      expect(scene.version).toBe(1)
+      expect(typeof scene.name).toBe('string')
+      expect(scene.space).toBeDefined()
+      expect(typeof scene.space.decay).toBe('number')
+      expect(typeof scene.space.wet).toBe('number')
+      expect(typeof scene.space.warmth).toBe('number')
+      expect(typeof scene.masterVolume).toBe('number')
+
+      expect(scene.layers).toBeDefined()
+      expect(scene.layers.bed).toBeDefined()
+      expect(scene.layers.texture).toBeDefined()
+      expect(scene.layers.figure).toBeDefined()
+
+      expect(scene.objects).toBeDefined()
+      expect(Object.keys(scene.objects).length).toBe(4)
+      for (const [id, obj] of Object.entries(scene.objects)) {
+        expect(obj.type).toBeDefined()
+        expect(obj.layer).toBeDefined()
+        expect(typeof obj.gain).toBe('number')
+        expect(typeof obj.pan).toBe('number')
+        expect(typeof obj.spread).toBe('number')
+      }
+
+      expect(Array.isArray(scene.couplings)).toBe(true)
+    }
+  })
 })

@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "name": "Mountain Storm",
+  "space": {
+    "decay": 4.5,
+    "wet": 0.40,
+    "warmth": 0.70
+  },
+  "masterVolume": 0.85,
+  "layers": {
+    "bed": { "gain": 1.0 },
+    "texture": { "gain": 1.0 },
+    "figure": {
+      "gain": 1.0,
+      "ducking": { "targets": ["bed", "texture"], "depth": 0.35, "attack": 0.015, "release": 0.25 }
+    }
+  },
+  "objects": {
+    "rain": {
+      "type": "rain",
+      "layer": "texture",
+      "gain": 0.92,
+      "pan": 0.0,
+      "distance": 3,
+      "spread": 1.0,
+      "reverbSend": 0.30,
+      "params": {
+        "intensity": 320,
+        "surface": "puddle",
+        "pitch": 1200,
+        "dropletSize": 1.3
+      }
+    },
+    "wind": {
+      "type": "wind",
+      "layer": "bed",
+      "gain": 0.85,
+      "pan": 0.0,
+      "distance": 6,
+      "spread": 0.85,
+      "reverbSend": 0.25,
+      "params": {
+        "speed": 68,
+        "turbulence": 0.75,
+        "cavityResonance": 0.60
+      }
+    },
+    "ocean": {
+      "type": "ocean",
+      "layer": "bed",
+      "gain": 0.50,
+      "pan": -0.40,
+      "distance": 18,
+      "spread": 0.60,
+      "reverbSend": 0.40,
+      "params": {
+        "intensity": 80,
+        "swellPeriod": 6.0,
+        "foam": 0.65,
+        "pitch": 450
+      }
+    },
+    "chimes": {
+      "type": "chime",
+      "layer": "figure",
+      "gain": 0.80,
+      "pan": 0.45,
+      "distance": 3,
+      "spread": 0.08,
+      "reverbSend": 0.45,
+      "params": {
+        "material": "steel",
+        "pitch": 659,
+        "damping": 0.18,
+        "windSpeed": 54.4
+      }
+    }
+  },
+  "couplings": [
+    {
+      "sourceId": "wind",
+      "sourceParam": "speed",
+      "targetId": "chimes",
+      "targetParam": "windSpeed",
+      "scale": 0.8
+    }
+  ]
+}
