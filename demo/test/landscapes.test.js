@@ -184,4 +184,31 @@ describe('Landscapes Studio UI & Integration', () => {
       expect(Array.isArray(scene.couplings)).toBe(true)
     }
   })
+
+  it('syncs sliders from scene descriptor without reference error on chimes parameters', async () => {
+    const { syncSlidersFromScene } = await import('../landscapes/main.js')
+    const scene = {
+      version: 1,
+      name: 'Custom Applied Scene',
+      masterVolume: 0.7,
+      space: { decay: 3.0, wet: 0.25, warmth: 0.6 },
+      objects: {
+        chimes: {
+          type: 'chime',
+          layer: 'figure',
+          gain: 0.8,
+          pan: 0.3,
+          spread: 0.1,
+          params: { pitch: 659, damping: 0.2, material: 'bronze' }
+        }
+      }
+    }
+
+    expect(() => syncSlidersFromScene(scene)).not.toThrow()
+    const chimePitchInput = document.getElementById('chime-pitch')
+    const chimePitchDisp = document.getElementById('disp-chime-pitch')
+    expect(chimePitchInput.value).toBe('659')
+    expect(chimePitchDisp.textContent).toBe('659 Hz')
+    expect(document.getElementById('player-scene-title').textContent).toBe('Custom Applied Scene')
+  })
 })

@@ -677,7 +677,7 @@ export function syncSlidersFromScene(scene) {
     if (chimes.spread !== undefined) setSlider(chimeSpreadSlider, chimes.spread, chimeSpreadDisp, formatSpread(chimes.spread))
     if (chimes.params) {
       if (chimes.params.material !== undefined && chimeMaterialSelect) chimeMaterialSelect.value = chimes.params.material
-      if (chimes.params.pitch !== undefined) setSlider(chimePitchSlider, chime.params.pitch, chimePitchDisp, `${chimes.params.pitch} Hz`)
+      if (chimes.params.pitch !== undefined) setSlider(chimePitchSlider, chimes.params.pitch, chimePitchDisp, `${chimes.params.pitch} Hz`)
       if (chimes.params.damping !== undefined) setSlider(chimeDampingSlider, chimes.params.damping, chimeDampingDisp, chimes.params.damping.toFixed(2))
     }
   }
@@ -908,13 +908,20 @@ if (btnModalCopy) {
 if (btnModalApply) {
   btnModalApply.addEventListener('click', async () => {
     if (!sceneJsonTextarea) return
+    let parsed
     try {
-      const parsed = JSON.parse(sceneJsonTextarea.value)
-      if (!parsed || typeof parsed !== 'object') {
-        alert('Invalid Scene Document: Root must be a JSON object')
-        return
-      }
+      parsed = JSON.parse(sceneJsonTextarea.value)
+    } catch (err) {
+      alert(`Invalid JSON Syntax: ${err.message}`)
+      return
+    }
 
+    if (!parsed || typeof parsed !== 'object') {
+      alert('Invalid Scene Document: Root must be a JSON object')
+      return
+    }
+
+    try {
       clearActivePresetButtons()
       syncSlidersFromScene(parsed)
 
@@ -924,7 +931,8 @@ if (btnModalApply) {
 
       if (sceneModal) sceneModal.style.display = 'none'
     } catch (err) {
-      alert(`JSON Parse Error: ${err.message}`)
+      console.error('[Landscapes] Error applying scene:', err)
+      alert(`Error applying scene: ${err.message}`)
     }
   })
 }
