@@ -111,6 +111,55 @@
       </div>
     </section>
 
+    <!-- Live Data Feed Simulator Bar (Transduction Bridge) -->
+    <section class="feed-simulator-bar" id="feed-simulator-bar">
+      <div class="feed-sim-header">
+        <div class="feed-sim-title">
+          <span class="pulse-dot"></span>
+          <h3>📡 Live Data Feed Simulator</h3>
+          <span class="feed-badge">Active Transduction Bridge</span>
+        </div>
+        <div class="feed-sim-actions">
+          <button type="button" class="btn-tool" id="btn-stream-toggle">⚡ Stream (Brownian Walk): OFF</button>
+        </div>
+      </div>
+      <div class="feed-sim-controls">
+        <div class="feed-sim-item">
+          <div class="feed-label-row">
+            <span class="feed-name">traffic_rps</span>
+            <span class="feed-desc">Wind Speed</span>
+            <span class="feed-val" id="disp-feed-traffic">1250 req/s</span>
+          </div>
+          <input type="range" id="sim-feed-traffic" min="0" max="5000" step="25" value="1250">
+        </div>
+        <div class="feed-sim-item">
+          <div class="feed-label-row">
+            <span class="feed-name">active_users</span>
+            <span class="feed-desc">Ocean Intensity</span>
+            <span class="feed-val" id="disp-feed-users">420 conns</span>
+          </div>
+          <input type="range" id="sim-feed-users" min="0" max="1000" step="10" value="420">
+        </div>
+        <div class="feed-sim-item">
+          <div class="feed-label-row">
+            <span class="feed-name">cpu_load</span>
+            <span class="feed-desc">Ocean Foam</span>
+            <span class="feed-val" id="disp-feed-cpu">45%</span>
+          </div>
+          <input type="range" id="sim-feed-cpu" min="0" max="100" step="1" value="45">
+        </div>
+        <div class="feed-sim-item feed-sim-event">
+          <div class="feed-label-row">
+            <span class="feed-name">error_spikes</span>
+            <span class="feed-desc">Chime Strike</span>
+          </div>
+          <div class="feed-event-actions">
+            <button type="button" class="btn-strike" id="btn-trigger-spike">⚡ Trigger Spike</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- 2D Soundstage Visualizer -->
     <section class="soundstage-card">
       <div class="soundstage-header">
@@ -409,21 +458,70 @@
 
   </div>
 
-  <!-- Scene Document JSON Modal -->
-  <div class="modal-backdrop" id="scene-modal" style="display: none;">
+  <!-- Export Specification Modal -->
+  <div class="modal-backdrop" id="modal-export" style="display: none;">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3 id="modal-title">Scene Document (JSON)</h3>
-        <button type="button" class="btn-close-modal" id="btn-close-modal" aria-label="Close">&times;</button>
+        <h3 id="export-modal-title">📥 Export Specifications</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-export" aria-label="Close">&times;</button>
+      </div>
+      <div class="spec-tabs">
+        <button type="button" class="spec-tab active" data-export-type="bundle">Unified Bundle (.scene.json)</button>
+        <button type="button" class="spec-tab" data-export-type="landscape">Landscape Spec (.landscape.json)</button>
+        <button type="button" class="spec-tab" data-export-type="feeds">Feed Spec (.feed.json)</button>
+        <button type="button" class="spec-tab" data-export-type="mappings">Mappings Spec (.mappings.json)</button>
       </div>
       <div class="modal-body">
-        <textarea id="scene-json-textarea" class="scene-json-textarea" spellcheck="false" placeholder="Paste Scene JSON here..."></textarea>
+        <textarea id="export-json-textarea" class="scene-json-textarea" readonly spellcheck="false"></textarea>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-action secondary" id="btn-modal-copy">📋 Copy to Clipboard</button>
-        <button type="button" class="btn-action" id="btn-modal-apply">Apply Scene</button>
+        <button type="button" class="btn-action secondary" id="btn-export-copy">📋 Copy JSON</button>
+        <button type="button" class="btn-action" id="btn-export-download">💾 Download .json</button>
       </div>
     </div>
+  </div>
+
+  <!-- Load Specification Modal -->
+  <div class="modal-backdrop" id="modal-load" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="load-modal-title">📤 Load Specification</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-load" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="drop-zone" id="load-drop-zone">
+          <div class="drop-zone-icon">📁</div>
+          <div class="drop-zone-text">Drag & drop any <strong>.json</strong> specification file here</div>
+          <div class="drop-zone-sub">Supports Scene Bundles, Landscape Specs, Feed Specs, or Mappings Specs</div>
+          <button type="button" class="btn-tool" id="btn-browse-file" style="margin-top: 0.75rem;">Browse Files...</button>
+          <input type="file" id="load-file-input" accept=".json,application/json" style="display: none;">
+        </div>
+
+        <div class="load-file-status" id="load-file-status" style="display: none;">
+          <span class="file-status-icon">✓</span>
+          <div class="file-status-info">
+            <strong id="load-file-name">filename.json</strong>
+            <span id="load-file-detail">Scene Bundle</span>
+          </div>
+        </div>
+
+        <details class="paste-json-accordion">
+          <summary>Or paste JSON text directly</summary>
+          <textarea id="load-json-textarea" class="scene-json-textarea" spellcheck="false" placeholder="Paste Scene Bundle, Landscape, Feed, or Mappings JSON here..."></textarea>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-action" id="btn-load-apply">Apply Specification</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legacy scene-modal compatibility container -->
+  <div id="scene-modal" style="display: none;" aria-hidden="true">
+    <textarea id="scene-json-textarea" style="display: none;"></textarea>
+    <button id="btn-close-modal" style="display: none;"></button>
+    <button id="btn-modal-copy" style="display: none;"></button>
+    <button id="btn-modal-apply" style="display: none;"></button>
   </div>
 
   <script type="module" src="/demo/landscapes/main.js"></script>

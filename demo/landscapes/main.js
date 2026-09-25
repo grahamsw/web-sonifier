@@ -18,6 +18,62 @@ landscape.register('ocean', OceanSonifier)
 landscape.register('chime', ChimeSonifier)
 landscape.register('chimes', ChimeSonifier)
 
+// Register default data feeds (Web Traffic & Infrastructure Telemetry)
+landscape.defineFeed('traffic_rps', {
+  label: 'HTTP Request Rate',
+  type: 'continuous',
+  scale: 'macro',
+  range: [0, 5000],
+  unit: 'req/s',
+  description: 'Aggregated global requests per second arriving at edge proxies'
+})
+landscape.defineFeed('active_users', {
+  label: 'Active WebSocket Sessions',
+  type: 'continuous',
+  scale: 'meso',
+  range: [0, 1000],
+  unit: 'conns',
+  description: 'Currently open full-duplex socket sessions'
+})
+landscape.defineFeed('cpu_load', {
+  label: 'Cluster CPU Load',
+  type: 'continuous',
+  scale: 'meso',
+  range: [0, 100],
+  unit: '%',
+  description: 'Mean CPU utilization percentage across edge worker nodes'
+})
+landscape.defineFeed('error_spikes', {
+  label: 'HTTP 5xx Error Bursts',
+  type: 'event',
+  scale: 'micro',
+  range: [1, 20],
+  unit: 'errors',
+  description: 'Discrete 5xx error spikes requiring immediate attentional orientation'
+})
+
+// Register default transduction bridge mappings
+landscape.addMapping({
+  feedId: 'traffic_rps',
+  target: { objectId: 'wind', param: 'speed' },
+  adapter: { inputRange: [0, 5000], outputRange: [15, 75], curve: 'exponential' }
+})
+landscape.addMapping({
+  feedId: 'active_users',
+  target: { objectId: 'ocean', param: 'intensity' },
+  adapter: { inputRange: [0, 1000], outputRange: [30, 95], curve: 'linear' }
+})
+landscape.addMapping({
+  feedId: 'cpu_load',
+  target: { objectId: 'ocean', param: 'foam' },
+  adapter: { inputRange: [0, 100], outputRange: [0.1, 0.95], curve: 'linear' }
+})
+landscape.addMapping({
+  feedId: 'error_spikes',
+  target: { objectId: 'chimes', action: 'trigger', event: 'strike' },
+  adapter: { inputRange: [1, 20], outputRange: [0.35, 1.0], curve: 'exponential' }
+})
+
 let isPlaying = false
 let isPlayerMode = false
 let currentPresetName = 'rain'
@@ -843,97 +899,420 @@ if (playerVolSlider) {
 }
 
 // ---------------------------------------------------------------------------
-// Scene Document Modal (Export & Load JSON)
+// Live Data Feed Simulator Bar
 // ---------------------------------------------------------------------------
+
+const simFeedTraffic = document.getElementById('sim-feed-traffic')
+const dispFeedTraffic = document.getElementById('disp-feed-traffic')
+const simFeedUsers = document.getElementById('sim-feed-users')
+const dispFeedUsers = document.getElementById('disp-feed-users')
+const simFeedCpu = document.getElementById('sim-feed-cpu')
+const dispFeedCpu = document.getElementById('disp-feed-cpu')
+const btnTriggerSpike = document.getElementById('btn-trigger-spike')
+const btnStreamToggle = document.getElementById('btn-stream-toggle')
+
+let isStreaming = false
+let streamInterval = null
+
+if (simFeedTraffic) {
+  simFeedTraffic.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (dispFeedTraffic) dispFeedTraffic.textContent = `${Math.round(val)} req/s`
+    landscape.pushData('traffic_rps', val)
+    const windSpeed = landscape.getObject('wind')?.sonifier?.speed
+    if (windSpeed != null && windSpeedSlider) {
+      windSpeedSlider.value = windSpeed.toFixed(0)
+      if (windSpeedDisp) windSpeedDisp.textContent = `${Math.round(windSpeed)} km/h`
+    }
+  })
+}
+
+if (simFeedUsers) {
+  simFeedUsers.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (dispFeedUsers) dispFeedUsers.textContent = `${Math.round(val)} conns`
+    landscape.pushData('active_users', val)
+    const intensity = landscape.getObject('ocean')?.sonifier?.intensity
+    if (intensity != null && oceanIntensitySlider) {
+      oceanIntensitySlider.value = intensity.toFixed(0)
+      if (oceanIntensityDisp) oceanIntensityDisp.textContent = `${Math.round(intensity)}%`
+    }
+  })
+}
+
+if (simFeedCpu) {
+  simFeedCpu.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (dispFeedCpu) dispFeedCpu.textContent = `${Math.round(val)}%`
+    landscape.pushData('cpu_load', val)
+    const foam = landscape.getObject('ocean')?.sonifier?.foam
+    if (foam != null && oceanFoamSlider) {
+      oceanFoamSlider.value = foam.toFixed(2)
+      if (oceanFoamDisp) oceanFoamDisp.textContent = `${Math.round(foam * 100)}%`
+    }
+  })
+}
+
+if (btnTriggerSpike) {
+  btnTriggerSpike.addEventListener('click', () => {
+    const spikeMagnitude = Math.floor(Math.random() * 12 + 6)
+    landscape.pushData('error_spikes', spikeMagnitude)
+    emitPulse('chimes', '#f59e0b', 55)
+  })
+}
+
+if (btnStreamToggle) {
+  btnStreamToggle.addEventListener('click', () => {
+    isStreaming = !isStreaming
+    if (isStreaming) {
+      btnStreamToggle.textContent = '⚡ Stream (Brownian Walk): ON'
+      btnStreamToggle.style.borderColor = 'var(--accent-cyan)'
+      btnStreamToggle.style.color = 'var(--accent-cyan)'
+      streamInterval = setInterval(() => {
+        // Step traffic
+        if (simFeedTraffic) {
+          let t = parseFloat(simFeedTraffic.value) + (Math.random() - 0.5) * 160
+          t = Math.max(0, Math.min(5000, t))
+          simFeedTraffic.value = t
+          if (dispFeedTraffic) dispFeedTraffic.textContent = `${Math.round(t)} req/s`
+          landscape.pushData('traffic_rps', t)
+          const ws = landscape.getObject('wind')?.sonifier?.speed
+          if (ws != null && windSpeedSlider) {
+            windSpeedSlider.value = ws.toFixed(0)
+            if (windSpeedDisp) windSpeedDisp.textContent = `${Math.round(ws)} km/h`
+          }
+        }
+        // Step users
+        if (simFeedUsers) {
+          let u = parseFloat(simFeedUsers.value) + (Math.random() - 0.5) * 35
+          u = Math.max(0, Math.min(1000, u))
+          simFeedUsers.value = u
+          if (dispFeedUsers) dispFeedUsers.textContent = `${Math.round(u)} conns`
+          landscape.pushData('active_users', u)
+          const oi = landscape.getObject('ocean')?.sonifier?.intensity
+          if (oi != null && oceanIntensitySlider) {
+            oceanIntensitySlider.value = oi.toFixed(0)
+            if (oceanIntensityDisp) oceanIntensityDisp.textContent = `${Math.round(oi)}%`
+          }
+        }
+        // Step CPU
+        if (simFeedCpu) {
+          let c = parseFloat(simFeedCpu.value) + (Math.random() - 0.5) * 5
+          c = Math.max(0, Math.min(100, c))
+          simFeedCpu.value = c
+          if (dispFeedCpu) dispFeedCpu.textContent = `${Math.round(c)}%`
+          landscape.pushData('cpu_load', c)
+          const of = landscape.getObject('ocean')?.sonifier?.foam
+          if (of != null && oceanFoamSlider) {
+            oceanFoamSlider.value = of.toFixed(2)
+            if (oceanFoamDisp) oceanFoamDisp.textContent = `${Math.round(of * 100)}%`
+          }
+        }
+        // Occasional spike (6% chance per tick)
+        if (Math.random() < 0.06) {
+          const spike = Math.floor(Math.random() * 15 + 5)
+          landscape.pushData('error_spikes', spike)
+          emitPulse('chimes', '#f59e0b', 60)
+        }
+      }, 250)
+    } else {
+      btnStreamToggle.textContent = '⚡ Stream (Brownian Walk): OFF'
+      btnStreamToggle.style.borderColor = ''
+      btnStreamToggle.style.color = ''
+      if (streamInterval) {
+        clearInterval(streamInterval)
+        streamInterval = null
+      }
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Export Specification Modal (#modal-export)
+// ---------------------------------------------------------------------------
+
+const modalExport = document.getElementById('modal-export')
+const btnCloseExport = document.getElementById('btn-close-export')
+const exportJsonTextarea = document.getElementById('export-json-textarea')
+const btnExportCopy = document.getElementById('btn-export-copy')
+const btnExportDownload = document.getElementById('btn-export-download')
+const specTabs = document.querySelectorAll('.spec-tab')
+
+let currentExportType = 'bundle'
+
+function getExportDoc(type) {
+  const sceneName = playerSceneTitle?.textContent || 'Auditory Landscape'
+  switch (type) {
+    case 'landscape':
+      return landscape.exportLandscape ? landscape.exportLandscape({ name: sceneName }) : getCurrentSceneDescriptor()
+    case 'feeds':
+      return landscape.exportFeeds({ name: `${sceneName} Feeds` })
+    case 'mappings':
+      return landscape.exportMappings({ name: `${sceneName} Mappings` })
+    case 'bundle':
+    default:
+      return landscape.exportScene({ name: sceneName })
+  }
+}
+
+function updateExportTextarea() {
+  if (!exportJsonTextarea) return
+  const doc = getExportDoc(currentExportType)
+  exportJsonTextarea.value = JSON.stringify(doc, null, 2)
+}
 
 if (btnExportScene) {
   btnExportScene.addEventListener('click', () => {
-    const desc = getCurrentSceneDescriptor()
-    if (sceneJsonTextarea) sceneJsonTextarea.value = JSON.stringify(desc, null, 2)
-    if (modalTitle) modalTitle.textContent = '📥 Export Scene Document (JSON)'
-    if (sceneModal) sceneModal.style.display = 'flex'
+    currentExportType = 'bundle'
+    specTabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-export-type') === 'bundle'))
+    updateExportTextarea()
+    if (modalExport) modalExport.style.display = 'flex'
   })
+}
+
+specTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    specTabs.forEach(t => t.classList.remove('active'))
+    tab.classList.add('active')
+    currentExportType = tab.getAttribute('data-export-type')
+    updateExportTextarea()
+  })
+})
+
+if (btnCloseExport) {
+  btnCloseExport.addEventListener('click', () => {
+    if (modalExport) modalExport.style.display = 'none'
+  })
+}
+
+if (modalExport) {
+  modalExport.addEventListener('click', e => {
+    if (e.target === modalExport) modalExport.style.display = 'none'
+  })
+}
+
+if (btnExportCopy) {
+  btnExportCopy.addEventListener('click', async () => {
+    if (!exportJsonTextarea) return
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(exportJsonTextarea.value)
+      } else {
+        exportJsonTextarea.select()
+        document.execCommand('copy')
+      }
+      const orig = btnExportCopy.textContent
+      btnExportCopy.textContent = 'Copied! ✓'
+      setTimeout(() => { btnExportCopy.textContent = orig }, 1500)
+    } catch (err) {
+      console.error('Clipboard copy failed:', err)
+      exportJsonTextarea.select()
+    }
+  })
+}
+
+if (btnExportDownload) {
+  btnExportDownload.addEventListener('click', () => {
+    if (!exportJsonTextarea) return
+    try {
+      const extMap = {
+        bundle: 'scene.json',
+        landscape: 'landscape.json',
+        feeds: 'feed.json',
+        mappings: 'mappings.json'
+      }
+      const rawTitle = playerSceneTitle?.textContent || 'scene'
+      const cleanTitle = rawTitle.replace(/^[^\w]+/, '').trim()
+      const slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'scene'
+      const filename = `${slug}.${extMap[currentExportType] || 'json'}`
+      const blob = new Blob([exportJsonTextarea.value], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Download failed:', err)
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Load Specification Modal (#modal-load)
+// ---------------------------------------------------------------------------
+
+const modalLoad = document.getElementById('modal-load')
+const btnCloseLoad = document.getElementById('btn-close-load')
+const loadDropZone = document.getElementById('load-drop-zone')
+const loadFileInput = document.getElementById('load-file-input')
+const btnBrowseFile = document.getElementById('btn-browse-file')
+const loadFileStatus = document.getElementById('load-file-status')
+const loadFileName = document.getElementById('load-file-name')
+const loadFileDetail = document.getElementById('load-file-detail')
+const loadJsonTextarea = document.getElementById('load-json-textarea')
+const btnLoadApply = document.getElementById('btn-load-apply')
+
+function inspectAndSetLoadJson(text, filename = 'custom.json') {
+  if (loadJsonTextarea) loadJsonTextarea.value = text
+  try {
+    const parsed = JSON.parse(text)
+    let typeName = 'Unknown Document'
+    let detail = ''
+    if (parsed.landscape || (parsed.objects && parsed.feeds && parsed.mappings)) {
+      typeName = 'Unified Scene Bundle (.scene.json)'
+      const objCount = Object.keys(parsed.objects || parsed.landscape?.objects || {}).length
+      const feedCount = Object.keys(parsed.feeds || {}).length
+      const mapCount = (parsed.mappings || []).length
+      detail = `${objCount} resonators, ${feedCount} feeds, ${mapCount} mappings`
+    } else if (parsed.feeds) {
+      typeName = 'Data Feed Specification (.feed.json)'
+      detail = `${Object.keys(parsed.feeds).length} feeds defined`
+    } else if (parsed.mappings) {
+      typeName = 'Parameter Mappings Specification (.mappings.json)'
+      detail = `${parsed.mappings.length} mappings configured`
+    } else if (parsed.objects || parsed.space) {
+      typeName = 'Auditory Landscape Specification (.landscape.json)'
+      detail = `${Object.keys(parsed.objects || {}).length} acoustic resonators`
+    }
+    if (loadFileStatus) loadFileStatus.style.display = 'flex'
+    if (loadFileName) loadFileName.textContent = filename
+    if (loadFileDetail) loadFileDetail.textContent = `${typeName} — ${detail}`
+  } catch (err) {
+    if (loadFileStatus) loadFileStatus.style.display = 'flex'
+    if (loadFileName) loadFileName.textContent = filename
+    if (loadFileDetail) loadFileDetail.textContent = `JSON Parse Warning: ${err.message}`
+  }
 }
 
 if (btnLoadScene) {
   btnLoadScene.addEventListener('click', () => {
-    if (modalTitle) modalTitle.textContent = '📤 Load Scene Document (JSON)'
-    if (sceneModal) sceneModal.style.display = 'flex'
-    if (sceneJsonTextarea) {
-      if (!sceneJsonTextarea.value.trim()) {
-        const desc = getCurrentSceneDescriptor()
-        sceneJsonTextarea.value = JSON.stringify(desc, null, 2)
-      }
-      sceneJsonTextarea.focus()
+    if (modalLoad) modalLoad.style.display = 'flex'
+    if (loadJsonTextarea && !loadJsonTextarea.value.trim()) {
+      const desc = getCurrentSceneDescriptor()
+      loadJsonTextarea.value = JSON.stringify(desc, null, 2)
     }
   })
 }
 
-if (btnCloseModal) {
-  btnCloseModal.addEventListener('click', () => {
-    if (sceneModal) sceneModal.style.display = 'none'
+if (btnCloseLoad) {
+  btnCloseLoad.addEventListener('click', () => {
+    if (modalLoad) modalLoad.style.display = 'none'
   })
 }
 
-if (sceneModal) {
-  sceneModal.addEventListener('click', e => {
-    if (e.target === sceneModal) {
-      sceneModal.style.display = 'none'
+if (modalLoad) {
+  modalLoad.addEventListener('click', e => {
+    if (e.target === modalLoad) modalLoad.style.display = 'none'
+  })
+}
+
+if (btnBrowseFile && loadFileInput) {
+  btnBrowseFile.addEventListener('click', () => loadFileInput.click())
+}
+
+if (loadDropZone && loadFileInput) {
+  loadDropZone.addEventListener('click', e => {
+    if (e.target !== btnBrowseFile) loadFileInput.click()
+  })
+
+  loadDropZone.addEventListener('dragover', e => {
+    e.preventDefault()
+    loadDropZone.classList.add('drag-over')
+  })
+
+  loadDropZone.addEventListener('dragleave', () => {
+    loadDropZone.classList.remove('drag-over')
+  })
+
+  loadDropZone.addEventListener('drop', e => {
+    e.preventDefault()
+    loadDropZone.classList.remove('drag-over')
+    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0]
+      const reader = new FileReader()
+      reader.onload = ev => inspectAndSetLoadJson(ev.target.result, file.name)
+      reader.readAsText(file)
     }
   })
 }
 
-if (btnModalCopy) {
-  btnModalCopy.addEventListener('click', async () => {
-    if (!sceneJsonTextarea) return
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(sceneJsonTextarea.value)
-      } else {
-        sceneJsonTextarea.select()
-        document.execCommand('copy')
-      }
-      const orig = btnModalCopy.textContent
-      btnModalCopy.textContent = 'Copied! ✓'
-      setTimeout(() => {
-        btnModalCopy.textContent = orig
-      }, 1500)
-    } catch (err) {
-      console.error('Clipboard copy failed:', err)
-      sceneJsonTextarea.select()
+if (loadFileInput) {
+  loadFileInput.addEventListener('change', e => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0]
+      const reader = new FileReader()
+      reader.onload = ev => inspectAndSetLoadJson(ev.target.result, file.name)
+      reader.readAsText(file)
     }
   })
 }
 
-if (btnModalApply) {
-  btnModalApply.addEventListener('click', async () => {
-    if (!sceneJsonTextarea) return
+if (loadJsonTextarea) {
+  loadJsonTextarea.addEventListener('input', () => {
+    inspectAndSetLoadJson(loadJsonTextarea.value, 'pasted-specification.json')
+  })
+}
+
+if (btnLoadApply) {
+  btnLoadApply.addEventListener('click', async () => {
+    if (!loadJsonTextarea) return
     let parsed
     try {
-      parsed = JSON.parse(sceneJsonTextarea.value)
+      parsed = JSON.parse(loadJsonTextarea.value)
     } catch (err) {
       alert(`Invalid JSON Syntax: ${err.message}`)
       return
     }
 
     if (!parsed || typeof parsed !== 'object') {
-      alert('Invalid Scene Document: Root must be a JSON object')
+      alert('Invalid Specification Document: Root must be a JSON object')
       return
     }
 
     try {
-      clearActivePresetButtons()
-      syncSlidersFromScene(parsed)
-
-      if (isPlaying && landscape._audioContext) {
-        await landscape.loadScene(parsed)
+      if (parsed.feeds && !parsed.objects && !parsed.space && !parsed.landscape) {
+        landscape.loadFeeds(parsed)
+      } else if (parsed.mappings && !parsed.objects && !parsed.space && !parsed.landscape) {
+        landscape.loadMappings(parsed)
+      } else {
+        clearActivePresetButtons()
+        const sceneDescriptor = parsed.landscape || parsed
+        syncSlidersFromScene(sceneDescriptor)
+        if (isPlaying && landscape._audioContext) {
+          await landscape.loadScene(parsed)
+        } else {
+          if (parsed.feeds) landscape.loadFeeds(parsed.feeds)
+          if (parsed.mappings) landscape.loadMappings(parsed.mappings)
+        }
       }
-
-      if (sceneModal) sceneModal.style.display = 'none'
+      if (modalLoad) modalLoad.style.display = 'none'
     } catch (err) {
-      console.error('[Landscapes] Error applying scene:', err)
-      alert(`Error applying scene: ${err.message}`)
+      console.error('[Landscapes] Error applying specification:', err)
+      alert(`Error applying specification: ${err.message}`)
     }
+  })
+}
+
+// Legacy modal element bindings for backwards compatibility
+if (btnModalCopy && exportJsonTextarea) {
+  btnModalCopy.addEventListener('click', () => {
+    if (btnExportCopy) btnExportCopy.click()
+  })
+}
+
+if (btnModalApply && loadJsonTextarea) {
+  btnModalApply.addEventListener('click', () => {
+    if (btnLoadApply) btnLoadApply.click()
+  })
+}
+
+if (btnCloseModal) {
+  btnCloseModal.addEventListener('click', () => {
+    if (modalExport) modalExport.style.display = 'none'
+    if (modalLoad) modalLoad.style.display = 'none'
   })
 }
 

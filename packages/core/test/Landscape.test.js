@@ -30,13 +30,33 @@ class MockChimeSonifier extends SonifierBase {
     super()
     this.strikeCount = 0
     this.lastVelocity = 0
+    this.triggeredEvents = []
+    this.pitch = 440
   }
-  getParamSchema() { return [] }
+  getParamSchema() {
+    return [
+      { name: 'pitch', type: 'number', range: [20, 20000], default: 440 }
+    ]
+  }
   init(ctx, out) {}
-  onParam() {}
-  strike(velocity = 0.8) {
+  onParam(name, value) {
+    if (name === 'pitch') this.pitch = value
+  }
+  strike(arg = 0.8) {
     this.strikeCount++
-    this.lastVelocity = velocity
+    let vel = 0.8
+    let payload = null
+    if (typeof arg === 'number') {
+      vel = arg
+      payload = { velocity: arg }
+    } else if (arg && typeof arg === 'object') {
+      vel = arg.velocity ?? 0.8
+      payload = arg
+    } else {
+      payload = { velocity: 0.8 }
+    }
+    this.lastVelocity = vel
+    this.triggeredEvents.push({ event: 'strike', data: payload })
     return true
   }
   destroy() {}
@@ -395,7 +415,185 @@ describe('Landscape Orchestrator', () => {
     expect(landscape.listObjects().length).toBe(0)
     expect(landscape.listLayers().length).toBe(0)
     expect(landscape.listCouplings().length).toBe(0)
+    expect(landscape.listFeeds().length).toBe(0)
+    expect(landscape.listMappings().length).toBe(0)
     expect(wind.destroyed).toBe(true)
     expect(landscape._masterGain).toBeNull()
+  })
+
+  it('defines, lists, and removes data feed contracts', () => {
+    landscape.defineFeed('traffic_rpm', {
+      label: 'Hourly Traffic RPM',
+      type: 'continuous',
+      range: [0, 5000],
+      unit: 'req/min',
+      temporalScale: 'macro'
+    })
+    landscape.defineFeed('error_spikes', {
+      label: 'Error 500 Spikes',
+      type: 'event',
+      temporalScale: 'micro'
+    })
+
+    expect(landscape.hasFeed('traffic_rpm')).toBe(true)
+    expect(landscape.hasFeed('error_spikes')).toBe(true)
+    expect(landscape.getFeed('traffic_rpm').unit).toBe('req/min')
+    expect(landscape.listFeeds().length).toBe(2)
+
+    landscape.removeFeed('error_spikes')
+    expect(landscape.hasFeed('error_spikes')).toBe(false)
+    expect(landscape.listFeeds().length).toBe(1)
+  })
+
+  it('adds, lists, and removes parameter mappings with Adapter', () => {
+    landscape.defineFeed('cpu_load', { range: [0, 100], unit: '%' })
+    landscape.addObject('wind', new MockWindSonifier())
+
+    landscape.addMapping({
+      feedId: 'cpu_load',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: {
+        inputRange: [0, 100],
+        outputRange: [10, 80],
+        curve: 'exponential',
+        invert: false
+      }
+    })
+
+    const mappings = landscape.listMappings()
+    expect(mappings.length).toBe(1)
+    expect(mappings[0].feedId).toBe('cpu_load')
+    expect(mappings[0].target.objectId).toBe('wind')
+    expect(mappings[0].target.param).toBe('speed')
+    expect(mappings[0].adapter.curve).toBe('exponential')
+
+    landscape.removeMapping('cpu_load', 'wind', 'speed')
+    expect(landscape.listMappings().length).toBe(0)
+  })
+
+  it('pushes live data through mappings to update continuous sonifier parameters', () => {
+    const wind = new MockWindSonifier()
+    landscape.addObject('wind', wind)
+    landscape.defineFeed('traffic', { range: [0, 1000] })
+
+    landscape.addMapping({
+      feedId: 'traffic',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: {
+        inputRange: [0, 1000],
+        outputRange: [20, 100],
+        curve: 'linear'
+      }
+    })
+
+    // Push midpoint: 500 -> mapped to 60
+    landscape.pushData('traffic', 500)
+    expect(wind.speed).toBeCloseTo(60, 1)
+
+    // Push max: 1000 -> mapped to 100
+    landscape.push('traffic', 1000)
+    expect(wind.speed).toBeCloseTo(100, 1)
+
+    // Push min: 0 -> mapped to 20
+    landscape.push('traffic', 0)
+    expect(wind.speed).toBeCloseTo(20, 1)
+  })
+
+  it('pushes live data through mappings to trigger sound object events with scaled velocity', () => {
+    const chime = new MockChimeSonifier()
+    landscape.addObject('chimes', chime)
+    landscape.defineFeed('spikes', { type: 'event', range: [1, 10] })
+
+    landscape.addMapping({
+      feedId: 'spikes',
+      target: { objectId: 'chimes', action: 'trigger', event: 'strike' },
+      adapter: {
+        inputRange: [1, 10],
+        outputRange: [0.2, 1.0],
+        curve: 'linear'
+      }
+    })
+
+    landscape.push('spikes', 5.5)
+    expect(chime.triggeredEvents.length).toBe(1)
+    expect(chime.triggeredEvents[0].event).toBe('strike')
+    expect(chime.triggeredEvents[0].data.velocity).toBeCloseTo(0.6, 2)
+  })
+
+  it('pipes decorator transformers like musical quantizers into mapped adapters', () => {
+    const chime = new MockChimeSonifier()
+    landscape.addObject('chimes', chime)
+    landscape.defineFeed('tone_val', { range: [0, 100] })
+
+    landscape.addMapping({
+      feedId: 'tone_val',
+      target: { objectId: 'chimes', param: 'pitch' },
+      adapter: {
+        inputRange: [0, 100],
+        outputRange: [220, 440],
+        decorators: ['quantizePentatonic']
+      }
+    })
+
+    // Raw mapped frequency without quantize would be continuous; with quantizer, it snaps to pentatonic degree
+    landscape.push('tone_val', 50)
+    // 50% between 220 and 440 is 330 Hz. Nearest A-pentatonic (A=220, B=246.9, C#=277.2, E=329.6, F#=370) is ~329.6 Hz
+    expect(chime.pitch).toBeCloseTo(329.6, 0)
+  })
+
+  it('exports and loads independent Feed and Mappings specifications', () => {
+    landscape.defineFeed('sensor_x', { label: 'Sensor X', range: [0, 50], unit: 'V' })
+    landscape.addMapping({
+      feedId: 'sensor_x',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: { inputRange: [0, 50], outputRange: [10, 40] }
+    })
+
+    const feedDoc = landscape.exportFeeds({ name: 'Factory Sensors' })
+    expect(feedDoc.version).toBe(1)
+    expect(feedDoc.feeds.sensor_x.unit).toBe('V')
+
+    const mapDoc = landscape.exportMappings({ name: 'Factory Sound Map' })
+    expect(mapDoc.version).toBe(1)
+    expect(mapDoc.mappings.length).toBe(1)
+    expect(mapDoc.mappings[0].feedId).toBe('sensor_x')
+
+    // Test hydration on fresh instance
+    const fresh = new Landscape({ audioContext: landscape._audioContext })
+    fresh.loadFeeds(feedDoc)
+    fresh.loadMappings(mapDoc)
+
+    expect(fresh.hasFeed('sensor_x')).toBe(true)
+    expect(fresh.listMappings().length).toBe(1)
+  })
+
+  it('exports and loads unified SceneBundle preserving landscape, feeds, and mappings', async () => {
+    landscape.register('wind', MockWindSonifier)
+    landscape.defineFeed('metrics_rate', { label: 'Rate', range: [0, 100] })
+    landscape.addObject('wind', new MockWindSonifier(), { type: 'wind' })
+    landscape.addMapping({
+      feedId: 'metrics_rate',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: { inputRange: [0, 100], outputRange: [20, 80] }
+    })
+
+    const bundle = landscape.exportScene({ name: 'Telemetry Sonification Bundle' })
+    expect(bundle.version).toBe(1)
+    expect(bundle.landscape).toBeDefined()
+    expect(bundle.feeds.metrics_rate).toBeDefined()
+    expect(bundle.mappings.length).toBe(1)
+
+    // Load bundle into new landscape
+    const fresh = new Landscape({ audioContext: landscape._audioContext })
+    fresh.register('wind', MockWindSonifier)
+    await fresh.loadScene(bundle)
+
+    expect(fresh.listObjects()).toContain('wind')
+    expect(fresh.hasFeed('metrics_rate')).toBe(true)
+    expect(fresh.listMappings().length).toBe(1)
+
+    // Verify live data push works immediately after bundle load
+    fresh.push('metrics_rate', 50)
+    expect(fresh.getObject('wind').sonifier.speed).toBeCloseTo(50, 1)
   })
 })

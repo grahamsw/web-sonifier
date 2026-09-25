@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "name": "Web Traffic & Infrastructure Telemetry",
+  "description": "Production edge telemetry tracking request throughput, active sessions, server load, and error anomalies.",
+  "feeds": {
+    "traffic_rps": {
+      "label": "HTTP Request Rate",
+      "type": "continuous",
+      "scale": "macro",
+      "range": [0, 5000],
+      "unit": "req/s",
+      "description": "Aggregated global requests per second arriving at edge proxies"
+    },
+    "active_users": {
+      "label": "Active WebSocket Sessions",
+      "type": "continuous",
+      "scale": "meso",
+      "range": [0, 1000],
+      "unit": "conns",
+      "description": "Currently open full-duplex socket sessions"
+    },
+    "cpu_load": {
+      "label": "Cluster CPU Load",
+      "type": "continuous",
+      "scale": "meso",
+      "range": [0, 100],
+      "unit": "%",
+      "description": "Mean CPU utilization percentage across edge worker nodes"
+    },
+    "error_spikes": {
+      "label": "HTTP 5xx Error Bursts",
+      "type": "event",
+      "scale": "micro",
+      "range": [1, 20],
+      "unit": "errors",
+      "description": "Discrete 5xx error spikes requiring immediate attentional orientation"
+    }
+  }
+}

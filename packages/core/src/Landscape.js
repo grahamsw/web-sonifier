@@ -1,3 +1,6 @@
+import { Adapter } from './Adapter.js'
+import { Quantize, Scales } from './Quantizer.js'
+
 /**
  * Landscape
  *
@@ -34,6 +37,12 @@ export class Landscape {
     // Array<{ sourceId, sourceParam, targetId, targetParam, scale, offset, curve, clamp, transform }>
     this._couplings = []
     this._dispatchStack = new Set()
+
+    // Map<string, FeedDefinition> - Registered data feeds
+    this._feeds = new Map()
+
+    // Array<MappingEntry> - Active feed-to-parameter mappings
+    this._mappings = []
 
     this._spaceSettings = {
       decay: 2.2,
@@ -768,6 +777,8 @@ export class Landscape {
 
     this._couplings = []
     this._dispatchStack.clear()
+    this._feeds.clear()
+    this._mappings = []
 
     // Disconnect all layer gain nodes
     for (const layer of this._layers.values()) {
@@ -836,17 +847,334 @@ export class Landscape {
   }
 
   // ---------------------------------------------------------------------------
+  // Data Feed Specification & Registry
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Define or register a data feed contract.
+   *
+   * @param {string} id - Unique feed identifier
+   * @param {Object} spec - Feed specification
+   * @param {string} [spec.label] - Human-readable label
+   * @param {'continuous'|'event'} [spec.type='continuous'] - Signal type
+   * @param {[number, number]} [spec.range=[0, 100]] - Default input range
+   * @param {string} [spec.unit=''] - Physical engineering unit
+   * @param {'macro'|'meso'|'micro'} [spec.temporalScale] - Temporal scale
+   * @param {number} [spec.sampleRateMs] - Expected update interval in ms
+   */
+  defineFeed(id, spec = {}) {
+    if (!id || typeof id !== 'string') {
+      throw new Error('[web-sonify] defineFeed requires a string id')
+    }
+    const def = {
+      id,
+      label: spec.label || id,
+      type: spec.type || 'continuous',
+      range: Array.isArray(spec.range) && spec.range.length === 2 ? [...spec.range] : [0, 100],
+      unit: spec.unit || '',
+      temporalScale: spec.temporalScale || 'meso',
+      ...spec
+    }
+    this._feeds.set(id, def)
+    return def
+  }
+
+  /**
+   * Retrieve a feed specification by ID.
+   * @param {string} id
+   * @returns {Object|null}
+   */
+  getFeed(id) {
+    return this._feeds.get(id) || null
+  }
+
+  /**
+   * Check if a feed is registered.
+   * @param {string} id
+   * @returns {boolean}
+   */
+  hasFeed(id) {
+    return this._feeds.has(id)
+  }
+
+  /**
+   * Remove a feed and any mappings referencing it.
+   * @param {string} id
+   */
+  removeFeed(id) {
+    this._feeds.delete(id)
+    this._mappings = this._mappings.filter(m => m.feedId !== id)
+  }
+
+  /**
+   * List all registered data feeds.
+   * @returns {Object[]}
+   */
+  listFeeds() {
+    return Array.from(this._feeds.values()).map(f => ({ ...f }))
+  }
+
+  /**
+   * Ingest a Feed Specification document.
+   * @param {Object} feedDoc
+   * @returns {Landscape}
+   */
+  loadFeeds(feedDoc) {
+    if (!feedDoc || typeof feedDoc !== 'object') return this
+    const feedsObj = feedDoc.feeds || feedDoc
+    if (typeof feedsObj === 'object') {
+      for (const [id, spec] of Object.entries(feedsObj)) {
+        if (spec && typeof spec === 'object') {
+          this.defineFeed(id, spec)
+        }
+      }
+    }
+    return this
+  }
+
+  /**
+   * Export the registered feeds as a Feed Specification document.
+   * @param {Object} [options]
+   * @returns {Object} FeedDocument
+   */
+  exportFeeds(options = {}) {
+    const feeds = {}
+    for (const [id, def] of this._feeds.entries()) {
+      feeds[id] = { ...def }
+    }
+    return {
+      version: 1,
+      name: options.name || 'Data Feed Specification',
+      description: options.description || '',
+      feeds
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Transduction Bridge: Parameter Mappings & Adapters
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Add a mapping connecting a data feed to an object parameter or trigger.
+   *
+   * @param {Object} mappingDef
+   * @param {string} mappingDef.feedId - ID of data feed
+   * @param {Object} mappingDef.target - Target specification
+   * @param {string} mappingDef.target.objectId - Target sound object ID
+   * @param {string} [mappingDef.target.param] - Target parameter name
+   * @param {'setParam'|'trigger'} [mappingDef.target.action='setParam'] - Action type
+   * @param {string} [mappingDef.target.event] - Event name for triggers (default 'strike')
+   * @param {Object} [mappingDef.adapter] - Adapter configuration
+   * @param {[number, number]} [mappingDef.adapter.inputRange] - Expected input bounds
+   * @param {[number, number]} [mappingDef.adapter.outputRange] - Target parameter value range
+   * @param {'linear'|'exponential'|'logarithmic'} [mappingDef.adapter.curve='linear']
+   * @param {boolean} [mappingDef.adapter.invert=false]
+   * @param {string[]|Function[]} [mappingDef.adapter.decorators]
+   */
+  addMapping(mappingDef) {
+    if (!mappingDef || !mappingDef.feedId || !mappingDef.target || !mappingDef.target.objectId) {
+      throw new Error('[web-sonify] addMapping requires feedId and target with objectId')
+    }
+
+    const { feedId, target, adapter: adapterConfig = {} } = mappingDef
+    const action = target.action || (target.param ? 'setParam' : 'trigger')
+    const targetKey = action === 'setParam' ? target.param : (target.event || 'strike')
+
+    // Remove any existing duplicate mapping for the same feed and target
+    this.removeMapping(feedId, target.objectId, targetKey)
+
+    // Determine input range from feed if omitted
+    const feed = this._feeds.get(feedId)
+    const inputRange = adapterConfig.inputRange || (feed ? [...feed.range] : [0, 100])
+    const outputRange = adapterConfig.outputRange || [0, 1]
+
+    const adapterInstance = new Adapter({
+      param: target.param || targetKey,
+      inputRange,
+      outputRange,
+      curve: adapterConfig.curve || 'linear',
+      invert: Boolean(adapterConfig.invert),
+      autoRange: adapterConfig.autoRange || null
+    })
+
+    // Attach any decorators
+    if (Array.isArray(adapterConfig.decorators)) {
+      for (const dec of adapterConfig.decorators) {
+        if (typeof dec === 'function') {
+          adapterInstance.pipe(dec)
+        } else if (typeof dec === 'string') {
+          const transformer = this._resolveDecorator(dec)
+          if (transformer) adapterInstance.pipe(transformer)
+        }
+      }
+    }
+
+    const entry = {
+      feedId,
+      target: {
+        objectId: target.objectId,
+        param: target.param || null,
+        action,
+        event: target.event || (action === 'trigger' ? 'strike' : null)
+      },
+      adapterConfig: {
+        inputRange,
+        outputRange,
+        curve: adapterConfig.curve || 'linear',
+        invert: Boolean(adapterConfig.invert),
+        decorators: adapterConfig.decorators ? [...adapterConfig.decorators] : []
+      },
+      adapter: adapterInstance
+    }
+
+    this._mappings.push(entry)
+    return entry
+  }
+
+  /**
+   * Remove an active parameter mapping.
+   * @param {string} feedId
+   * @param {string} objectId
+   * @param {string} paramOrEvent
+   */
+  removeMapping(feedId, objectId, paramOrEvent) {
+    this._mappings = this._mappings.filter(m => {
+      const matchFeed = m.feedId === feedId
+      const matchObj = m.target.objectId === objectId
+      const matchParam = (m.target.param === paramOrEvent) || (m.target.event === paramOrEvent)
+      return !(matchFeed && matchObj && matchParam)
+    })
+  }
+
+  /**
+   * List active parameter mappings.
+   * @param {Object} [filter]
+   * @returns {Object[]}
+   */
+  listMappings(filter = {}) {
+    return this._mappings
+      .filter(m => {
+        if (filter.feedId && m.feedId !== filter.feedId) return false
+        if (filter.objectId && m.target.objectId !== filter.objectId) return false
+        return true
+      })
+      .map(m => ({
+        feedId: m.feedId,
+        target: { ...m.target },
+        adapter: { ...m.adapterConfig }
+      }))
+  }
+
+  /**
+   * Ingest a Parameter Mappings document.
+   * @param {Object} mappingsDoc
+   * @returns {Landscape}
+   */
+  loadMappings(mappingsDoc) {
+    if (!mappingsDoc || typeof mappingsDoc !== 'object') return this
+    const list = Array.isArray(mappingsDoc.mappings)
+      ? mappingsDoc.mappings
+      : (Array.isArray(mappingsDoc) ? mappingsDoc : [])
+    for (const m of list) {
+      if (m && typeof m === 'object') {
+        this.addMapping(m)
+      }
+    }
+    return this
+  }
+
+  /**
+   * Export parameter mappings as a Mappings Specification document.
+   * @param {Object} [options]
+   * @returns {Object} MappingsDocument
+   */
+  exportMappings(options = {}) {
+    return {
+      version: 1,
+      name: options.name || 'Parameter Mappings Specification',
+      feedSpecId: options.feedSpecId || '',
+      landscapeSpecId: options.landscapeSpecId || '',
+      mappings: this.listMappings()
+    }
+  }
+
+  _resolveDecorator(name) {
+    if (name === 'quantizePentatonic' || name === 'quantize:pentatonic') {
+      return Quantize.scale(Scales.pentatonic)
+    }
+    if (name === 'quantizeMinorPentatonic' || name === 'quantize:minorPentatonic') {
+      return Quantize.scale(Scales.minorPentatonic)
+    }
+    if (name === 'quantizeHirajoshi' || name === 'quantize:hirajoshi') {
+      return Quantize.scale(Scales.hirajoshi)
+    }
+    if (name === 'round' || name === 'integer') {
+      return Math.round
+    }
+    return null
+  }
+
+  // ---------------------------------------------------------------------------
+  // Live Telemetry Stream Ingestion
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Push live telemetry data into the landscape.
+   * Automatically scales raw values through the configured Adapters and dispatches
+   * to target object parameters or triggers.
+   *
+   * @param {string} feedId - ID of incoming data feed
+   * @param {number|boolean|any} rawValue - Data value
+   * @param {Object} [options]
+   * @param {Object} [options.payload] - Optional extra payload for trigger events
+   */
+  pushData(feedId, rawValue, options = {}) {
+    const matching = this._mappings.filter(m => m.feedId === feedId)
+    if (matching.length === 0) return
+
+    for (const m of matching) {
+      const { objectId, param, action, event } = m.target
+
+      if (action === 'trigger') {
+        // Event trigger
+        if (rawValue) {
+          const velocity = typeof rawValue === 'number' && m.adapter ? m.adapter.map(rawValue) : 1.0
+          const payload = {
+            velocity: Math.max(0.01, Math.min(1.0, velocity)),
+            value: rawValue,
+            ...(options.payload || {})
+          }
+          this.trigger(objectId, event || 'strike', payload)
+        }
+      } else {
+        // Continuous parameter
+        const numVal = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue)
+        if (!isNaN(numVal) && m.adapter) {
+          const mapped = m.adapter.map(numVal)
+          this.setParam(objectId, param, mapped)
+        }
+      }
+    }
+  }
+
+  /**
+   * Convenience alias for pushData.
+   */
+  push(feedId, rawValue, options = {}) {
+    return this.pushData(feedId, rawValue, options)
+  }
+
+  // ---------------------------------------------------------------------------
   // Scene Document I/O (Declarative Serialization & Ingestion)
   // ---------------------------------------------------------------------------
 
   /**
-   * Serialize the entire landscape state into a declarative SceneDescriptor.
+   * Serialize only the acoustic landscape configuration.
    *
    * @param {Object} [options]
-   * @param {string} [options.name] - Optional scene name override
-   * @returns {Object} SceneDescriptor
+   * @returns {Object} LandscapeDescriptor
    */
-  exportScene(options = {}) {
+  exportLandscape(options = {}) {
     const objects = {}
     for (const [id, entry] of this._objects.entries()) {
       const params = {}
@@ -894,9 +1222,39 @@ export class Landscape {
   }
 
   /**
-   * Load and reconfigure the landscape from a declarative SceneDescriptor.
+   * Serialize the complete scene, including landscape acoustics, feed specs, and mappings.
    *
-   * @param {Object} descriptor - Scene configuration
+   * @param {Object} [options]
+   * @param {string} [options.name] - Optional scene name override
+   * @returns {Object} SceneBundle
+   */
+  exportScene(options = {}) {
+    const landscapeSpec = this.exportLandscape(options)
+    const feedsSpec = this.exportFeeds(options)
+    const mappingsSpec = this.exportMappings(options)
+
+    return {
+      version: 1,
+      name: options.name || this._sceneName || 'Landscape Scene',
+      // Backward-compatible v1 properties at root
+      ...landscapeSpec,
+      landscape: landscapeSpec,
+      feeds: feedsSpec.feeds,
+      mappings: mappingsSpec.mappings
+    }
+  }
+
+  /**
+   * Convenience alias for loadScene.
+   */
+  async loadLandscape(descriptor, options = {}) {
+    return this.loadScene(descriptor, options)
+  }
+
+  /**
+   * Load and reconfigure the landscape from a declarative SceneDescriptor or SceneBundle.
+   *
+   * @param {Object} descriptor - Scene or Landscape configuration
    * @param {Object} [options]
    * @param {Record<string, typeof SonifierBase>} [options.plugins] - Optional plugin class overrides
    * @returns {Promise<Landscape>}
@@ -906,19 +1264,20 @@ export class Landscape {
       throw new Error('[web-sonify] loadScene requires a valid scene descriptor object')
     }
 
-    this._sceneName = descriptor.name || 'Landscape Scene'
+    const landscapeDoc = descriptor.landscape || descriptor
+    this._sceneName = landscapeDoc.name || 'Landscape Scene'
 
     // 1. Configure master space & volume
-    if (descriptor.space) {
-      this.setSpace(descriptor.space)
+    if (landscapeDoc.space) {
+      this.setSpace(landscapeDoc.space)
     }
-    if (descriptor.masterVolume !== undefined) {
-      this.setMasterVolume(descriptor.masterVolume)
+    if (landscapeDoc.masterVolume !== undefined) {
+      this.setMasterVolume(landscapeDoc.masterVolume)
     }
 
     // 2. Configure layers
-    if (descriptor.layers && typeof descriptor.layers === 'object') {
-      for (const [name, cfg] of Object.entries(descriptor.layers)) {
+    if (landscapeDoc.layers && typeof landscapeDoc.layers === 'object') {
+      for (const [name, cfg] of Object.entries(landscapeDoc.layers)) {
         this.defineLayer(name, {
           gain: cfg.gain !== undefined ? cfg.gain : 1.0,
           ducking: cfg.ducking || null
@@ -930,8 +1289,8 @@ export class Landscape {
     this._couplings = []
 
     // 4. Instantiate or update objects
-    if (descriptor.objects && typeof descriptor.objects === 'object') {
-      for (const [id, objCfg] of Object.entries(descriptor.objects)) {
+    if (landscapeDoc.objects && typeof landscapeDoc.objects === 'object') {
+      for (const [id, objCfg] of Object.entries(landscapeDoc.objects)) {
         const type = objCfg.type || id
         let entry = this._objects.get(id)
 
@@ -971,8 +1330,8 @@ export class Landscape {
     }
 
     // 5. Restore couplings
-    if (Array.isArray(descriptor.couplings)) {
-      for (const c of descriptor.couplings) {
+    if (Array.isArray(landscapeDoc.couplings)) {
+      for (const c of landscapeDoc.couplings) {
         this.couple(c.sourceId, c.sourceParam, c.targetId, c.targetParam, {
           scale: c.scale,
           offset: c.offset,
@@ -981,6 +1340,16 @@ export class Landscape {
           transform: c.transform
         })
       }
+    }
+
+    // 6. Restore feeds if present
+    if (descriptor.feeds) {
+      this.loadFeeds(descriptor.feeds)
+    }
+
+    // 7. Restore mappings if present
+    if (descriptor.mappings) {
+      this.loadMappings(descriptor.mappings)
     }
 
     return this

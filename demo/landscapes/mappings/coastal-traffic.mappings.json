@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "name": "Pacific Coast Telemetry Mappings",
+  "feedSpecId": "web-traffic",
+  "landscapeSpecId": "pacific-coast",
+  "mappings": [
+    {
+      "feedId": "traffic_rps",
+      "target": {
+        "objectId": "wind",
+        "param": "speed"
+      },
+      "adapter": {
+        "inputRange": [0, 5000],
+        "outputRange": [15, 75],
+        "curve": "exponential"
+      }
+    },
+    {
+      "feedId": "active_users",
+      "target": {
+        "objectId": "ocean",
+        "param": "intensity"
+      },
+      "adapter": {
+        "inputRange": [0, 1000],
+        "outputRange": [30, 95],
+        "curve": "linear"
+      }
+    },
+    {
+      "feedId": "cpu_load",
+      "target": {
+        "objectId": "ocean",
+        "param": "foam"
+      },
+      "adapter": {
+        "inputRange": [0, 100],
+        "outputRange": [0.1, 0.95],
+        "curve": "linear"
+      }
+    },
+    {
+      "feedId": "error_spikes",
+      "target": {
+        "objectId": "chimes",
+        "action": "trigger",
+        "event": "strike"
+      },
+      "adapter": {
+        "inputRange": [1, 20],
+        "outputRange": [0.35, 1.0],
+        "curve": "exponential"
+      }
+    }
+  ]
+}

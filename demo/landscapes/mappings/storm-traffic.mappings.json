@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "name": "Summer Storm Telemetry Mappings",
+  "feedSpecId": "web-traffic",
+  "landscapeSpecId": "summer-storm",
+  "mappings": [
+    {
+      "feedId": "traffic_rps",
+      "target": {
+        "objectId": "wind",
+        "param": "speed"
+      },
+      "adapter": {
+        "inputRange": [0, 5000],
+        "outputRange": [25, 90],
+        "curve": "exponential"
+      }
+    },
+    {
+      "feedId": "active_users",
+      "target": {
+        "objectId": "rain",
+        "param": "intensity"
+      },
+      "adapter": {
+        "inputRange": [0, 1000],
+        "outputRange": [50, 240],
+        "curve": "linear"
+      }
+    },
+    {
+      "feedId": "cpu_load",
+      "target": {
+        "objectId": "wind",
+        "param": "turbulence"
+      },
+      "adapter": {
+        "inputRange": [0, 100],
+        "outputRange": [0.2, 0.9],
+        "curve": "linear"
+      }
+    },
+    {
+      "feedId": "error_spikes",
+      "target": {
+        "objectId": "chimes",
+        "action": "trigger",
+        "event": "strike"
+      },
+      "adapter": {
+        "inputRange": [1, 20],
+        "outputRange": [0.45, 1.0],
+        "curve": "exponential"
+      }
+    }
+  ]
+}

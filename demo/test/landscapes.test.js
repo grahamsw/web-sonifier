@@ -142,6 +142,95 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(btnApply).not.toBeNull()
   })
 
+  it('contains live data feed simulator bar with telemetry sliders and streaming toggle', () => {
+    const simBar = document.getElementById('feed-simulator-bar')
+    expect(simBar).not.toBeNull()
+
+    const trafficSlider = document.getElementById('sim-feed-traffic')
+    const usersSlider = document.getElementById('sim-feed-users')
+    const cpuSlider = document.getElementById('sim-feed-cpu')
+    const btnSpike = document.getElementById('btn-trigger-spike')
+    const btnStream = document.getElementById('btn-stream-toggle')
+
+    expect(trafficSlider).not.toBeNull()
+    expect(usersSlider).not.toBeNull()
+    expect(cpuSlider).not.toBeNull()
+    expect(btnSpike).not.toBeNull()
+    expect(btnStream).not.toBeNull()
+    expect(btnStream.textContent).toContain('Stream')
+  })
+
+  it('contains distinct export modal with document tabs, copy, and download buttons', () => {
+    const modal = document.getElementById('modal-export')
+    expect(modal).not.toBeNull()
+    expect(modal.style.display).toBe('none')
+
+    const tabs = document.querySelectorAll('.spec-tab')
+    expect(tabs.length).toBe(4)
+    const tabTypes = Array.from(tabs).map(t => t.getAttribute('data-export-type'))
+    expect(tabTypes).toEqual(['bundle', 'landscape', 'feeds', 'mappings'])
+
+    const textarea = document.getElementById('export-json-textarea')
+    expect(textarea).not.toBeNull()
+    expect(textarea.readOnly).toBe(true)
+
+    const btnCopy = document.getElementById('btn-export-copy')
+    const btnDownload = document.getElementById('btn-export-download')
+    const btnClose = document.getElementById('btn-close-export')
+    expect(btnCopy).not.toBeNull()
+    expect(btnDownload).not.toBeNull()
+    expect(btnClose).not.toBeNull()
+  })
+
+  it('contains distinct load modal with drag-and-drop zone, file input, and apply button', () => {
+    const modal = document.getElementById('modal-load')
+    expect(modal).not.toBeNull()
+    expect(modal.style.display).toBe('none')
+
+    const dropZone = document.getElementById('load-drop-zone')
+    const fileInput = document.getElementById('load-file-input')
+    const btnBrowse = document.getElementById('btn-browse-file')
+    const statusBadge = document.getElementById('load-file-status')
+    const textarea = document.getElementById('load-json-textarea')
+    const btnApply = document.getElementById('btn-load-apply')
+    const btnClose = document.getElementById('btn-close-load')
+
+    expect(dropZone).not.toBeNull()
+    expect(fileInput).not.toBeNull()
+    expect(btnBrowse).not.toBeNull()
+    expect(statusBadge).not.toBeNull()
+    expect(textarea).not.toBeNull()
+    expect(btnApply).not.toBeNull()
+    expect(btnClose).not.toBeNull()
+  })
+
+  it('verifies sample web-traffic.feed.json and coastal/storm-traffic.mappings.json files on disk', () => {
+    const feedFile = path.resolve(__dirname, '../landscapes/feeds/web-traffic.feed.json')
+    const coastalMappingFile = path.resolve(__dirname, '../landscapes/mappings/coastal-traffic.mappings.json')
+    const stormMappingFile = path.resolve(__dirname, '../landscapes/mappings/storm-traffic.mappings.json')
+
+    expect(fs.existsSync(feedFile)).toBe(true)
+    expect(fs.existsSync(coastalMappingFile)).toBe(true)
+    expect(fs.existsSync(stormMappingFile)).toBe(true)
+
+    const feedDoc = JSON.parse(fs.readFileSync(feedFile, 'utf-8'))
+    expect(feedDoc.version).toBe(1)
+    expect(feedDoc.feeds.traffic_rps).toBeDefined()
+    expect(feedDoc.feeds.active_users).toBeDefined()
+    expect(feedDoc.feeds.error_spikes).toBeDefined()
+    expect(feedDoc.feeds.error_spikes.type).toBe('event')
+
+    const coastalDoc = JSON.parse(fs.readFileSync(coastalMappingFile, 'utf-8'))
+    expect(coastalDoc.version).toBe(1)
+    expect(Array.isArray(coastalDoc.mappings)).toBe(true)
+    expect(coastalDoc.mappings.length).toBeGreaterThanOrEqual(3)
+
+    const stormDoc = JSON.parse(fs.readFileSync(stormMappingFile, 'utf-8'))
+    expect(stormDoc.version).toBe(1)
+    expect(Array.isArray(stormDoc.mappings)).toBe(true)
+    expect(stormDoc.mappings.length).toBeGreaterThanOrEqual(3)
+  })
+
   it('verifies all 4 scene JSON preset files on disk conform to SceneDescriptor schema v1', () => {
     const scenesDir = path.resolve(__dirname, '../landscapes/scenes')
     const sceneFiles = [
