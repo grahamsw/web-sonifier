@@ -596,4 +596,104 @@ describe('Landscape Orchestrator', () => {
     fresh.push('metrics_rate', 50)
     expect(fresh.getObject('wind').sonifier.speed).toBeCloseTo(50, 1)
   })
+
+  it('ingests multi-feed telemetry packets via pushData(packetDictionary)', () => {
+    const wind = new MockWindSonifier()
+    const chime = new MockChimeSonifier()
+    landscape.addObject('wind', wind)
+    landscape.addObject('chimes', chime)
+
+    landscape.defineFeed('traffic', { range: [0, 1000] })
+    landscape.defineFeed('errors', { range: [0, 100] })
+
+    landscape.addMapping({
+      feedId: 'traffic',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: { inputRange: [0, 100], outputRange: [10, 80] }
+    })
+    landscape.addMapping({
+      feedId: 'errors',
+      target: { objectId: 'chimes', param: 'pitch' },
+      adapter: { inputRange: [0, 100], outputRange: [220, 880] }
+    })
+
+    // Single dictionary push:
+    landscape.pushData({
+      traffic: 50,
+      errors: 50
+    })
+
+    expect(wind.speed).toBeCloseTo(45, 1)
+    expect(chime.pitch).toBeCloseTo(550, 1)
+  })
+
+  it('routes parameters mapped to meta-parameters via setMetaParam', () => {
+    class MockMacroSonifier extends SonifierBase {
+      constructor() {
+        super()
+        this.brightness = 0
+        this.density = 0
+      }
+      getParamSchema() {
+        return [
+          { name: 'brightness', type: 'number', range: [0, 100], default: 10 },
+          { name: 'density', type: 'number', range: [0, 100], default: 10 }
+        ]
+      }
+      getMetaParamSchema() {
+        return [
+          {
+            name: 'excitement',
+            range: [0, 1],
+            default: 0.1,
+            mappings: [
+              { param: 'brightness', range: [10, 90] },
+              { param: 'density', range: [20, 100] }
+            ]
+          }
+        ]
+      }
+      init() {}
+      onParam(name, val) {
+        if (name === 'brightness') this.brightness = val
+        if (name === 'density') this.density = val
+      }
+    }
+
+    const synth = new MockMacroSonifier()
+    landscape.addObject('synth', synth)
+
+    landscape.setParam('synth', 'excitement', 0.5)
+    expect(synth.brightness).toBeCloseTo(50, 1)
+    expect(synth.density).toBeCloseTo(60, 1)
+  })
+
+  it('supports stateful numeric transform decorators like ema in mappings', () => {
+    const wind = new MockWindSonifier()
+    landscape.addObject('wind', wind)
+    landscape.defineFeed('jittery_feed', { range: [0, 100] })
+
+    landscape.addMapping({
+      feedId: 'jittery_feed',
+      target: { objectId: 'wind', param: 'speed' },
+      adapter: {
+        inputRange: [0, 100],
+        outputRange: [0, 100],
+        decorators: ['ema:0.5']
+      }
+    })
+
+    // Initial value: 0
+    landscape.push('jittery_feed', 0)
+    expect(wind.speed).toBe(0)
+
+    // Step jump to 100: EMA with alpha 0.5 gives 50
+    landscape.push('jittery_feed', 100)
+    expect(wind.speed).toBe(50)
+
+    // Next sample at 100: EMA gives 75
+    landscape.push('jittery_feed', 100)
+    expect(wind.speed).toBe(75)
+  })
 })
+
