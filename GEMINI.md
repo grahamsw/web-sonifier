@@ -11,10 +11,16 @@ This file contains foundational mandates for all agents and developers working o
 
 ## Workspace Guidelines
 -   Use Antigravity planning mode for all non-trivial features and refactors.
--   **Track Lifecycle**: 
-    -   **Branching**: Always create a new feature branch when starting a new track or task.
-    -   **Merging**: Merge the branch back into the main line once the task is completed and verified.
-    -   **Cleanup**: Delete the feature branch after a successful merge to keep the repository clean.
+-   **Track Lifecycle & Pull Request Mandate**: 
+    -   **No Direct Push to Main**: NEVER push directly to `main` or merge locally into `main` before pushing.
+    -   **Branching**: Always create a new feature (`feat/...`) or bugfix (`fix/...`) branch when starting a task or track.
+    -   **Pull Request Workflow**:
+        1. Commit changes to the feature/bugfix branch (pre-commit tests run via husky).
+        2. Push the branch to `origin` (`git push -u origin <branch>`).
+        3. Create a Pull Request (via `gh pr create`).
+        4. Verify CI status checks (`test.yml`) pass on the PR.
+        5. Merge the PR into `main` (via `gh pr merge`). Merging into `main` on GitHub triggers the automated deployment pipeline (`deploy.yml`).
+    -   **Sync & Cleanup**: Pull the latest `main` locally (`git checkout main && git pull origin main`) and delete the feature branch locally and remotely (`git branch -d <branch>`).
 -   Maintain `implementation_plan.md` and `task.md` in the App Data Directory as the source of truth for tracking active tasks.
 
 ## Sonifier Best Practices
