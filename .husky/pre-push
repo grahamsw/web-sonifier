@@ -1,0 +1,8 @@
+#!/bin/sh
+current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+if [ "$current_branch" = "main" ]; then
+  echo "❌ [Husky] Direct push to main is blocked."
+  echo "👉 Please push your feature/bugfix branch and open a Pull Request."
+  exit 1
+fi
