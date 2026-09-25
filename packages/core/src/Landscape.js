@@ -1,5 +1,6 @@
 import { Adapter } from './Adapter.js'
 import { Quantize, Scales } from './Quantizer.js'
+import { Transforms } from './Transforms.js'
 
 /**
  * Landscape
@@ -682,9 +683,13 @@ export class Landscape {
       return
     }
 
-    // Forward to child sonifier
+    // Forward to child sonifier (supports both standard parameters and meta-parameters)
     if (typeof entry.sonifier.setParam === 'function') {
-      entry.sonifier.setParam(param, value)
+      if (typeof entry.sonifier.getMetaParam === 'function' && entry.sonifier.getMetaParam(param)) {
+        entry.sonifier.setMetaParam(param, value)
+      } else {
+        entry.sonifier.setParam(param, value)
+      }
     }
 
     // Dispatch any active inter-object couplings
@@ -1099,6 +1104,8 @@ export class Landscape {
   }
 
   _resolveDecorator(name) {
+    if (typeof name !== 'string') return null
+
     if (name === 'quantizePentatonic' || name === 'quantize:pentatonic') {
       return Quantize.scale(Scales.pentatonic)
     }
@@ -1111,6 +1118,30 @@ export class Landscape {
     if (name === 'round' || name === 'integer') {
       return Math.round
     }
+
+    // Stateful Numeric Transforms
+    if (name === 'ema' || name.startsWith('ema:')) {
+      const parts = name.split(':')
+      const alpha = parts.length > 1 ? parseFloat(parts[1]) : 0.2
+      return Transforms.ema(alpha)
+    }
+    if (name === 'sma' || name.startsWith('sma:')) {
+      const parts = name.split(':')
+      const windowSize = parts.length > 1 ? parseInt(parts[1], 10) : 5
+      return Transforms.sma(windowSize)
+    }
+    if (name === 'delta') {
+      return Transforms.delta()
+    }
+    if (name === 'accumulate') {
+      return Transforms.accumulate()
+    }
+    if (name.startsWith('threshold:')) {
+      const parts = name.split(':')
+      const thresholdVal = parseFloat(parts[1])
+      return Transforms.threshold({ threshold: thresholdVal })
+    }
+
     return null
   }
 
@@ -1120,15 +1151,29 @@ export class Landscape {
 
   /**
    * Push live telemetry data into the landscape.
+   * Supports either:
+   * 1. A single data feed: `pushData('feedId', rawValue, options)`
+   * 2. An entire packet/dictionary: `pushData({ cpu: 75, rps: 1800 }, options)`
+   *
    * Automatically scales raw values through the configured Adapters and dispatches
    * to target object parameters or triggers.
    *
-   * @param {string} feedId - ID of incoming data feed
-   * @param {number|boolean|any} rawValue - Data value
+   * @param {string|Record<string, any>} feedIdOrPacket - ID of data feed or dictionary of feed updates
+   * @param {number|boolean|any} [rawValue] - Data value (when feedIdOrPacket is string) or options (when object)
    * @param {Object} [options]
    * @param {Object} [options.payload] - Optional extra payload for trigger events
    */
-  pushData(feedId, rawValue, options = {}) {
+  pushData(feedIdOrPacket, rawValue, options = {}) {
+    // Packet / Batch dictionary ingestion
+    if (feedIdOrPacket && typeof feedIdOrPacket === 'object' && !Array.isArray(feedIdOrPacket)) {
+      const opts = rawValue && typeof rawValue === 'object' ? rawValue : options
+      for (const [id, val] of Object.entries(feedIdOrPacket)) {
+        this.pushData(id, val, opts)
+      }
+      return
+    }
+
+    const feedId = feedIdOrPacket
     const matching = this._mappings.filter(m => m.feedId === feedId)
     if (matching.length === 0) return
 
@@ -1160,8 +1205,8 @@ export class Landscape {
   /**
    * Convenience alias for pushData.
    */
-  push(feedId, rawValue, options = {}) {
-    return this.pushData(feedId, rawValue, options)
+  push(feedIdOrPacket, rawValue, options = {}) {
+    return this.pushData(feedIdOrPacket, rawValue, options)
   }
 
   // ---------------------------------------------------------------------------
