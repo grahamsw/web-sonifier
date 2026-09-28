@@ -666,7 +666,7 @@ export function syncUiFromState() {
   const chipsContainer = document.getElementById('decorator-chips-container')
   renderDecoratorChips(chipsContainer, () => {
     rebuildPipelineAdapters()
-    syncCodeDrawer()
+    syncUiFromState()
   })
 
   // 3. Code Drawer
@@ -738,6 +738,7 @@ export function initDecoratorLab() {
       else if (val === 'threshold') token = 'threshold:50'
 
       state.mapping.adapter.decorators.push(token)
+      addSelect.value = ''
       addSelect.selectedIndex = 0
 
       rebuildPipelineAdapters()
@@ -1001,5 +1002,9 @@ function restartSimTimer() {
 
 // Auto-run if running in browser
 if (typeof window !== 'undefined') {
-  window.addEventListener('DOMContentLoaded', initDecoratorLab)
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initDecoratorLab)
+  } else {
+    initDecoratorLab()
+  }
 }
