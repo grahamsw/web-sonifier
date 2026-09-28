@@ -53,6 +53,9 @@ beforeEach(() => {
                 <option value="bubble">Minnaert Bubble</option>
                 <option value="chime">Modal Wind Chime</option>
                 <option value="wind">Aeolian Wind</option>
+                <option value="eno-bed">Ambient Pad Bed</option>
+                <option value="eno-texture">Shimmer Texture Cloud</option>
+                <option value="eno-figure">Tape Loop Figure</option>
               </select>
             <button id="btn-open-load-custom">+ External</button>
           </div>
@@ -999,6 +1002,70 @@ describe('Multi-Feed Panel & Parameter Linking', () => {
     const statusEl = document.getElementById('status')
 
     for (const type of ['bubble', 'chime', 'wind']) {
+      sonifierSelect.value = type
+      sonifierSelect.dispatchEvent(new Event('change'))
+
+      // Trigger Play
+      btnPlay.click()
+      await new Promise(resolve => setTimeout(resolve, 10))
+
+      expect(mockRuntimeInstance.create).toHaveBeenCalledWith(type)
+      expect(statusEl.textContent).toBe('Sonifying…')
+      expect(statusEl.classList.contains('active')).toBe(true)
+      expect(btnPlay.disabled).toBe(true)
+      expect(btnStop.disabled).toBe(false)
+
+      // Trigger Stop
+      btnStop.click()
+      expect(mockRuntimeInstance.destroy).toHaveBeenCalledWith(type)
+      expect(statusEl.textContent).toBe('Stopped')
+      expect(btnPlay.disabled).toBe(false)
+      expect(btnStop.disabled).toBe(true)
+    }
+  })
+
+  it('should render Eno ambient models (eno-bed, eno-texture, eno-figure) parameter cards when selected', async () => {
+    await import('../main.js?t=' + Date.now())
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    const paramPanel = document.getElementById('parameters-panel')
+
+    // Test Eno Bed
+    sonifierSelect.value = 'eno-bed'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Root Pitch')
+    expect(paramPanel.innerHTML).toContain('Warmth')
+    expect(paramPanel.innerHTML).toContain('Drift Depth')
+
+    // Test Eno Texture
+    sonifierSelect.value = 'eno-texture'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Centre Pitch')
+    expect(paramPanel.innerHTML).toContain('Shimmer')
+    expect(paramPanel.innerHTML).toContain('Evolution')
+
+    // Test Eno Figure
+    sonifierSelect.value = 'eno-figure'
+    sonifierSelect.dispatchEvent(new Event('change'))
+    expect(paramPanel.innerHTML).toContain('Base Pitch')
+    expect(paramPanel.innerHTML).toContain('Auto Rate')
+    expect(paramPanel.innerHTML).toContain('Scale')
+  })
+
+  it('should register Eno ambient sonifiers with runtime and support playback transport', async () => {
+    const main = await import('../main.js?t=' + Date.now())
+
+    // Verify runtime.register calls
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('eno-bed', expect.any(Function))
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('eno-texture', expect.any(Function))
+    expect(mockRuntimeInstance.register).toHaveBeenCalledWith('eno-figure', expect.any(Function))
+
+    const sonifierSelect = document.getElementById('sonifier-select')
+    const btnPlay = document.getElementById('btn-play')
+    const btnStop = document.getElementById('btn-stop')
+    const statusEl = document.getElementById('status')
+
+    for (const type of ['eno-bed', 'eno-texture', 'eno-figure']) {
       sonifierSelect.value = type
       sonifierSelect.dispatchEvent(new Event('change'))
 

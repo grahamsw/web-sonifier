@@ -15,6 +15,9 @@ import { MMMLabSonifier } from '@web-sonifier/mmm-lab'
 import { BubbleSonifier } from '@web-sonifier/bubble'
 import { ChimeSonifier } from '@web-sonifier/chime'
 import { WindSonifier } from '@web-sonifier/wind'
+import { EnoBedSonifier } from '@web-sonifier/eno-bed'
+import { EnoTextureSonifier } from '@web-sonifier/eno-texture'
+import { EnoFigureSonifier } from '@web-sonifier/eno-figure'
 import {
   renderAutomatedEditor,
   getOutputRangeBounds,
@@ -167,7 +170,10 @@ export const SONIFIER_CLASSES = {
   'mmm-lab': MMMLabSonifier,
   bubble: BubbleSonifier,
   chime: ChimeSonifier,
-  wind: WindSonifier
+  wind: WindSonifier,
+  'eno-bed': EnoBedSonifier,
+  'eno-texture': EnoTextureSonifier,
+  'eno-figure': EnoFigureSonifier
 }
 
 export function getSonifierSchema(type) {
@@ -600,6 +606,46 @@ export const defaultSettings = {
     turbulence:        0.4,
     cavity:            0.3,
     volume:            0.7
+  },
+  'eno-bed': {
+    sonifiedParams:    ['pitch', 'warmth'],
+    paramFeeds:        { pitch: 'A', warmth: 'B', detune: 'A', drift: 'B', driftRate: 'A', volume: 'A' },
+    paramRanges:       { pitch: [60, 440], warmth: [0.1, 0.9], detune: [0.1, 0.8], drift: [0.1, 0.7], driftRate: [0.02, 0.3], volume: [0.1, 0.8] },
+    paramCurves:       { pitch: 'exponential', driftRate: 'logarithmic', volume: 'logarithmic' },
+    paramInverts:      {},
+    pitch:             130.81,
+    warmth:            0.65,
+    detune:            0.4,
+    drift:             0.3,
+    driftRate:         0.08,
+    volume:            0.4
+  },
+  'eno-texture': {
+    sonifiedParams:    ['pitch', 'shimmer'],
+    paramFeeds:        { pitch: 'A', shimmer: 'B', brightness: 'A', density: 'B', evolution: 'A', volume: 'A' },
+    paramRanges:       { pitch: [130, 1000], shimmer: [0.1, 0.9], brightness: [0.1, 0.9], density: [0.2, 0.8], evolution: [0.1, 0.8], volume: [0.1, 0.8] },
+    paramCurves:       { pitch: 'exponential', volume: 'logarithmic' },
+    paramInverts:      {},
+    pitch:             261.63,
+    shimmer:           0.6,
+    brightness:        0.5,
+    density:           0.5,
+    evolution:         0.4,
+    volume:            0.35
+  },
+  'eno-figure': {
+    sonifiedParams:    ['pitch', 'autoRate'],
+    paramFeeds:        { pitch: 'A', autoRate: 'B', sustain: 'A', brightness: 'B', scatter: 'A', volume: 'A' },
+    paramRanges:       { pitch: [260, 1200], autoRate: [0.1, 1.5], sustain: [1.0, 6.0], brightness: [0.1, 0.8], scatter: [0.1, 0.9], volume: [0.1, 0.8] },
+    paramCurves:       { pitch: 'exponential', volume: 'logarithmic' },
+    paramInverts:      {},
+    pitch:             523.25,
+    sustain:           3.0,
+    brightness:        0.3,
+    autoRate:          0.3,
+    scatter:           0.5,
+    scale:             'pentatonic',
+    volume:            0.45
   }
 }
 
@@ -624,6 +670,9 @@ runtime.register('mmm-lab', MMMLabSonifier)
 runtime.register('bubble', BubbleSonifier)
 runtime.register('chime', ChimeSonifier)
 runtime.register('wind', WindSonifier)
+runtime.register('eno-bed', EnoBedSonifier)
+runtime.register('eno-texture', EnoTextureSonifier)
+runtime.register('eno-figure', EnoFigureSonifier)
 
 export let activeSonifier = null
 export let activeSonifierType = null
