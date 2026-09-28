@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decorator & Pipeline Lab — Web Sonifier</title>
+  <link rel="stylesheet" href="/demo/decorator-lab/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "@web-sonifier/core": "/packages/core/src/index.js",
+        "@web-sonifier/chime": "/packages/chime/src/index.js"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Global Navigation Header -->
+  <nav class="site-nav" aria-label="Main Navigation">
+    <a href="/demo/" class="site-nav-brand">
+      <span>🌊</span> Web Sonifier
+    </a>
+    <ul class="site-nav-links">
+      <li><a href="/demo/" class="site-nav-link">🎛️ Workbench</a></li>
+      <li><a href="/packages/chime/demo/" class="site-nav-link">🎐 Modal Chimes</a></li>
+      <li><a href="/packages/bubble/demo/" class="site-nav-link">🫧 Minnaert Bubble</a></li>
+      <li><a href="/packages/wind/demo/" class="site-nav-link">🌬️ Aeolian Wind</a></li>
+      <li><a href="/demo/landscapes/" class="site-nav-link">🏞️ Landscapes</a></li>
+      <li><a href="/demo/decorator-lab/" class="site-nav-link active">🧪 Decorator Lab</a></li>
+      <li><a href="https://github.com/grahamsw/web-sonifier" target="_blank" rel="noopener" class="site-nav-link github-link">GitHub ↗</a></li>
+    </ul>
+  </nav>
+
+  <div class="app-layout">
+
+    <!-- Header Section -->
+    <header class="lab-header">
+      <div class="title-area">
+        <h1>🧪 Visual Decorator & Pipeline Inspector</h1>
+        <p>Bidirectional Visual-to-Textual Transduction Bridge • Telemetry Shaping, Smoothing & Musical Quantization</p>
+        <div class="header-badges">
+          <span class="badge cyan">Adapter Pipeline</span>
+          <span class="badge emerald">Decorators</span>
+          <span class="badge purple">Musical Quantization</span>
+          <span class="badge yellow">Bidirectional JSON</span>
+        </div>
+      </div>
+
+      <!-- Presets Toolbar -->
+      <div class="preset-toolbar">
+        <label for="pipeline-presets">Presets:</label>
+        <select id="pipeline-presets">
+          <option value="smooth-pitch">Smooth Telemetry Pitch (EMA + Pentatonic)</option>
+          <option value="hirajoshi-walk">Japanese Hirajoshi Quantizer</option>
+          <option value="delta-velocity">Velocity / Rate-of-Change (Delta)</option>
+          <option value="accumulator">Cumulative Tension (Accumulate)</option>
+          <option value="moving-average">5-Sample Moving Average (SMA)</option>
+          <option value="threshold-gate">Threshold Anomaly Gate</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Master Transport & Audio Audition Bar -->
+    <section class="master-transport-bar">
+      <div class="transport-group">
+        <button type="button" class="btn-transport" id="btn-audio-toggle">▶ Audition Audio</button>
+        <div class="status-indicator" id="audio-status">Audio Muted</div>
+      </div>
+
+      <div class="audition-mode-group">
+        <span class="label">Audition Mode:</span>
+        <label class="radio-label">
+          <input type="radio" name="audition-mode" value="decorated" checked>
+          <span>✨ Decorated Output</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="audition-mode" value="raw">
+          <span>⚡ Raw Unsmoothed</span>
+        </label>
+      </div>
+
+      <div class="synth-voice-group">
+        <span class="label">Voice:</span>
+        <select id="synth-voice-select">
+          <option value="sine">Warm Sine Wave</option>
+          <option value="triangle">Soft Triangle</option>
+          <option value="chime">Modal Bell Clapper</option>
+        </select>
+      </div>
+
+      <div class="volume-slider-group">
+        <label for="master-volume">Volume <span id="disp-master-volume">60%</span></label>
+        <input type="range" id="master-volume" min="0" max="1" step="0.01" value="0.60">
+      </div>
+    </section>
+
+    <!-- Main Workspace: Left Column (Pipeline & Scope) / Right Column (JSON & Code) -->
+    <main class="lab-main-grid">
+
+      <!-- Left Column: Signal Flow & Visualization -->
+      <div class="pipeline-column">
+
+        <!-- 1. Feed Generator Bar -->
+        <section class="panel feed-panel">
+          <div class="panel-header">
+            <h3>📡 Telemetry Feed Simulator</h3>
+            <span class="val-badge" id="disp-feed-val">50.00</span>
+          </div>
+
+          <div class="feed-controls-grid">
+            <div class="control-item">
+              <label for="feed-profile">Signal Profile:</label>
+              <select id="feed-profile">
+                <option value="brownian">Jittery Brownian Walk (Telemetry Noise)</option>
+                <option value="sine">Slow Periodic Wave (Sinusoid)</option>
+                <option value="step">Step Jumps (Discontinuous Metrics)</option>
+                <option value="spikes">Poisson Arrival Spikes (Event Bursts)</option>
+                <option value="ramp">Sawtooth Linear Ramp</option>
+              </select>
+            </div>
+
+            <div class="control-item">
+              <label for="feed-rate">Tick Rate: <span id="disp-feed-rate">30 Hz</span></label>
+              <input type="range" id="feed-rate" min="5" max="60" step="1" value="30">
+            </div>
+
+            <div class="control-item">
+              <label for="feed-noise">Noise Volatility: <span id="disp-feed-noise">0.35</span></label>
+              <input type="range" id="feed-noise" min="0" max="1" step="0.01" value="0.35">
+            </div>
+
+            <div class="control-item manual-scrub">
+              <label for="feed-scrub">Manual Override Scrub: <span id="disp-feed-scrub">50</span></label>
+              <input type="range" id="feed-scrub" min="0" max="100" step="0.1" value="50">
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. The Horizontal Pipeline Strip -->
+        <section class="panel pipeline-strip-panel">
+          <div class="panel-header">
+            <h3>🎛️ Signal Transformation Pipeline</h3>
+            <span class="hint">Feed ➔ Adapter Transfer ➔ Decorators ➔ Target Audio Param</span>
+          </div>
+
+          <div class="pipeline-strip-container" id="pipeline-strip-container">
+
+            <!-- Step 1: Input Feed Block -->
+            <div class="pipeline-block feed-block">
+              <div class="block-tag">1. Input Feed</div>
+              <div class="block-name" id="block-feed-id">traffic_rps</div>
+              <div class="block-sub" id="block-feed-range">Range: [0, 100]</div>
+              <div class="block-meter">
+                <div class="meter-bar" id="meter-feed-bar" style="width: 50%;"></div>
+              </div>
+              <div class="block-val" id="block-feed-val">50.0</div>
+            </div>
+
+            <div class="pipeline-arrow">➔</div>
+
+            <!-- Step 2: Adapter Core Scaling Block -->
+            <div class="pipeline-block adapter-block">
+              <div class="block-tag">2. Adapter Scaling</div>
+              <div class="adapter-params">
+                <div class="param-row">
+                  <label>In Range:</label>
+                  <input type="number" id="adapter-in-min" value="0" class="input-mini">
+                  <span>–</span>
+                  <input type="number" id="adapter-in-max" value="100" class="input-mini">
+                </div>
+                <div class="param-row">
+                  <label>Out Range:</label>
+                  <input type="number" id="adapter-out-min" value="220" class="input-mini">
+                  <span>–</span>
+                  <input type="number" id="adapter-out-max" value="880" class="input-mini">
+                </div>
+                <div class="param-row">
+                  <label for="adapter-curve">Curve:</label>
+                  <select id="adapter-curve" class="select-mini">
+                    <option value="linear">Linear</option>
+                    <option value="exponential" selected>Exponential</option>
+                    <option value="logarithmic">Logarithmic</option>
+                  </select>
+                </div>
+                <div class="param-row">
+                  <label for="adapter-invert" class="checkbox-inline">
+                    <input type="checkbox" id="adapter-invert">
+                    <span>Invert</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="pipeline-arrow">➔</div>
+
+            <!-- Step 3: Decorators Chain Block -->
+            <div class="pipeline-block decorators-block">
+              <div class="block-tag">3. Decorator Chain (Piped in Order)</div>
+              
+              <div class="chips-container" id="decorator-chips-container">
+                <!-- Dynamically populated decorator chips -->
+              </div>
+
+              <div class="add-decorator-wrapper">
+                <select id="select-add-decorator" class="select-add-dec">
+                  <option value="" disabled selected>+ Add Decorator...</option>
+                  <option value="ema">📈 EMA Smoothing (Alpha)</option>
+                  <option value="quantize:pentatonic">🪜 Scale Quantize (Pentatonic)</option>
+                  <option value="quantize:minorPentatonic">🪜 Scale Quantize (Minor Pentatonic)</option>
+                  <option value="quantize:hirajoshi">🪜 Scale Quantize (Hirajoshi)</option>
+                  <option value="quantize:dorian">🪜 Scale Quantize (Dorian)</option>
+                  <option value="delta">⚡ Delta (Rate of Change)</option>
+                  <option value="sma">📊 SMA Moving Average (Window)</option>
+                  <option value="accumulate">🌊 Accumulate (Cumulative Sum)</option>
+                  <option value="threshold">🚧 Threshold Gate</option>
+                  <option value="round">🔢 Round to Integer</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="pipeline-arrow">➔</div>
+
+            <!-- Step 4: Output Target Block -->
+            <div class="pipeline-block output-block">
+              <div class="block-tag">4. Target Control</div>
+              <div class="block-name" id="block-target-name">chimes.pitch</div>
+              <div class="block-sub" id="block-target-unit">Unit: Hz</div>
+              <div class="block-meter output">
+                <div class="meter-bar output" id="meter-output-bar" style="width: 50%;"></div>
+              </div>
+              <div class="block-val output" id="block-output-val">440.0 Hz</div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- 3. Real-Time 3-Trace Oscilloscope / Sparkline Canvas -->
+        <section class="panel scope-panel">
+          <div class="panel-header">
+            <div class="scope-title-group">
+              <h3>📈 Real-Time Multi-Trace Signal Scope</h3>
+              <div class="scope-legend">
+                <span class="legend-item"><span class="legend-dot raw"></span> Raw Feed</span>
+                <span class="legend-item"><span class="legend-dot scaled"></span> Scaled / Smoothed</span>
+                <span class="legend-item"><span class="legend-dot output"></span> Final Decorated Target</span>
+              </div>
+            </div>
+            <div class="scope-tools">
+              <button type="button" class="btn-tool-mini" id="btn-scope-pause">⏸ Pause</button>
+              <button type="button" class="btn-tool-mini" id="btn-scope-clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="scope-canvas-container">
+            <canvas id="scope-canvas"></canvas>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Right Column: Synchronized Bidirectional Code & JSON Drawer -->
+      <aside class="code-column panel">
+        <div class="panel-header">
+          <h3>📄 Synchronized Specification</h3>
+          <div class="tab-toggle-group">
+            <button type="button" class="tab-btn active" id="tab-btn-json">JSON Spec</button>
+            <button type="button" class="tab-btn" id="tab-btn-code">JavaScript Code</button>
+          </div>
+        </div>
+
+        <div class="drawer-content">
+
+          <!-- JSON Spec View -->
+          <div class="drawer-view" id="view-json">
+            <div class="code-toolbar">
+              <span class="doc-label">.mappings.json Document</span>
+              <div class="code-actions">
+                <button type="button" class="btn-action-mini" id="btn-apply-json">⚡ Apply JSON</button>
+                <button type="button" class="btn-action-mini" id="btn-copy-json">📋 Copy</button>
+              </div>
+            </div>
+            <textarea id="json-editor" spellcheck="false"></textarea>
+            <div class="json-error" id="json-error" style="display: none;"></div>
+          </div>
+
+          <!-- JavaScript Fluent Code View -->
+          <div class="drawer-view" id="view-code" style="display: none;">
+            <div class="code-toolbar">
+              <span class="doc-label">Fluent Runtime Code</span>
+              <button type="button" class="btn-action-mini" id="btn-copy-code">📋 Copy</button>
+            </div>
+            <pre class="code-display" id="code-display"></pre>
+          </div>
+
+        </div>
+
+        <!-- Documentation Card -->
+        <div class="doc-card">
+          <h4>💡 Decorator Design Principle</h4>
+          <p>Decorators are <strong>pure or stateful pipeline transformers</strong>. By piping them inside the <code>Adapter</code>, the raw data is normalized, smoothed, and snapped before reaching the audio rate synthesizer.</p>
+          <p style="margin-top: 0.5rem;">The visual UI and the <code>.mappings.json</code> document are <strong>strictly bidirectional</strong> with zero GUI-only state.</p>
+        </div>
+      </aside>
+
+    </main>
+
+  </div>
+
+  <script type="module" src="/demo/decorator-lab/main.js"></script>
+</body>
+</html>
