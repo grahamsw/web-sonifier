@@ -206,13 +206,16 @@
 
         <div class="swimlane-cards" id="cards-bed">
           <!-- Object 1: Wind -->
-          <article class="object-card" id="card-wind">
+          <article class="object-card" id="card-wind" data-object-id="wind">
             <div class="object-header">
               <div>
                 <div class="object-title">🌬️ Aeolian Wind</div>
                 <div class="object-subtitle">The Atmosphere • Continuous Flow Bed</div>
               </div>
-              <span class="badge cyan">Aerodynamic</span>
+              <div class="object-header-actions">
+                <span class="badge cyan">Aerodynamic</span>
+                <button type="button" class="btn-remove-object btn-remove-header" data-object-id="wind" title="Remove sonifier from landscape" aria-label="Remove Aeolian Wind">✕</button>
+              </div>
             </div>
 
             <!-- Layer & Mapping Control Bar -->
@@ -227,7 +230,7 @@
               </div>
               <div class="card-actions-wrap">
                 <button type="button" class="btn-param-map" data-object-id="wind" data-param="speed" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="wind" title="Remove sonifier from landscape">&times;</button>
+                <button type="button" class="btn-remove-object" data-object-id="wind" title="Remove sonifier from landscape">🗑️ Remove</button>
               </div>
             </div>
 
@@ -284,13 +287,16 @@
           </article>
 
           <!-- Object 3: Ocean -->
-          <article class="object-card" id="card-ocean">
+          <article class="object-card" id="card-ocean" data-object-id="ocean">
             <div class="object-header">
               <div>
                 <div class="object-title">🌊 Ocean Surf</div>
                 <div class="object-subtitle">Asymmetric Breaker & Undertow</div>
               </div>
-              <span class="badge cyan">Hydrodynamic</span>
+              <div class="object-header-actions">
+                <span class="badge cyan">Hydrodynamic</span>
+                <button type="button" class="btn-remove-object btn-remove-header" data-object-id="ocean" title="Remove sonifier from landscape" aria-label="Remove Ocean Surf">✕</button>
+              </div>
             </div>
 
             <!-- Layer & Mapping Control Bar -->
@@ -305,7 +311,7 @@
               </div>
               <div class="card-actions-wrap">
                 <button type="button" class="btn-param-map" data-object-id="ocean" data-param="intensity" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="ocean" title="Remove sonifier from landscape">&times;</button>
+                <button type="button" class="btn-remove-object" data-object-id="ocean" title="Remove sonifier from landscape">🗑️ Remove</button>
               </div>
             </div>
 
@@ -387,13 +393,16 @@
 
         <div class="swimlane-cards" id="cards-texture">
           <!-- Object 2: Rain -->
-          <article class="object-card" id="card-rain">
+          <article class="object-card" id="card-rain" data-object-id="rain">
             <div class="object-header">
               <div>
                 <div class="object-title">🌧️ Acoustic Rain</div>
                 <div class="object-subtitle">Poisson Spatter & Shower Wash</div>
               </div>
-              <span class="badge cyan">Hydraulic</span>
+              <div class="object-header-actions">
+                <span class="badge cyan">Hydraulic</span>
+                <button type="button" class="btn-remove-object btn-remove-header" data-object-id="rain" title="Remove sonifier from landscape" aria-label="Remove Acoustic Rain">✕</button>
+              </div>
             </div>
 
             <!-- Layer & Mapping Control Bar -->
@@ -408,7 +417,7 @@
               </div>
               <div class="card-actions-wrap">
                 <button type="button" class="btn-param-map" data-object-id="rain" data-param="intensity" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="rain" title="Remove sonifier from landscape">&times;</button>
+                <button type="button" class="btn-remove-object" data-object-id="rain" title="Remove sonifier from landscape">🗑️ Remove</button>
               </div>
             </div>
 
@@ -493,13 +502,16 @@
 
         <div class="swimlane-cards" id="cards-figure">
           <!-- Object 4: Chimes -->
-          <article class="object-card" id="card-chime">
+          <article class="object-card" id="card-chime" data-object-id="chimes">
             <div class="object-header">
               <div>
                 <div class="object-title">🎐 Modal Chimes</div>
                 <div class="object-subtitle">Resonant Tubes • Transverse Euler-Bernoulli</div>
               </div>
-              <span class="badge cyan">Inharmonic</span>
+              <div class="object-header-actions">
+                <span class="badge cyan">Inharmonic</span>
+                <button type="button" class="btn-remove-object btn-remove-header" data-object-id="chimes" title="Remove sonifier from landscape" aria-label="Remove Modal Chimes">✕</button>
+              </div>
             </div>
 
             <!-- Layer & Mapping Control Bar -->
@@ -514,7 +526,7 @@
               </div>
               <div class="card-actions-wrap">
                 <button type="button" class="btn-param-map" data-object-id="chimes" data-param="pitch" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="chimes" title="Remove sonifier from landscape">&times;</button>
+                <button type="button" class="btn-remove-object" data-object-id="chimes" title="Remove sonifier from landscape">🗑️ Remove</button>
               </div>
             </div>
 

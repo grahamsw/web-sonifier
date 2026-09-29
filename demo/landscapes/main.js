@@ -285,7 +285,7 @@ export async function playLandscape() {
     }
 
     if (landscape._objects.size === 0) {
-      const scene = PRESET_SCENES[currentPresetName] || PRESET_SCENES.rain
+      const scene = getCurrentSceneDescriptor()
       await landscape.loadScene(scene)
     }
 
@@ -295,10 +295,10 @@ export async function playLandscape() {
     syncAllParams()
 
     // Acoustic emission pulse
-    emitPulse('wind', '#38bdf8')
-    emitPulse('rain', '#60a5fa')
-    emitPulse('ocean', '#06b6d4')
-    emitPulse('chimes', '#818cf8')
+    if (landscape._objects.has('wind')) emitPulse('wind', '#38bdf8')
+    if (landscape._objects.has('rain')) emitPulse('rain', '#60a5fa')
+    if (landscape._objects.has('ocean')) emitPulse('ocean', '#06b6d4')
+    if (landscape._objects.has('chimes') || landscape._objects.has('chime')) emitPulse('chimes', '#818cf8')
 
   } catch (err) {
     console.error('[Landscapes] Play error:', err)
@@ -330,70 +330,94 @@ export function syncAllParams() {
   landscape.setMasterVolume(masterVol)
 
   // 1. Wind
-  const windGain = parseFloat(windVolSlider?.value || 0.70)
-  const windPan = parseFloat(windPanSlider?.value || 0.0)
-  const windSpread = parseFloat(windSpreadSlider?.value || 0.80)
-  const windSpeed = parseFloat(windSpeedSlider?.value || 35)
-  const windTurbulence = parseFloat(windTurbulenceSlider?.value || 0.45)
-  const windCavity = parseFloat(windCavitySlider?.value || 0.30)
+  if (landscape._objects.has('wind')) {
+    const windGain = parseFloat(windVolSlider?.value || 0.70)
+    const windPan = parseFloat(windPanSlider?.value || 0.0)
+    const windSpread = parseFloat(windSpreadSlider?.value || 0.80)
+    const windSpeed = parseFloat(windSpeedSlider?.value || 35)
+    const windTurbulence = parseFloat(windTurbulenceSlider?.value || 0.45)
+    const windCavity = parseFloat(windCavitySlider?.value || 0.30)
 
-  landscape.setParam('wind', 'gain', windGain)
-  landscape.setParam('wind', 'pan', windPan)
-  landscape.setParam('wind', 'spread', windSpread)
-  landscape.setParam('wind', 'speed', windSpeed)
-  landscape.setParam('wind', 'turbulence', windTurbulence)
-  landscape.setParam('wind', 'cavityResonance', windCavity)
+    landscape.setParam('wind', 'gain', windGain)
+    landscape.setParam('wind', 'pan', windPan)
+    landscape.setParam('wind', 'spread', windSpread)
+    landscape.setParam('wind', 'speed', windSpeed)
+    landscape.setParam('wind', 'turbulence', windTurbulence)
+    landscape.setParam('wind', 'cavityResonance', windCavity)
+  }
 
   // 2. Rain
-  const rainGain = parseFloat(rainVolSlider?.value || 0.65)
-  const rainPan = parseFloat(rainPanSlider?.value || 0.0)
-  const rainSpread = parseFloat(rainSpreadSlider?.value || 0.95)
-  const rainInt = parseFloat(rainIntensitySlider?.value || 120)
-  const rainSurf = rainSurfaceSelect?.value || 'puddle'
-  const rainPitch = parseFloat(rainPitchSlider?.value || 1400)
-  const rainSize = parseFloat(rainSizeSlider?.value || 1.0)
+  if (landscape._objects.has('rain')) {
+    const rainGain = parseFloat(rainVolSlider?.value || 0.65)
+    const rainPan = parseFloat(rainPanSlider?.value || 0.0)
+    const rainSpread = parseFloat(rainSpreadSlider?.value || 0.95)
+    const rainInt = parseFloat(rainIntensitySlider?.value || 120)
+    const rainSurf = rainSurfaceSelect?.value || 'puddle'
+    const rainPitch = parseFloat(rainPitchSlider?.value || 1400)
+    const rainSize = parseFloat(rainSizeSlider?.value || 1.0)
 
-  landscape.setParam('rain', 'gain', rainGain)
-  landscape.setParam('rain', 'pan', rainPan)
-  landscape.setParam('rain', 'spread', rainSpread)
-  landscape.setParam('rain', 'intensity', rainInt)
-  landscape.setParam('rain', 'surface', rainSurf)
-  landscape.setParam('rain', 'pitch', rainPitch)
-  landscape.setParam('rain', 'dropletSize', rainSize)
+    landscape.setParam('rain', 'gain', rainGain)
+    landscape.setParam('rain', 'pan', rainPan)
+    landscape.setParam('rain', 'spread', rainSpread)
+    landscape.setParam('rain', 'intensity', rainInt)
+    landscape.setParam('rain', 'surface', rainSurf)
+    landscape.setParam('rain', 'pitch', rainPitch)
+    landscape.setParam('rain', 'dropletSize', rainSize)
+  }
 
   // 3. Ocean
-  const oceanGain = parseFloat(oceanVolSlider?.value || 0.55)
-  const oceanPan = parseFloat(oceanPanSlider?.value || 0.25)
-  const oceanSpread = parseFloat(oceanSpreadSlider?.value || 0.50)
-  const oceanInt = parseFloat(oceanIntensitySlider?.value || 60)
-  const oceanPer = parseFloat(oceanPeriodSlider?.value || 8.5)
-  const oceanFoam = parseFloat(oceanFoamSlider?.value || 0.55)
-  const oceanPitch = parseFloat(oceanPitchSlider?.value || 480)
+  if (landscape._objects.has('ocean')) {
+    const oceanGain = parseFloat(oceanVolSlider?.value || 0.55)
+    const oceanPan = parseFloat(oceanPanSlider?.value || 0.25)
+    const oceanSpread = parseFloat(oceanSpreadSlider?.value || 0.50)
+    const oceanInt = parseFloat(oceanIntensitySlider?.value || 60)
+    const oceanPer = parseFloat(oceanPeriodSlider?.value || 8.5)
+    const oceanFoam = parseFloat(oceanFoamSlider?.value || 0.55)
+    const oceanPitch = parseFloat(oceanPitchSlider?.value || 480)
 
-  landscape.setParam('ocean', 'gain', oceanGain)
-  landscape.setParam('ocean', 'pan', oceanPan)
-  landscape.setParam('ocean', 'spread', oceanSpread)
-  landscape.setParam('ocean', 'intensity', oceanInt)
-  landscape.setParam('ocean', 'swellPeriod', oceanPer)
-  landscape.setParam('ocean', 'foam', oceanFoam)
-  landscape.setParam('ocean', 'pitch', oceanPitch)
+    landscape.setParam('ocean', 'gain', oceanGain)
+    landscape.setParam('ocean', 'pan', oceanPan)
+    landscape.setParam('ocean', 'spread', oceanSpread)
+    landscape.setParam('ocean', 'intensity', oceanInt)
+    landscape.setParam('ocean', 'swellPeriod', oceanPer)
+    landscape.setParam('ocean', 'foam', oceanFoam)
+    landscape.setParam('ocean', 'pitch', oceanPitch)
+  }
 
   // 4. Chimes
-  const chimeGain = parseFloat(chimeVolSlider?.value || 0.75)
-  const chimePan = parseFloat(chimePanSlider?.value || 0.45)
-  const chimeSpread = parseFloat(chimeSpreadSlider?.value || 0.08)
-  const chimeCoupled = chimeCoupledCheck ? chimeCoupledCheck.checked : true
-  const chimeMat = chimeMaterialSelect?.value || 'aluminum'
-  const chimePitch = parseFloat(chimePitchSlider?.value || 587)
-  const chimeDamp = parseFloat(chimeDampingSlider?.value || 0.25)
+  const hasChimes = landscape._objects.has('chimes') || landscape._objects.has('chime')
+  const chimesId = landscape._objects.has('chimes') ? 'chimes' : 'chime'
+  if (hasChimes) {
+    const chimeGain = parseFloat(chimeVolSlider?.value || 0.75)
+    const chimePan = parseFloat(chimePanSlider?.value || 0.45)
+    const chimeSpread = parseFloat(chimeSpreadSlider?.value || 0.08)
+    const chimeCoupled = chimeCoupledCheck ? chimeCoupledCheck.checked : true
+    const chimeMat = chimeMaterialSelect?.value || 'aluminum'
+    const chimePitch = parseFloat(chimePitchSlider?.value || 587)
+    const chimeDamp = parseFloat(chimeDampingSlider?.value || 0.25)
+    const windSpeedVal = parseFloat(windSpeedSlider?.value || 35)
 
-  landscape.setParam('chimes', 'gain', chimeGain)
-  landscape.setParam('chimes', 'pan', chimePan)
-  landscape.setParam('chimes', 'spread', chimeSpread)
-  landscape.setParam('chimes', 'material', chimeMat)
-  landscape.setParam('chimes', 'pitch', chimePitch)
-  landscape.setParam('chimes', 'damping', chimeDamp)
-  landscape.setParam('chimes', 'windSpeed', chimeCoupled ? windSpeed * 0.8 : 0)
+    landscape.setParam(chimesId, 'gain', chimeGain)
+    landscape.setParam(chimesId, 'pan', chimePan)
+    landscape.setParam(chimesId, 'spread', chimeSpread)
+    landscape.setParam(chimesId, 'material', chimeMat)
+    landscape.setParam(chimesId, 'pitch', chimePitch)
+    landscape.setParam(chimesId, 'damping', chimeDamp)
+    landscape.setParam(chimesId, 'windSpeed', chimeCoupled ? windSpeedVal * 0.8 : 0)
+  }
+
+  // Dynamic cards
+  document.querySelectorAll('article.object-card[data-type]').forEach(card => {
+    const id = card.dataset.objectId || card.id.replace(/^card-/, '')
+    if (landscape._objects.has(id)) {
+      const vol = parseFloat(card.querySelector(`[data-param="gain"]`)?.value || 0.70)
+      const pan = parseFloat(card.querySelector(`[data-param="pan"]`)?.value || 0.0)
+      const spread = parseFloat(card.querySelector(`[data-param="spread"]`)?.value || 0.50)
+      landscape.setParam(id, 'gain', vol)
+      landscape.setParam(id, 'pan', pan)
+      landscape.setParam(id, 'spread', spread)
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -800,6 +824,105 @@ export function getCurrentSceneDescriptor() {
     return landscape.exportScene({ name: playerSceneTitle?.textContent || 'Custom Scene' })
   }
 
+  const objects = {}
+
+  // 1. Wind
+  if (document.getElementById('card-wind') || document.querySelector('article[data-object-id="wind"]')) {
+    objects.wind = {
+      type: 'wind',
+      layer: document.getElementById('layer-select-wind')?.value || 'bed',
+      gain: parseFloat(windVolSlider?.value || 0.70),
+      pan: parseFloat(windPanSlider?.value || 0.0),
+      distance: 10,
+      spread: parseFloat(windSpreadSlider?.value || 0.80),
+      reverbSend: 0.20,
+      params: {
+        speed: parseFloat(windSpeedSlider?.value || 35),
+        turbulence: parseFloat(windTurbulenceSlider?.value || 0.45),
+        cavityResonance: parseFloat(windCavitySlider?.value || 0.30)
+      }
+    }
+  }
+
+  // 2. Rain
+  if (document.getElementById('card-rain') || document.querySelector('article[data-object-id="rain"]')) {
+    objects.rain = {
+      type: 'rain',
+      layer: document.getElementById('layer-select-rain')?.value || 'texture',
+      gain: parseFloat(rainVolSlider?.value || 0.65),
+      pan: parseFloat(rainPanSlider?.value || 0.0),
+      distance: 5,
+      spread: parseFloat(rainSpreadSlider?.value || 0.95),
+      reverbSend: 0.25,
+      params: {
+        intensity: parseFloat(rainIntensitySlider?.value || 120),
+        surface: rainSurfaceSelect?.value || 'puddle',
+        pitch: parseFloat(rainPitchSlider?.value || 1400),
+        dropletSize: parseFloat(rainSizeSlider?.value || 1.0)
+      }
+    }
+  }
+
+  // 3. Ocean
+  if (document.getElementById('card-ocean') || document.querySelector('article[data-object-id="ocean"]')) {
+    objects.ocean = {
+      type: 'ocean',
+      layer: document.getElementById('layer-select-ocean')?.value || 'bed',
+      gain: parseFloat(oceanVolSlider?.value || 0.55),
+      pan: parseFloat(oceanPanSlider?.value || 0.25),
+      distance: 16,
+      spread: parseFloat(oceanSpreadSlider?.value || 0.50),
+      reverbSend: 0.35,
+      params: {
+        intensity: parseFloat(oceanIntensitySlider?.value || 60),
+        swellPeriod: parseFloat(oceanPeriodSlider?.value || 8.5),
+        foam: parseFloat(oceanFoamSlider?.value || 0.55),
+        pitch: parseFloat(oceanPitchSlider?.value || 480)
+      }
+    }
+  }
+
+  // 4. Chimes
+  if (document.getElementById('card-chime') || document.getElementById('card-chimes') || document.querySelector('article[data-object-id="chimes"]')) {
+    objects.chimes = {
+      type: 'chime',
+      layer: document.getElementById('layer-select-chime')?.value || 'figure',
+      gain: parseFloat(chimeVolSlider?.value || 0.75),
+      pan: parseFloat(chimePanSlider?.value || 0.45),
+      distance: 2,
+      spread: parseFloat(chimeSpreadSlider?.value || 0.08),
+      reverbSend: 0.45,
+      params: {
+        material: chimeMaterialSelect?.value || 'aluminum',
+        pitch: parseFloat(chimePitchSlider?.value || 587),
+        damping: parseFloat(chimeDampingSlider?.value || 0.25),
+        windSpeed: (chimeCoupledCheck && chimeCoupledCheck.checked && objects.wind) ? parseFloat(windSpeedSlider?.value || 35) * 0.8 : 0
+      }
+    }
+  }
+
+  // Dynamic cards added from catalog
+  document.querySelectorAll('article.object-card[data-type]').forEach(card => {
+    const id = card.dataset.objectId || card.id.replace(/^card-/, '')
+    if (objects[id]) return
+    const type = card.dataset.type
+    const layer = card.querySelector('.select-change-layer')?.value || 'bed'
+    const vol = parseFloat(card.querySelector(`[data-param="gain"]`)?.value || 0.70)
+    const pan = parseFloat(card.querySelector(`[data-param="pan"]`)?.value || 0.0)
+    const spread = parseFloat(card.querySelector(`[data-param="spread"]`)?.value || 0.50)
+
+    objects[id] = {
+      type,
+      layer,
+      gain: vol,
+      pan,
+      spread,
+      distance: layer === 'figure' ? 3 : (layer === 'texture' ? 6 : 12),
+      reverbSend: layer === 'figure' ? 0.35 : (layer === 'texture' ? 0.25 : 0.20),
+      params: {}
+    }
+  })
+
   return {
     version: 1,
     name: playerSceneTitle?.textContent || 'Custom Scene',
@@ -817,68 +940,8 @@ export function getCurrentSceneDescriptor() {
         ducking: { targets: ['bed', 'texture'], depth: 0.35, attack: 0.015, release: 0.25 }
       }
     },
-    objects: {
-      wind: {
-        type: 'wind',
-        layer: 'bed',
-        gain: parseFloat(windVolSlider?.value || 0.70),
-        pan: parseFloat(windPanSlider?.value || 0.0),
-        distance: 10,
-        spread: parseFloat(windSpreadSlider?.value || 0.80),
-        reverbSend: 0.20,
-        params: {
-          speed: parseFloat(windSpeedSlider?.value || 35),
-          turbulence: parseFloat(windTurbulenceSlider?.value || 0.45),
-          cavityResonance: parseFloat(windCavitySlider?.value || 0.30)
-        }
-      },
-      rain: {
-        type: 'rain',
-        layer: 'texture',
-        gain: parseFloat(rainVolSlider?.value || 0.65),
-        pan: parseFloat(rainPanSlider?.value || 0.0),
-        distance: 5,
-        spread: parseFloat(rainSpreadSlider?.value || 0.95),
-        reverbSend: 0.25,
-        params: {
-          intensity: parseFloat(rainIntensitySlider?.value || 120),
-          surface: rainSurfaceSelect?.value || 'puddle',
-          pitch: parseFloat(rainPitchSlider?.value || 1400),
-          dropletSize: parseFloat(rainSizeSlider?.value || 1.0)
-        }
-      },
-      ocean: {
-        type: 'ocean',
-        layer: 'bed',
-        gain: parseFloat(oceanVolSlider?.value || 0.55),
-        pan: parseFloat(oceanPanSlider?.value || 0.25),
-        distance: 16,
-        spread: parseFloat(oceanSpreadSlider?.value || 0.50),
-        reverbSend: 0.35,
-        params: {
-          intensity: parseFloat(oceanIntensitySlider?.value || 60),
-          swellPeriod: parseFloat(oceanPeriodSlider?.value || 8.5),
-          foam: parseFloat(oceanFoamSlider?.value || 0.55),
-          pitch: parseFloat(oceanPitchSlider?.value || 480)
-        }
-      },
-      chimes: {
-        type: 'chime',
-        layer: 'figure',
-        gain: parseFloat(chimeVolSlider?.value || 0.75),
-        pan: parseFloat(chimePanSlider?.value || 0.45),
-        distance: 2,
-        spread: parseFloat(chimeSpreadSlider?.value || 0.08),
-        reverbSend: 0.45,
-        params: {
-          material: chimeMaterialSelect?.value || 'aluminum',
-          pitch: parseFloat(chimePitchSlider?.value || 587),
-          damping: parseFloat(chimeDampingSlider?.value || 0.25),
-          windSpeed: (chimeCoupledCheck && chimeCoupledCheck.checked) ? parseFloat(windSpeedSlider?.value || 35) * 0.8 : 0
-        }
-      }
-    },
-    couplings: (chimeCoupledCheck && chimeCoupledCheck.checked) ? [
+    objects,
+    couplings: (chimeCoupledCheck && chimeCoupledCheck.checked && objects.wind && objects.chimes) ? [
       {
         sourceId: 'wind',
         sourceParam: 'speed',
@@ -1449,7 +1512,10 @@ export function createSonifierCard(id, type, layer = 'bed') {
         <div class="object-title">${meta.icon} ${meta.name} <small style="font-size: 0.72rem; color: var(--text-muted);">(${id})</small></div>
         <div class="object-subtitle">${meta.desc || 'Monorepo Resonator Plugin'}</div>
       </div>
-      <span class="badge ${badgeClass}">${type}</span>
+      <div class="object-header-actions">
+        <span class="badge ${badgeClass}">${type}</span>
+        <button type="button" class="btn-remove-object btn-remove-header" data-object-id="${id}" title="Remove sonifier from landscape" aria-label="Remove ${meta.name}">✕</button>
+      </div>
     </div>
 
     <!-- Layer & Mapping Control Bar -->
@@ -1464,7 +1530,7 @@ export function createSonifierCard(id, type, layer = 'bed') {
       </div>
       <div class="card-actions-wrap">
         <button type="button" class="btn-param-map" data-object-id="${id}" data-param="gain" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-        <button type="button" class="btn-remove-object" data-object-id="${id}" title="Remove sonifier from landscape">&times;</button>
+        <button type="button" class="btn-remove-object" data-object-id="${id}" title="Remove sonifier from landscape">🗑️ Remove</button>
       </div>
     </div>
 
@@ -1601,12 +1667,28 @@ export function handleObjectRemove(objectId) {
   if (landscape._objects.has(objectId)) {
     landscape.removeObject(objectId)
   }
+  if (objectId === 'chime' && landscape._objects.has('chimes')) {
+    landscape.removeObject('chimes')
+  } else if (objectId === 'chimes' && landscape._objects.has('chime')) {
+    landscape.removeObject('chime')
+  }
+
   landscape._mappings = landscape._mappings.filter(m => {
-    const match = m.target && m.target.objectId === objectId
+    const match = m.target && (
+      m.target.objectId === objectId ||
+      (objectId === 'chimes' && m.target.objectId === 'chime') ||
+      (objectId === 'chime' && m.target.objectId === 'chimes')
+    )
     if (match && m.scatterAdapter) m.scatterAdapter.cancel()
     return !match
   })
-  const card = document.getElementById(`card-${objectId}`) || document.querySelector(`article[data-object-id="${objectId}"]`)
+
+  const card = document.getElementById(`card-${objectId}`) ||
+               (objectId === 'chimes' ? document.getElementById('card-chime') : null) ||
+               (objectId === 'chime' ? document.getElementById('card-chimes') : null) ||
+               document.querySelector(`article[data-object-id="${objectId}"]`) ||
+               document.querySelector(`.btn-remove-object[data-object-id="${objectId}"]`)?.closest('article.object-card')
+
   if (card) {
     card.remove()
   }
