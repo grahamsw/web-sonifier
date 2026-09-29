@@ -9,6 +9,7 @@ import {
   generateFluentJsCode,
   applyMappingsJson,
   renderDecoratorChips,
+  syncUiFromState,
   PRESETS
 } from '../decorator-lab/main.js'
 
@@ -200,6 +201,29 @@ describe('Decorator & Pipeline Lab Controller', () => {
       removeBtns[0].click()
 
       expect(state.mapping.adapter.decorators).toEqual(['quantize:pentatonic'])
+    })
+
+    it('should immediately update the DOM container when a chip is removed via syncUiFromState', () => {
+      document.body.innerHTML = `
+        <div id="decorator-chips-container"></div>
+        <textarea id="drawer-json"></textarea>
+        <pre><code id="drawer-fluent"></code></pre>
+      `
+      syncUiFromState()
+
+      const container = document.getElementById('decorator-chips-container')
+      let chips = container.querySelectorAll('.decorator-chip')
+      expect(chips).toHaveLength(2)
+
+      // Click remove on the first chip
+      const removeBtn = chips[0].querySelector('.btn-chip-remove')
+      removeBtn.click()
+
+      // Should immediately update DOM without page reload or manual refresh
+      chips = container.querySelectorAll('.decorator-chip')
+      expect(chips).toHaveLength(1)
+      expect(state.mapping.adapter.decorators).toEqual(['quantize:pentatonic'])
+      expect(chips[0].textContent).toContain('Scale')
     })
   })
 
