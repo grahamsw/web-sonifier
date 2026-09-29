@@ -205,6 +205,20 @@ describe('Landscape Orchestrator', () => {
     expect(bedLayer.gainNode.gain.value).toBe(1.0)
   })
 
+  it('reassigns an object between layers with setObjectLayer', () => {
+    const wind = new MockWindSonifier()
+    landscape.addObject('wind', wind, { layer: 'bed' })
+    expect(landscape.getObject('wind').layer).toBe('bed')
+
+    const success = landscape.setObjectLayer('wind', 'texture')
+    expect(success).toBe(true)
+    expect(landscape.getObject('wind').layer).toBe('texture')
+    expect(landscape.getObject('wind').options.layer).toBe('texture')
+
+    // Non-existent object returns false
+    expect(landscape.setObjectLayer('non-existent', 'figure')).toBe(false)
+  })
+
   it('couples parameters declaratively with scaling, curves, and transforms', () => {
     const wind = new MockWindSonifier()
     const chime = new MockWindSonifier()
