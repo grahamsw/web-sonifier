@@ -3,6 +3,14 @@ import { WindSonifier } from '@web-sonifier/wind'
 import { RainSonifier } from '@web-sonifier/rain'
 import { OceanSonifier } from '@web-sonifier/ocean'
 import { ChimeSonifier } from '@web-sonifier/chime'
+import { BubbleSonifier } from '@web-sonifier/bubble'
+import { EnoBedSonifier } from '@web-sonifier/eno-bed'
+import { EnoTextureSonifier } from '@web-sonifier/eno-texture'
+import { EnoFigureSonifier } from '@web-sonifier/eno-figure'
+import { MalletSonifier } from '@web-sonifier/mallet'
+import { PurrSonifier } from '@web-sonifier/purr'
+import { VoscSonifier } from '@web-sonifier/vosc'
+import { EngineSonifier } from '@web-sonifier/engine'
 import { PRESET_SCENES } from './presets.js'
 
 // ---------------------------------------------------------------------------
@@ -11,12 +19,35 @@ import { PRESET_SCENES } from './presets.js'
 
 export const landscape = new Landscape()
 
-// Register sonifier plugins for declarative scene hydration
+// Register all 12 monorepo sonifier plugins for declarative scene hydration
 landscape.register('wind', WindSonifier)
 landscape.register('rain', RainSonifier)
 landscape.register('ocean', OceanSonifier)
 landscape.register('chime', ChimeSonifier)
 landscape.register('chimes', ChimeSonifier)
+landscape.register('bubble', BubbleSonifier)
+landscape.register('eno-bed', EnoBedSonifier)
+landscape.register('eno-texture', EnoTextureSonifier)
+landscape.register('eno-figure', EnoFigureSonifier)
+landscape.register('mallet', MalletSonifier)
+landscape.register('purr', PurrSonifier)
+landscape.register('vosc', VoscSonifier)
+landscape.register('engine', EngineSonifier)
+
+export const SONIFIER_CATALOG = {
+  wind: { name: 'Aeolian Wind', icon: '🌬️', defaultLayer: 'bed', factory: WindSonifier },
+  ocean: { name: 'Ocean Surf', icon: '🌊', defaultLayer: 'bed', factory: OceanSonifier },
+  'eno-bed': { name: 'Ambient Pad (Eno)', icon: '🌌', defaultLayer: 'bed', factory: EnoBedSonifier },
+  purr: { name: 'Purr Resonator', icon: '🐱', defaultLayer: 'bed', factory: PurrSonifier },
+  vosc: { name: 'Variable Osc (Vosc)', icon: '⚡', defaultLayer: 'bed', factory: VoscSonifier },
+  engine: { name: 'Combustion Engine', icon: '⚙️', defaultLayer: 'bed', factory: EngineSonifier },
+  rain: { name: 'Acoustic Rain', icon: '🌧️', defaultLayer: 'texture', factory: RainSonifier },
+  'eno-texture': { name: 'Shimmer Cloud (Eno)', icon: '✨', defaultLayer: 'texture', factory: EnoTextureSonifier },
+  bubble: { name: 'Minnaert Bubble', icon: '🫧', defaultLayer: 'texture', factory: BubbleSonifier },
+  chime: { name: 'Modal Chimes', icon: '🎐', defaultLayer: 'figure', factory: ChimeSonifier },
+  'eno-figure': { name: 'Tape Melodic Lead', icon: '🎹', defaultLayer: 'figure', factory: EnoFigureSonifier },
+  mallet: { name: 'Mallet Percussion', icon: '🪵', defaultLayer: 'figure', factory: MalletSonifier }
+}
 
 // Register default data feeds (Web Traffic & Infrastructure Telemetry)
 landscape.defineFeed('traffic_rps', {
@@ -871,12 +902,13 @@ export function toggleViewMode() {
     if (studioMasterBar) studioMasterBar.style.display = 'none'
     if (soundstageCard) soundstageCard.style.display = 'none'
     if (objectsGrid) objectsGrid.style.display = 'none'
+    updatePlayerLayerPills()
   } else {
     if (btnToggleMode) btnToggleMode.textContent = '🎧 Mode: Studio'
     if (playerView) playerView.style.display = 'none'
     if (studioMasterBar) studioMasterBar.style.display = 'flex'
     if (soundstageCard) soundstageCard.style.display = 'block'
-    if (objectsGrid) objectsGrid.style.display = 'grid'
+    if (objectsGrid) objectsGrid.style.display = 'flex'
   }
 }
 
@@ -1323,7 +1355,451 @@ if (presetStormBtn) presetStormBtn.addEventListener('click', () => applyPreset('
 if (presetAlpineBtn) presetAlpineBtn.addEventListener('click', () => applyPreset('alpine'))
 
 // ---------------------------------------------------------------------------
-// 2D Soundstage Visualizer Radar with Spatial Extent / Spread Beams
+// Dynamic Layer Swimlanes, Object Management & Mapping Inspector
+// ---------------------------------------------------------------------------
+
+// Catalog Modal Elements
+const btnOpenCatalog = document.getElementById('btn-open-catalog')
+const modalAddSonifier = document.getElementById('modal-add-sonifier')
+const btnCloseCatalog = document.getElementById('btn-close-catalog')
+const btnCancelCatalog = document.getElementById('btn-cancel-catalog')
+const btnConfirmAddSonifier = document.getElementById('btn-confirm-add-sonifier')
+const catalogInstanceId = document.getElementById('catalog-instance-id')
+const catalogLayerSelect = document.getElementById('catalog-layer-select')
+
+// Mapping Inspector Elements
+const modalMappingInspector = document.getElementById('modal-mapping-inspector')
+const btnCloseMapping = document.getElementById('btn-close-mapping')
+const btnMappingSave = document.getElementById('btn-mapping-save')
+const btnMappingRemove = document.getElementById('btn-mapping-remove')
+const mappingTargetObject = document.getElementById('mapping-target-object')
+const mappingTargetParam = document.getElementById('mapping-target-param')
+const mappingTargetLayer = document.getElementById('mapping-target-layer')
+const mappingFeedSelect = document.getElementById('mapping-feed-select')
+const mappingCurveSelect = document.getElementById('mapping-curve-select')
+const mappingInMin = document.getElementById('mapping-in-min')
+const mappingInMax = document.getElementById('mapping-in-max')
+const mappingOutMin = document.getElementById('mapping-out-min')
+const mappingOutMax = document.getElementById('mapping-out-max')
+const mappingTuningEnable = document.getElementById('mapping-tuning-enable')
+const tuningControlsSection = document.getElementById('tuning-controls-section')
+const mappingTuningScale = document.getElementById('mapping-tuning-scale')
+const mappingTuningRoot = document.getElementById('mapping-tuning-root')
+const mappingScatterEnable = document.getElementById('mapping-scatter-enable')
+const scatterControlsSection = document.getElementById('scatter-controls-section')
+const mappingScatterStrategy = document.getElementById('mapping-scatter-strategy')
+const mappingScatterWindow = document.getElementById('mapping-scatter-window')
+
+// Player Layer Breakdown container
+const playerLayerPills = document.getElementById('player-layer-pills')
+
+let selectedCatalogType = 'bubble'
+let currentMappingTarget = { objectId: 'wind', param: 'speed', layer: 'bed' }
+
+export function updatePlayerLayerPills() {
+  const container = document.getElementById('player-layer-pills') || playerLayerPills
+  if (!container) return
+
+  const bedItems = []
+  const textureItems = []
+  const figureItems = []
+
+  const cards = document.querySelectorAll('.object-card')
+  cards.forEach(card => {
+    const objectId = card.dataset.objectId || card.id.replace('card-', '')
+    const layerSelect = card.querySelector('.select-change-layer')
+    const layer = layerSelect?.value || (landscape._objects.get(objectId)?.layer) || 'bed'
+    const titleEl = card.querySelector('.object-title')
+    const title = titleEl ? titleEl.textContent.trim().split(' (')[0] : objectId
+
+    if (layer === 'bed') bedItems.push(title)
+    else if (layer === 'texture') textureItems.push(title)
+    else if (layer === 'figure') figureItems.push(title)
+  })
+
+  container.innerHTML = `
+    <div class="player-layer-pill bed">
+      <span>🔵 Bed (${bedItems.length}):</span>
+      <strong>${bedItems.join(', ') || 'None'}</strong>
+    </div>
+    <div class="player-layer-pill texture">
+      <span>🟢 Texture (${textureItems.length}):</span>
+      <strong>${textureItems.join(', ') || 'None'}</strong>
+    </div>
+    <div class="player-layer-pill figure">
+      <span>🟡 Figure (${figureItems.length}):</span>
+      <strong>${figureItems.join(', ') || 'None'}</strong>
+    </div>
+  `
+}
+
+export function createSonifierCard(id, type, layer = 'bed') {
+  const meta = SONIFIER_CATALOG[type] || { name: type, icon: '🔊', defaultLayer: layer, desc: 'Monorepo Resonator' }
+  const article = document.createElement('article')
+  article.className = 'object-card'
+  article.id = `card-${id}`
+  article.dataset.objectId = id
+  article.dataset.type = type
+
+  const badgeClass = layer === 'bed' ? 'cyan' : (layer === 'texture' ? 'cyan' : 'cyan')
+
+  article.innerHTML = `
+    <div class="object-header">
+      <div>
+        <div class="object-title">${meta.icon} ${meta.name} <small style="font-size: 0.72rem; color: var(--text-muted);">(${id})</small></div>
+        <div class="object-subtitle">${meta.desc || 'Monorepo Resonator Plugin'}</div>
+      </div>
+      <span class="badge ${badgeClass}">${type}</span>
+    </div>
+
+    <!-- Layer & Mapping Control Bar -->
+    <div class="card-layer-toolbar">
+      <div class="layer-selector-wrap">
+        <label for="layer-select-${id}">Layer:</label>
+        <select class="select-change-layer" id="layer-select-${id}" data-object-id="${id}">
+          <option value="bed" ${layer === 'bed' ? 'selected' : ''}>Bed</option>
+          <option value="texture" ${layer === 'texture' ? 'selected' : ''}>Texture</option>
+          <option value="figure" ${layer === 'figure' ? 'selected' : ''}>Figure</option>
+        </select>
+      </div>
+      <div class="card-actions-wrap">
+        <button type="button" class="btn-param-map" data-object-id="${id}" data-param="gain" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
+        <button type="button" class="btn-remove-object" data-object-id="${id}" title="Remove sonifier from landscape">&times;</button>
+      </div>
+    </div>
+
+    <!-- Spatial Channel Strip -->
+    <div class="spatial-strip">
+      <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+      <div class="control-row">
+        <div class="control-label">
+          <span>Component Volume</span>
+          <span class="control-val" id="disp-${id}-volume">70%</span>
+        </div>
+        <input type="range" id="${id}-volume" class="dynamic-slider" data-param="gain" min="0" max="1" step="0.01" value="0.70">
+      </div>
+      <div class="control-row" style="margin-top: 0.4rem;">
+        <div class="control-label">
+          <span>Stereo Pan</span>
+          <span class="control-val" id="disp-${id}-pan">Center (0.0)</span>
+        </div>
+        <input type="range" id="${id}-pan" class="dynamic-slider" data-param="pan" min="-1" max="1" step="0.05" value="0.0">
+      </div>
+      <div class="control-row" style="margin-top: 0.4rem;">
+        <div class="control-label">
+          <span>Field Spread (Width)</span>
+          <span class="control-val" id="disp-${id}-spread">0.50 (Spatial Arc)</span>
+        </div>
+        <input type="range" id="${id}-spread" class="dynamic-slider" data-param="spread" min="0.02" max="1.0" step="0.02" value="0.50">
+      </div>
+    </div>
+  `
+
+  const volSlider = article.querySelector(`#${id}-volume`)
+  const panSlider = article.querySelector(`#${id}-pan`)
+  const spreadSlider = article.querySelector(`#${id}-spread`)
+  const volDisp = article.querySelector(`#disp-${id}-volume`)
+  const panDisp = article.querySelector(`#disp-${id}-pan`)
+  const spreadDisp = article.querySelector(`#disp-${id}-spread`)
+
+  if (volSlider) {
+    volSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (volDisp) volDisp.textContent = `${Math.round(val * 100)}%`
+      landscape.setParam(id, 'gain', val)
+    })
+  }
+
+  if (panSlider) {
+    panSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (panDisp) panDisp.textContent = val === 0 ? 'Center (0.0)' : (val < 0 ? `Left (${val.toFixed(2)})` : `Right (+${val.toFixed(2)})`)
+      landscape.setParam(id, 'pan', val)
+    })
+  }
+
+  if (spreadSlider) {
+    spreadSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (spreadDisp) spreadDisp.textContent = `${val.toFixed(2)} (Spatial Arc)`
+      landscape.setParam(id, 'spread', val)
+    })
+  }
+
+  return article
+}
+
+export function openCatalogModal(targetLayer = null) {
+  if (targetLayer && catalogLayerSelect) {
+    catalogLayerSelect.value = targetLayer
+  }
+  if (catalogInstanceId) {
+    catalogInstanceId.value = `${selectedCatalogType}-${Math.floor(Math.random() * 899 + 100)}`
+  }
+  if (modalAddSonifier) {
+    modalAddSonifier.style.display = 'flex'
+  }
+}
+
+export function closeCatalogModal() {
+  if (modalAddSonifier) {
+    modalAddSonifier.style.display = 'none'
+  }
+}
+
+export async function addSonifierFromCatalog(type, instanceId, targetLayer) {
+  const sonifierType = type || selectedCatalogType
+  if (!sonifierType || !SONIFIER_CATALOG[sonifierType]) {
+    alert(`Unknown sonifier type: ${sonifierType}`)
+    return false
+  }
+
+  const id = instanceId || `${sonifierType}-${Date.now().toString(36).slice(-4)}`
+  if (landscape._objects.has(id)) {
+    alert(`A sonifier with ID "${id}" already exists in the landscape. Please use a unique ID.`)
+    return false
+  }
+
+  const layer = targetLayer || catalogLayerSelect?.value || SONIFIER_CATALOG[sonifierType].defaultLayer || 'bed'
+
+  if (landscape._audioContext) {
+    try {
+      const Factory = SONIFIER_CATALOG[sonifierType].factory
+      const instance = new Factory()
+      landscape.addObject(id, instance, { layer, gain: 0.70, pan: 0.0, spread: 0.50 })
+    } catch (err) {
+      console.warn('[Landscape] Could not instantiate audio node immediately:', err)
+    }
+  }
+
+  const card = createSonifierCard(id, sonifierType, layer)
+  const container = document.getElementById(`cards-${layer}`)
+  if (container) {
+    container.appendChild(card)
+  }
+
+  updatePlayerLayerPills()
+  closeCatalogModal()
+  return true
+}
+
+export function handleLayerChange(objectId, newLayer) {
+  if (!objectId || !newLayer) return
+  if (landscape._objects.has(objectId)) {
+    landscape.setObjectLayer(objectId, newLayer)
+  }
+  const card = document.getElementById(`card-${objectId}`) || document.querySelector(`article[data-object-id="${objectId}"]`)
+  const targetContainer = document.getElementById(`cards-${newLayer}`)
+  if (card && targetContainer && card.parentElement !== targetContainer) {
+    targetContainer.appendChild(card)
+  }
+  updatePlayerLayerPills()
+}
+
+export function handleObjectRemove(objectId) {
+  if (!objectId) return
+  if (landscape._objects.has(objectId)) {
+    landscape.removeObject(objectId)
+  }
+  landscape._mappings = landscape._mappings.filter(m => {
+    const match = m.target && m.target.objectId === objectId
+    if (match && m.scatterAdapter) m.scatterAdapter.cancel()
+    return !match
+  })
+  const card = document.getElementById(`card-${objectId}`) || document.querySelector(`article[data-object-id="${objectId}"]`)
+  if (card) {
+    card.remove()
+  }
+  updatePlayerLayerPills()
+}
+
+export function openMappingInspector(objectId, param = 'speed') {
+  currentMappingTarget.objectId = objectId
+  currentMappingTarget.param = param
+
+  const objEntry = landscape._objects.get(objectId)
+  const card = document.getElementById(`card-${objectId}`) || document.querySelector(`article[data-object-id="${objectId}"]`)
+  const layerSelect = card?.querySelector('.select-change-layer')
+  currentMappingTarget.layer = objEntry?.layer || layerSelect?.value || 'bed'
+
+  if (mappingTargetObject) mappingTargetObject.textContent = objectId
+  if (mappingTargetParam) mappingTargetParam.textContent = param
+  if (mappingTargetLayer) {
+    mappingTargetLayer.textContent = `${currentMappingTarget.layer.toUpperCase()} Layer`
+    mappingTargetLayer.className = `badge ${currentMappingTarget.layer}`
+  }
+
+  const existing = landscape._mappings.find(m => m.target.objectId === objectId && (m.target.param === param || m.target.event === param))
+
+  if (existing) {
+    if (mappingFeedSelect) mappingFeedSelect.value = existing.feedId || 'traffic_rps'
+    if (mappingCurveSelect) mappingCurveSelect.value = existing.adapterConfig?.curve || 'linear'
+    if (mappingInMin) mappingInMin.value = existing.adapterConfig?.inputRange?.[0] ?? 0
+    if (mappingInMax) mappingInMax.value = existing.adapterConfig?.inputRange?.[1] ?? 5000
+    if (mappingOutMin) mappingOutMin.value = existing.adapterConfig?.outputRange?.[0] ?? 15
+    if (mappingOutMax) mappingOutMax.value = existing.adapterConfig?.outputRange?.[1] ?? 75
+
+    if (existing.adapterConfig?.tuning) {
+      if (mappingTuningEnable) mappingTuningEnable.checked = true
+      if (tuningControlsSection) tuningControlsSection.style.display = 'block'
+      if (mappingTuningScale) mappingTuningScale.value = existing.adapterConfig.tuning.scale || 'pentatonic'
+      if (mappingTuningRoot) mappingTuningRoot.value = existing.adapterConfig.tuning.root || 261.63
+    } else {
+      if (mappingTuningEnable) mappingTuningEnable.checked = false
+      if (tuningControlsSection) tuningControlsSection.style.display = 'none'
+    }
+
+    if (existing.adapterConfig?.scatter) {
+      if (mappingScatterEnable) mappingScatterEnable.checked = true
+      if (scatterControlsSection) scatterControlsSection.style.display = 'block'
+      if (mappingScatterStrategy) mappingScatterStrategy.value = existing.adapterConfig.scatter.strategy || 'poisson'
+      if (mappingScatterWindow) mappingScatterWindow.value = existing.adapterConfig.scatter.windowSeconds || 5.0
+    } else {
+      if (mappingScatterEnable) mappingScatterEnable.checked = false
+      if (scatterControlsSection) scatterControlsSection.style.display = 'none'
+    }
+  } else {
+    if (mappingFeedSelect) mappingFeedSelect.value = 'traffic_rps'
+    if (mappingCurveSelect) mappingCurveSelect.value = 'linear'
+    if (mappingInMin) mappingInMin.value = 0
+    if (mappingInMax) mappingInMax.value = 5000
+    if (mappingOutMin) mappingOutMin.value = 0
+    if (mappingOutMax) mappingOutMax.value = 100
+    if (mappingTuningEnable) mappingTuningEnable.checked = false
+    if (tuningControlsSection) tuningControlsSection.style.display = 'none'
+    if (mappingScatterEnable) mappingScatterEnable.checked = false
+    if (scatterControlsSection) scatterControlsSection.style.display = 'none'
+  }
+
+  if (modalMappingInspector) {
+    modalMappingInspector.style.display = 'flex'
+  }
+}
+
+export function saveCurrentMapping() {
+  const feedId = mappingFeedSelect?.value || 'traffic_rps'
+  const curve = mappingCurveSelect?.value || 'linear'
+  const inMin = parseFloat(mappingInMin?.value || 0)
+  const inMax = parseFloat(mappingInMax?.value || 100)
+  const outMin = parseFloat(mappingOutMin?.value || 0)
+  const outMax = parseFloat(mappingOutMax?.value || 1)
+
+  const mappingDef = {
+    feedId,
+    target: {
+      objectId: currentMappingTarget.objectId,
+      param: currentMappingTarget.param
+    },
+    adapter: {
+      inputRange: [inMin, inMax],
+      outputRange: [outMin, outMax],
+      curve
+    }
+  }
+
+  if (mappingTuningEnable && mappingTuningEnable.checked) {
+    mappingDef.adapter.tuning = {
+      enabled: true,
+      scale: mappingTuningScale?.value || 'pentatonic',
+      root: parseFloat(mappingTuningRoot?.value || 261.63)
+    }
+  }
+
+  if (mappingScatterEnable && mappingScatterEnable.checked) {
+    mappingDef.adapter.scatter = {
+      enabled: true,
+      strategy: mappingScatterStrategy?.value || 'poisson',
+      windowSeconds: parseFloat(mappingScatterWindow?.value || 5.0)
+    }
+  }
+
+  landscape.addMapping(mappingDef)
+  if (modalMappingInspector) modalMappingInspector.style.display = 'none'
+}
+
+export function removeCurrentMapping() {
+  const feedId = mappingFeedSelect?.value || 'traffic_rps'
+  landscape.removeMapping(feedId, currentMappingTarget.objectId, currentMappingTarget.param)
+  if (modalMappingInspector) modalMappingInspector.style.display = 'none'
+}
+
+// Catalog modal event listeners
+if (btnOpenCatalog) btnOpenCatalog.addEventListener('click', () => openCatalogModal())
+if (btnCloseCatalog) btnCloseCatalog.addEventListener('click', closeCatalogModal)
+if (btnCancelCatalog) btnCancelCatalog.addEventListener('click', closeCatalogModal)
+
+if (btnConfirmAddSonifier) {
+  btnConfirmAddSonifier.addEventListener('click', () => {
+    const id = catalogInstanceId?.value.trim()
+    const layer = catalogLayerSelect?.value
+    addSonifierFromCatalog(selectedCatalogType, id, layer)
+  })
+}
+
+// Catalog card selection
+document.addEventListener('click', e => {
+  const card = e.target.closest('.catalog-card')
+  if (card) {
+    document.querySelectorAll('.catalog-card').forEach(c => c.classList.remove('selected'))
+    card.classList.add('selected')
+    selectedCatalogType = card.dataset.sonifierType
+    const defLayer = card.dataset.defaultLayer
+    if (defLayer && catalogLayerSelect) catalogLayerSelect.value = defLayer
+    if (catalogInstanceId) catalogInstanceId.value = `${selectedCatalogType}-${Math.floor(Math.random() * 899 + 100)}`
+  }
+})
+
+// Mapping Inspector modal listeners
+if (btnCloseMapping) btnCloseMapping.addEventListener('click', () => {
+  if (modalMappingInspector) modalMappingInspector.style.display = 'none'
+})
+if (btnMappingSave) btnMappingSave.addEventListener('click', saveCurrentMapping)
+if (btnMappingRemove) btnMappingRemove.addEventListener('click', removeCurrentMapping)
+
+if (mappingTuningEnable) {
+  mappingTuningEnable.addEventListener('change', e => {
+    if (tuningControlsSection) tuningControlsSection.style.display = e.target.checked ? 'block' : 'none'
+  })
+}
+
+if (mappingScatterEnable) {
+  mappingScatterEnable.addEventListener('change', e => {
+    if (scatterControlsSection) scatterControlsSection.style.display = e.target.checked ? 'block' : 'none'
+  })
+}
+
+// Delegated listeners for layer change, param map, remove, and add to layer
+document.addEventListener('change', e => {
+  if (e.target.matches('.select-change-layer')) {
+    handleLayerChange(e.target.dataset.objectId, e.target.value)
+  }
+})
+
+document.addEventListener('click', e => {
+  const btnMap = e.target.closest('.btn-param-map')
+  if (btnMap) {
+    openMappingInspector(btnMap.dataset.objectId, btnMap.dataset.param || 'speed')
+    return
+  }
+
+  const btnRemove = e.target.closest('.btn-remove-object')
+  if (btnRemove) {
+    handleObjectRemove(btnRemove.dataset.objectId)
+    return
+  }
+
+  const btnAddToLayer = e.target.closest('.btn-add-to-layer')
+  if (btnAddToLayer) {
+    openCatalogModal(btnAddToLayer.dataset.layer)
+    return
+  }
+})
+
+// Initial call to sync player pills
+updatePlayerLayerPills()
+
+// ---------------------------------------------------------------------------
+// 2D Soundstage Visualizer Radar with Spatial Extent & Dynamic Layer Coding
 // ---------------------------------------------------------------------------
 
 function emitPulse(objectId, color, maxRadius = 45) {
@@ -1332,10 +1808,9 @@ function emitPulse(objectId, color, maxRadius = 45) {
   const h = canvas.height
   const pos = getObjectCoordinates(objectId, w, h)
 
-  // Disperse pulse within the component's apparent source width (spread)
   const panOffset = (Math.random() * 2 - 1) * pos.spread
   const pulseX = (w / 2) + Math.max(-1, Math.min(1, pos.pan + panOffset)) * (w * 0.38)
-  const pulseY = pos.y + (Math.random() * 2 - 1) * (objectId === 'rain' ? 24 : 8)
+  const pulseY = pos.y + (Math.random() * 2 - 1) * 8
 
   pulses.push({
     x: pulseX,
@@ -1349,6 +1824,7 @@ function emitPulse(objectId, color, maxRadius = 45) {
 
 function getObjectCoordinates(id, w, h) {
   const centerX = w / 2
+
   if (id === 'wind') {
     const pan = parseFloat(windPanSlider?.value || 0.0)
     const spread = parseFloat(windSpreadSlider?.value || 0.80)
@@ -1362,14 +1838,54 @@ function getObjectCoordinates(id, w, h) {
   if (id === 'ocean') {
     const pan = parseFloat(oceanPanSlider?.value || 0.25)
     const spread = parseFloat(oceanSpreadSlider?.value || 0.50)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.44, pan, spread, label: '🌊 Ocean' }
+    return { x: centerX + pan * (w * 0.38), y: h * 0.32, pan, spread, label: '🌊 Ocean' }
   }
-  if (id === 'chimes') {
+  if (id === 'chime' || id === 'chimes') {
     const pan = parseFloat(chimePanSlider?.value || 0.45)
     const spread = parseFloat(chimeSpreadSlider?.value || 0.08)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.52, pan, spread, label: '🎐 Chimes' }
+    return { x: centerX + pan * (w * 0.38), y: h * 0.58, pan, spread, label: '🎐 Chimes' }
   }
-  return { x: centerX, y: h * 0.5, pan: 0, spread: 0.5, label: id }
+
+  // Dynamic objects
+  const card = document.getElementById(`card-${id}`) || document.querySelector(`article[data-object-id="${id}"]`)
+  const panInput = card?.querySelector(`input[data-param="pan"]`) || card?.querySelector(`#${id}-pan`)
+  const spreadInput = card?.querySelector(`input[data-param="spread"]`) || card?.querySelector(`#${id}-spread`)
+  const layerSelect = card?.querySelector('.select-change-layer')
+  const layer = layerSelect?.value || landscape._objects.get(id)?.layer || 'bed'
+
+  const pan = parseFloat(panInput?.value || 0.0)
+  const spread = parseFloat(spreadInput?.value || 0.50)
+
+  let y = h * 0.30
+  if (layer === 'texture') y = h * 0.45
+  else if (layer === 'figure') y = h * 0.60
+
+  const titleEl = card?.querySelector('.object-title')
+  const label = titleEl ? titleEl.textContent.trim().split(' (')[0] : id
+
+  return { x: centerX + pan * (w * 0.38), y, pan, spread, label }
+}
+
+function getActiveSoundObjects() {
+  const cards = document.querySelectorAll('.object-card')
+  const list = []
+  cards.forEach(card => {
+    const id = card.dataset.objectId || card.id.replace('card-', '')
+    const layerSelect = card.querySelector('.select-change-layer')
+    const layer = layerSelect?.value || (landscape._objects.get(id)?.layer) || 'bed'
+    const color = layer === 'bed' ? '#38bdf8' : (layer === 'texture' ? '#34d399' : '#fbbf24')
+    list.push({ id, layer, color })
+  })
+
+  if (list.length === 0) {
+    return [
+      { id: 'wind', layer: 'bed', color: '#38bdf8' },
+      { id: 'ocean', layer: 'bed', color: '#38bdf8' },
+      { id: 'rain', layer: 'texture', color: '#34d399' },
+      { id: 'chimes', layer: 'figure', color: '#fbbf24' }
+    ]
+  }
+  return list
 }
 
 function renderSoundstage() {
@@ -1398,7 +1914,7 @@ function renderSoundstage() {
     ctx2d.stroke()
   }
 
-  // Radial azimuth spokes (0° left, 45° mid-left, 90° center, 135° mid-right, 180° right)
+  // Radial azimuth spokes
   ctx2d.beginPath()
   ctx2d.moveTo(centerX, listenerY)
   ctx2d.lineTo(20 * dpr, listenerY)
@@ -1412,21 +1928,15 @@ function renderSoundstage() {
   ctx2d.lineTo(w - 20 * dpr, listenerY)
   ctx2d.stroke()
 
-  // Draw Spatial Spread Arcs for each object (Apparent Source Width / Field Extent)
-  const objects = [
-    { id: 'wind', color: '#38bdf8' },
-    { id: 'rain', color: '#60a5fa' },
-    { id: 'ocean', color: '#06b6d4' },
-    { id: 'chimes', color: '#818cf8' }
-  ]
+  const objects = getActiveSoundObjects()
 
+  // Draw Spatial Spread Arcs for each object
   for (const obj of objects) {
     const pos = getObjectCoordinates(obj.id, w, h)
     const dx = pos.x - centerX
     const dy = pos.y - listenerY
     const dist = Math.hypot(dx, dy)
     const baseAngle = Math.atan2(dy, dx)
-    // Spread angle: from narrow 6° beam (point source) to wide 170° envelopment
     const halfSpreadAngle = Math.max(0.04, pos.spread * (Math.PI * 0.44))
 
     ctx2d.save()
@@ -1435,11 +1945,9 @@ function renderSoundstage() {
     ctx2d.arc(centerX, listenerY, dist + 16 * dpr, baseAngle - halfSpreadAngle, baseAngle + halfSpreadAngle)
     ctx2d.closePath()
 
-    // Soft translucent fill showing field extent
     ctx2d.fillStyle = obj.color + (isPlaying ? '18' : '09')
     ctx2d.fill()
 
-    // Outer bounding spread arc
     ctx2d.strokeStyle = obj.color + (isPlaying ? '66' : '22')
     ctx2d.lineWidth = 1.2 * dpr
     ctx2d.beginPath()
@@ -1477,7 +1985,7 @@ function renderSoundstage() {
     }
   }
 
-  // Draw the 4 Sound Object Markers
+  // Draw Sound Object Markers
   for (const obj of objects) {
     const pos = getObjectCoordinates(obj.id, w, h)
 
@@ -1501,10 +2009,10 @@ function renderSoundstage() {
       emitPulse('wind', '#38bdf8', 35)
     }
     if (Math.random() < 0.06 && parseFloat(rainVolSlider?.value || 0) > 0.05) {
-      emitPulse('rain', '#60a5fa', 26)
+      emitPulse('rain', '#34d399', 26)
     }
     if (Math.random() < 0.02 && parseFloat(oceanVolSlider?.value || 0) > 0.05) {
-      emitPulse('ocean', '#06b6d4', 40)
+      emitPulse('ocean', '#38bdf8', 40)
     }
   }
 

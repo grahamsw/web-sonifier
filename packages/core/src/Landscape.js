@@ -1,6 +1,7 @@
 import { Adapter } from './Adapter.js'
 import { Quantize, Scales } from './Quantizer.js'
 import { Transforms } from './Transforms.js'
+import { EventScatterAdapter } from './EventScatterAdapter.js'
 
 /**
  * Landscape
@@ -582,6 +583,41 @@ export class Landscape {
     return this._objects.get(id) || null
   }
 
+  /**
+   * Reassign an object to a different layer bus.
+   * @param {string} id - Object ID
+   * @param {string} layerName - New layer ID (e.g. 'bed', 'texture', 'figure')
+   * @returns {boolean} True if reassigned successfully
+   */
+  setObjectLayer(id, layerName) {
+    const entry = this._objects.get(id)
+    if (!entry) return false
+
+    const oldLayer = this.getLayer(entry.layer)
+    const newLayer = this.getLayer(layerName)
+
+    const oldDest = (oldLayer && oldLayer.gainNode) ? oldLayer.gainNode : this._dryGain
+    const newDest = (newLayer && newLayer.gainNode) ? newLayer.gainNode : this._dryGain
+
+    const sourceNode = entry.panner || entry.channelGain
+    if (sourceNode && oldDest) {
+      try {
+        sourceNode.disconnect(oldDest)
+      } catch {
+        // Ignore if disconnected
+      }
+    }
+    if (sourceNode && newDest) {
+      sourceNode.connect(newDest)
+    }
+
+    entry.layer = layerName
+    if (entry.options) {
+      entry.options.layer = layerName
+    }
+    return true
+  }
+
   listObjects() {
     return Array.from(this._objects.keys())
   }
@@ -782,6 +818,11 @@ export class Landscape {
 
     this._couplings = []
     this._dispatchStack.clear()
+    for (const m of this._mappings) {
+      if (m.scatterAdapter) {
+        m.scatterAdapter.cancel()
+      }
+    }
     this._feeds.clear()
     this._mappings = []
 
@@ -1014,6 +1055,35 @@ export class Landscape {
       }
     }
 
+    // Declarative tuning decorator
+    if (adapterConfig.tuning && adapterConfig.tuning.enabled !== false) {
+      const tuning = adapterConfig.tuning
+      if (tuning.scale === 'harmonics' || tuning.strategy === 'harmonics') {
+        adapterInstance.pipe(Quantize.harmonics(tuning.root || 100))
+      } else {
+        const scaleName = tuning.scale || 'pentatonic'
+        const scaleDegs = Scales[scaleName] || Scales.pentatonic
+        adapterInstance.pipe(Quantize.scale(scaleDegs, { rootFreq: tuning.root || 220 }))
+      }
+    }
+
+    // Declarative temporal scatter decorator
+    let scatterAdapter = null
+    if (adapterConfig.scatter && adapterConfig.scatter.enabled !== false) {
+      scatterAdapter = new EventScatterAdapter({
+        windowSeconds: adapterConfig.scatter.windowSeconds || 5.0,
+        strategy: adapterConfig.scatter.strategy || 'poisson',
+        onTrigger: (info) => {
+          if (action === 'trigger') {
+            const vel = typeof info.velocity === 'number' ? info.velocity : 0.8
+            this.trigger(target.objectId, target.event || 'strike', { velocity: vel, ...info })
+          } else if (target.param) {
+            this.setParam(target.objectId, target.param, info.value)
+          }
+        }
+      })
+    }
+
     const entry = {
       feedId,
       target: {
@@ -1027,9 +1097,12 @@ export class Landscape {
         outputRange,
         curve: adapterConfig.curve || 'linear',
         invert: Boolean(adapterConfig.invert),
-        decorators: adapterConfig.decorators ? [...adapterConfig.decorators] : []
+        decorators: adapterConfig.decorators ? [...adapterConfig.decorators] : [],
+        tuning: adapterConfig.tuning ? { ...adapterConfig.tuning } : undefined,
+        scatter: adapterConfig.scatter ? { ...adapterConfig.scatter } : undefined
       },
-      adapter: adapterInstance
+      adapter: adapterInstance,
+      scatterAdapter
     }
 
     this._mappings.push(entry)
@@ -1047,6 +1120,9 @@ export class Landscape {
       const matchFeed = m.feedId === feedId
       const matchObj = m.target.objectId === objectId
       const matchParam = (m.target.param === paramOrEvent) || (m.target.event === paramOrEvent)
+      if (matchFeed && matchObj && matchParam && m.scatterAdapter) {
+        m.scatterAdapter.cancel()
+      }
       return !(matchFeed && matchObj && matchParam)
     })
   }
@@ -1180,7 +1256,22 @@ export class Landscape {
     for (const m of matching) {
       const { objectId, param, action, event } = m.target
 
-      if (action === 'trigger') {
+      if (m.scatterAdapter) {
+        if (action === 'trigger') {
+          const velocity = typeof rawValue === 'number' && m.adapter ? m.adapter.map(rawValue) : 1.0
+          m.scatterAdapter.feed(rawValue, {
+            velocity: Math.max(0.01, Math.min(1.0, velocity)),
+            value: rawValue,
+            ...(options.payload || {})
+          })
+        } else {
+          const numVal = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue)
+          if (!isNaN(numVal) && m.adapter) {
+            const mapped = m.adapter.map(numVal)
+            m.scatterAdapter.feed(1, { value: mapped })
+          }
+        }
+      } else if (action === 'trigger') {
         // Event trigger
         if (rawValue) {
           const velocity = typeof rawValue === 'number' && m.adapter ? m.adapter.map(rawValue) : 1.0

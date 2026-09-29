@@ -300,4 +300,120 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(chimePitchDisp.textContent).toBe('659 Hz')
     expect(document.getElementById('player-scene-title').textContent).toBe('Custom Applied Scene')
   })
+
+  it('renders 3 layer swimlanes (Bed, Texture, Figure) with appropriate cards', () => {
+    const swimlaneBed = document.getElementById('swimlane-bed')
+    const swimlaneTexture = document.getElementById('swimlane-texture')
+    const swimlaneFigure = document.getElementById('swimlane-figure')
+
+    expect(swimlaneBed).not.toBeNull()
+    expect(swimlaneTexture).not.toBeNull()
+    expect(swimlaneFigure).not.toBeNull()
+
+    const cardsBed = document.getElementById('cards-bed')
+    const cardsTexture = document.getElementById('cards-texture')
+    const cardsFigure = document.getElementById('cards-figure')
+
+    expect(cardsBed.querySelector('#card-wind')).not.toBeNull()
+    expect(cardsBed.querySelector('#card-ocean')).not.toBeNull()
+    expect(cardsTexture.querySelector('#card-rain')).not.toBeNull()
+    expect(cardsFigure.querySelector('#card-chime')).not.toBeNull()
+  })
+
+  it('contains sonifier catalog modal with all 12 monorepo plugins', () => {
+    const modal = document.getElementById('modal-add-sonifier')
+    expect(modal).not.toBeNull()
+    expect(modal.style.display).toBe('none')
+
+    const catalogCards = document.querySelectorAll('.catalog-card')
+    expect(catalogCards.length).toBe(12)
+
+    const catalogTypes = Array.from(catalogCards).map(c => c.dataset.sonifierType)
+    expect(catalogTypes).toContain('wind')
+    expect(catalogTypes).toContain('rain')
+    expect(catalogTypes).toContain('ocean')
+    expect(catalogTypes).toContain('chime')
+    expect(catalogTypes).toContain('bubble')
+    expect(catalogTypes).toContain('eno-bed')
+    expect(catalogTypes).toContain('eno-texture')
+    expect(catalogTypes).toContain('eno-figure')
+    expect(catalogTypes).toContain('mallet')
+    expect(catalogTypes).toContain('purr')
+    expect(catalogTypes).toContain('vosc')
+    expect(catalogTypes).toContain('engine')
+  })
+
+  it('contains mapping inspector modal with continuous tuning and temporal scatter controls', () => {
+    const modal = document.getElementById('modal-mapping-inspector')
+    expect(modal).not.toBeNull()
+    expect(modal.style.display).toBe('none')
+
+    expect(document.getElementById('mapping-target-object')).not.toBeNull()
+    expect(document.getElementById('mapping-target-param')).not.toBeNull()
+    expect(document.getElementById('mapping-feed-select')).not.toBeNull()
+    expect(document.getElementById('mapping-curve-select')).not.toBeNull()
+    expect(document.getElementById('mapping-in-min')).not.toBeNull()
+    expect(document.getElementById('mapping-in-max')).not.toBeNull()
+    expect(document.getElementById('mapping-out-min')).not.toBeNull()
+    expect(document.getElementById('mapping-out-max')).not.toBeNull()
+
+    // Tuning controls
+    expect(document.getElementById('mapping-tuning-enable')).not.toBeNull()
+    expect(document.getElementById('mapping-tuning-scale')).not.toBeNull()
+    expect(document.getElementById('mapping-tuning-root')).not.toBeNull()
+
+    // Scatter controls
+    expect(document.getElementById('mapping-scatter-enable')).not.toBeNull()
+    expect(document.getElementById('mapping-scatter-strategy')).not.toBeNull()
+    expect(document.getElementById('mapping-scatter-window')).not.toBeNull()
+
+    // Action buttons
+    expect(document.getElementById('btn-mapping-save')).not.toBeNull()
+    expect(document.getElementById('btn-mapping-remove')).not.toBeNull()
+  })
+
+  it('moves cards dynamically between swimlanes via handleLayerChange', async () => {
+    const { handleLayerChange } = await import('../landscapes/main.js')
+
+    const windCard = document.getElementById('card-wind')
+    const cardsBed = document.getElementById('cards-bed')
+    const cardsFigure = document.getElementById('cards-figure')
+
+    expect(cardsBed.contains(windCard)).toBe(true)
+
+    handleLayerChange('wind', 'figure')
+    expect(cardsFigure.contains(windCard)).toBe(true)
+    expect(cardsBed.contains(windCard)).toBe(false)
+
+    // Move it back
+    handleLayerChange('wind', 'bed')
+    expect(cardsBed.contains(windCard)).toBe(true)
+  })
+
+  it('dynamically adds and removes sonifiers via catalog helpers', async () => {
+    const { addSonifierFromCatalog, handleObjectRemove } = await import('../landscapes/main.js')
+
+    const cardsTexture = document.getElementById('cards-texture')
+    const added = await addSonifierFromCatalog('bubble', 'test-bubble-42', 'texture')
+    expect(added).toBe(true)
+
+    const newCard = document.getElementById('card-test-bubble-42')
+    expect(newCard).not.toBeNull()
+    expect(cardsTexture.contains(newCard)).toBe(true)
+
+    // Remove it
+    handleObjectRemove('test-bubble-42')
+    expect(document.getElementById('card-test-bubble-42')).toBeNull()
+  })
+
+  it('updates player layer pills based on current scene objects', async () => {
+    const { updatePlayerLayerPills } = await import('../landscapes/main.js')
+
+    updatePlayerLayerPills()
+    const pills = document.getElementById('player-layer-pills')
+    expect(pills).not.toBeNull()
+    expect(pills.textContent).toContain('Bed')
+    expect(pills.textContent).toContain('Texture')
+    expect(pills.textContent).toContain('Figure')
+  })
 })

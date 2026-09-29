@@ -149,7 +149,10 @@ describe('MMMLabProcessor DSP Stability', async () => {
 
   it('produces richer spectral content with the 4-mode filter bank when cabinetThump is on', () => {
     const pOff = new processorClass()
-    const paramsOff = makeParams({ feedbackGain: [1.05], cabinetThump: [0.0], rumbleResonance: [0.5] })
+    const paramsOff = makeParams({ feedbackGain: [1.25], cabinetThump: [0.0], rumbleResonance: [0.5] })
+    for (let b = 0; b < 80; b++) {
+      pOff.process([], [[new Float32Array(128), new Float32Array(128)]], paramsOff)
+    }
     let rmsOff = 0
     for (let b = 0; b < 200; b++) {
       const left = new Float32Array(128)
@@ -160,7 +163,10 @@ describe('MMMLabProcessor DSP Stability', async () => {
     rmsOff = Math.sqrt(rmsOff / (200 * 128))
 
     const pOn = new processorClass()
-    const paramsOn = makeParams({ feedbackGain: [1.05], cabinetThump: [1.0], rumbleResonance: [1.0] })
+    const paramsOn = makeParams({ feedbackGain: [1.25], cabinetThump: [1.0], rumbleResonance: [1.0] })
+    for (let b = 0; b < 80; b++) {
+      pOn.process([], [[new Float32Array(128), new Float32Array(128)]], paramsOn)
+    }
     let rmsOn = 0
     for (let b = 0; b < 200; b++) {
       const left = new Float32Array(128)
