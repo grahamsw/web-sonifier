@@ -1,17 +1,20 @@
 /**
  * Decorator & Pipeline Lab Controller
  *
- * Provides real-time bidirectional visual and textual inspection of
- * Adapter pipelines and Decorator transformers.
+ * Provides real-time bidirectional visual and textual inspection of:
+ * 1. Continuous Musical Tuning: Adapter curves & musical pitch quantization (Scales & Harmonics).
+ * 2. Temporal Event Scatter: De-quantizing batch event counts across time using EventScatterAdapter.
+ * 3. Advanced Signal Processing Drawer: Optional telemetry filtering & calculus transforms (EMA, SMA, Delta).
  */
 
-import { Adapter, Transforms, Quantize, Scales } from '@web-sonifier/core'
+import { Adapter, Transforms, Quantize, Scales, EventScatterAdapter } from '@web-sonifier/core'
 
 // ---------------------------------------------------------------------------
 // Pipeline & Simulation State
 // ---------------------------------------------------------------------------
 
 export const state = {
+  activeMode: 'tuning', // 'tuning' | 'temporal'
   feed: {
     id: 'traffic_rps',
     value: 50.0,
@@ -32,8 +35,21 @@ export const state = {
       outputRange: [220, 880],
       curve: 'exponential',
       invert: false,
-      decorators: ['ema:0.25', 'quantize:pentatonic']
+      tuningMode: 'scale', // 'scale' | 'harmonics' | 'none'
+      scale: 'pentatonic', // 'pentatonic' | 'minorPentatonic' | 'hirajoshi' | 'dorian' | 'wholeTone' | 'major' | 'minor'
+      rootFreq: 220,
+      fundamental: 110,
+      decorators: ['ema:0.25']
     }
+  },
+  temporal: {
+    eventCount: 5,
+    windowSeconds: 10,
+    strategy: 'poisson', // 'poisson' | 'random' | 'uniform'
+    autoRepeat: true,
+    scheduledEvents: [], // [{ id, offsetMs, fired }]
+    windowStartTime: 0,
+    firedCount: 0
   },
   audio: {
     active: false,
@@ -55,7 +71,7 @@ export const state = {
 export function resolveDecoratorTransformer(decToken) {
   if (typeof decToken !== 'string') return null
 
-  // 1. Scales
+  // 1. Musical Scales (Direct Scale Quantization)
   if (decToken === 'quantize:pentatonic' || decToken === 'quantizePentatonic') {
     return Quantize.scale(Scales.pentatonic)
   }
@@ -68,13 +84,29 @@ export function resolveDecoratorTransformer(decToken) {
   if (decToken === 'quantize:dorian' || decToken === 'quantizeDorian') {
     return Quantize.scale(Scales.dorian)
   }
+  if (decToken === 'quantize:wholeTone' || decToken === 'quantizeWholeTone') {
+    return Quantize.scale(Scales.wholeTone)
+  }
+  if (decToken === 'quantize:major' || decToken === 'quantizeMajor') {
+    return Quantize.scale(Scales.major)
+  }
+  if (decToken === 'quantize:minor' || decToken === 'quantizeMinor') {
+    return Quantize.scale(Scales.minor)
+  }
 
-  // 2. Math & Discrete
+  // 2. Harmonic Series Overtones
+  if (decToken.startsWith('harmonics:') || decToken === 'harmonics') {
+    const parts = decToken.split(':')
+    const fund = parts.length > 1 ? parseFloat(parts[1]) : 100
+    return Quantize.harmonics(isNaN(fund) ? 100 : fund)
+  }
+
+  // 3. Math & Discrete
   if (decToken === 'round' || decToken === 'integer') {
     return Math.round
   }
 
-  // 3. Stateful Transforms
+  // 4. Advanced Signal Conditioning (Stateful Transforms)
   if (decToken === 'ema' || decToken.startsWith('ema:')) {
     const parts = decToken.split(':')
     const alpha = parts.length > 1 ? parseFloat(parts[1]) : 0.25
@@ -115,7 +147,7 @@ let activeRawAdapter = null
 export function rebuildPipelineAdapters() {
   const { adapter } = state.mapping
 
-  // 1. Raw adapter without decorators
+  // 1. Raw adapter without decorators or tuning
   activeRawAdapter = new Adapter({
     param: state.mapping.target.param,
     inputRange: [...adapter.inputRange],
@@ -124,7 +156,7 @@ export function rebuildPipelineAdapters() {
     invert: adapter.invert
   })
 
-  // 2. Full pipeline adapter with decorators
+  // 2. Full pipeline adapter
   activeDecoratedAdapter = new Adapter({
     param: state.mapping.target.param,
     inputRange: [...adapter.inputRange],
@@ -133,11 +165,24 @@ export function rebuildPipelineAdapters() {
     invert: adapter.invert
   })
 
-  for (const dec of adapter.decorators) {
-    const fn = resolveDecoratorTransformer(dec)
-    if (fn) {
-      activeDecoratedAdapter.pipe(fn)
+  // A. Advanced Signal Conditioning filters
+  if (Array.isArray(adapter.decorators)) {
+    for (const dec of adapter.decorators) {
+      const fn = resolveDecoratorTransformer(dec)
+      if (fn) {
+        activeDecoratedAdapter.pipe(fn)
+      }
     }
+  }
+
+  // B. Musical Tuning Quantization
+  if (adapter.tuningMode === 'scale') {
+    const scaleDegrees = Scales[adapter.scale] || Scales.pentatonic
+    const root = Number(adapter.rootFreq) || 220
+    activeDecoratedAdapter.pipe(Quantize.scale(scaleDegrees, { rootFreq: root }))
+  } else if (adapter.tuningMode === 'harmonics') {
+    const fund = Number(adapter.fundamental) || 110
+    activeDecoratedAdapter.pipe(Quantize.harmonics(fund))
   }
 }
 
@@ -239,6 +284,30 @@ export function muteAudioAudition() {
   gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.02)
 }
 
+export function triggerStrikeAudio(pitch = 587.33, velocity = 0.7) {
+  if (!audioCtx || !state.audio.active) return
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume()
+  }
+
+  const t = audioCtx.currentTime
+  const osc = audioCtx.createOscillator()
+  const strikeGain = audioCtx.createGain()
+
+  osc.type = state.audio.voice === 'triangle' ? 'triangle' : 'sine'
+  osc.frequency.setValueAtTime(pitch, t)
+
+  const vol = (state.audio.volume || 0.6) * velocity
+  strikeGain.gain.setValueAtTime(vol, t)
+  strikeGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45)
+
+  osc.connect(strikeGain)
+  strikeGain.connect(audioCtx.destination)
+
+  osc.start(t)
+  osc.stop(t + 0.5)
+}
+
 // ---------------------------------------------------------------------------
 // Oscilloscope & Visualization
 // ---------------------------------------------------------------------------
@@ -268,6 +337,7 @@ export function recordScopeSample(raw, scaled, decorated) {
 export function drawScopeCanvas(canvas) {
   if (!canvas) return
   const ctx = canvas.getContext('2d')
+  if (!ctx) return
   const width = canvas.width
   const height = canvas.height
 
@@ -316,7 +386,7 @@ export function drawScopeCanvas(canvas) {
   })
   ctx.stroke()
 
-  // 3. Decorated Output (Emerald stepped)
+  // 3. Decorated & Musically Tuned Output (Emerald stepped)
   ctx.strokeStyle = '#10b981'
   ctx.lineWidth = 2.5
   ctx.beginPath()
@@ -330,27 +400,198 @@ export function drawScopeCanvas(canvas) {
 }
 
 // ---------------------------------------------------------------------------
+// Temporal Event Scatter Engine & Timeline Canvas
+// ---------------------------------------------------------------------------
+
+let temporalScatterAdapter = null
+
+export function initTemporalScatter() {
+  if (temporalScatterAdapter) {
+    temporalScatterAdapter.cancel()
+  }
+
+  state.temporal.firedCount = 0
+  temporalScatterAdapter = new EventScatterAdapter({
+    windowSeconds: state.temporal.windowSeconds,
+    strategy: state.temporal.strategy,
+    onTrigger: (evt) => {
+      if (state.temporal.scheduledEvents[evt.index]) {
+        state.temporal.scheduledEvents[evt.index].fired = true
+      }
+      state.temporal.firedCount++
+      updateTemporalStats()
+
+      // Crisp strike audio with modal harmonic offset
+      const pentNotes = [440, 493.88, 554.37, 659.25, 739.99]
+      const pitch = pentNotes[evt.index % pentNotes.length] || 440
+      triggerStrikeAudio(pitch, 0.75)
+    }
+  })
+}
+
+export function feedTemporalBatch() {
+  initTemporalScatter()
+  const offsets = temporalScatterAdapter.feed(state.temporal.eventCount)
+  state.temporal.windowStartTime = typeof performance !== 'undefined' ? performance.now() : Date.now()
+  state.temporal.scheduledEvents = offsets.map((ms, idx) => ({
+    id: idx,
+    offsetMs: ms,
+    fired: false
+  }))
+  updateTemporalStats()
+}
+
+export function updateTemporalStats() {
+  if (typeof document === 'undefined') return
+  const pendingEl = document.getElementById('stat-pending-events')
+  const firedEl = document.getElementById('stat-fired-events')
+  const total = state.temporal.scheduledEvents.length
+  const fired = state.temporal.firedCount
+  const pending = Math.max(0, total - fired)
+
+  if (pendingEl) pendingEl.textContent = `Pending: ${pending}`
+  if (firedEl) firedEl.textContent = `Fired: ${fired}`
+}
+
+export function renderTemporalTimeline(canvas) {
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const width = canvas.width
+  const height = canvas.height
+
+  ctx.clearRect(0, 0, width, height)
+
+  const windowMs = state.temporal.windowSeconds * 1000
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+  const elapsedMs = now - (state.temporal.windowStartTime || now)
+  const progress = Math.min(1, Math.max(0, elapsedMs / windowMs))
+
+  // 1. Grid ticks (every 1 second)
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)'
+  ctx.lineWidth = 1
+  const numSeconds = state.temporal.windowSeconds
+  for (let s = 0; s <= numSeconds; s++) {
+    const x = (s / numSeconds) * (width - 40) + 20
+    ctx.beginPath()
+    ctx.moveTo(x, 15)
+    ctx.lineTo(x, height - 20)
+    ctx.stroke()
+
+    ctx.fillStyle = '#64748b'
+    ctx.font = '10px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText(`${s}s`, x, height - 6)
+  }
+
+  // 2. Timeline Center Track
+  const trackY = height / 2 - 4
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(20, trackY)
+  ctx.lineTo(width - 20, trackY)
+  ctx.stroke()
+
+  // 3. Render Scheduled Event Beads
+  state.temporal.scheduledEvents.forEach(evt => {
+    const beadNorm = Math.min(1, Math.max(0, evt.offsetMs / windowMs))
+    const beadX = 20 + beadNorm * (width - 40)
+
+    if (evt.fired) {
+      // Emerald glowing pulse
+      ctx.fillStyle = '#10b981'
+      ctx.shadowColor = '#10b981'
+      ctx.shadowBlur = 10
+      ctx.beginPath()
+      ctx.arc(beadX, trackY, 7, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    } else {
+      // Cyan scheduled bead
+      ctx.fillStyle = '#38bdf8'
+      ctx.shadowColor = '#38bdf8'
+      ctx.shadowBlur = 6
+      ctx.beginPath()
+      ctx.arc(beadX, trackY, 5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.shadowBlur = 0
+    }
+  })
+
+  // 4. Playhead Laser (Red/Rose)
+  const playheadX = 20 + progress * (width - 40)
+  ctx.strokeStyle = '#f43f5e'
+  ctx.lineWidth = 2.5
+  ctx.shadowColor = '#f43f5e'
+  ctx.shadowBlur = 8
+  ctx.beginPath()
+  ctx.moveTo(playheadX, 10)
+  ctx.lineTo(playheadX, height - 16)
+  ctx.stroke()
+  ctx.shadowBlur = 0
+
+  // 5. Auto-repeat check
+  if (progress >= 1 && state.temporal.autoRepeat && state.activeMode === 'temporal') {
+    feedTemporalBatch()
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Code & JSON Generation (Bidirectional Synchronization)
 // ---------------------------------------------------------------------------
 
 export function generateMappingsJson() {
+  if (state.activeMode === 'temporal') {
+    const doc = {
+      version: 1,
+      name: 'Temporal Event Scatter Pipeline',
+      feedSpecId: 'batch-events',
+      mappings: [
+        {
+          feedId: 'user_signups',
+          type: 'event-scatter',
+          target: {
+            objectId: 'chimes',
+            action: 'strike',
+            param: 'velocity'
+          },
+          adapter: {
+            windowSeconds: state.temporal.windowSeconds,
+            strategy: state.temporal.strategy,
+            maxEventsPerWindow: 50
+          }
+        }
+      ]
+    }
+    return JSON.stringify(doc, null, 2)
+  }
+
+  // Continuous Tuning Mode
+  const { adapter, target } = state.mapping
   const doc = {
     version: 1,
-    name: 'Live Pipeline Specification',
+    name: 'Continuous Musical Tuning Specification',
     feedSpecId: 'telemetry-stream',
     mappings: [
       {
         feedId: state.feed.id,
         target: {
-          objectId: state.mapping.target.objectId,
-          param: state.mapping.target.param
+          objectId: target.objectId,
+          param: target.param
         },
         adapter: {
-          inputRange: [...state.mapping.adapter.inputRange],
-          outputRange: [...state.mapping.adapter.outputRange],
-          curve: state.mapping.adapter.curve,
-          invert: state.mapping.adapter.invert,
-          decorators: [...state.mapping.adapter.decorators]
+          inputRange: [...adapter.inputRange],
+          outputRange: [...adapter.outputRange],
+          curve: adapter.curve,
+          invert: adapter.invert,
+          tuning: {
+            mode: adapter.tuningMode,
+            scale: adapter.tuningMode === 'scale' ? adapter.scale : undefined,
+            rootFreq: adapter.tuningMode === 'scale' ? adapter.rootFreq : undefined,
+            fundamental: adapter.tuningMode === 'harmonics' ? adapter.fundamental : undefined
+          },
+          decorators: [...adapter.decorators]
         }
       }
     ]
@@ -359,39 +600,64 @@ export function generateMappingsJson() {
 }
 
 export function generateFluentJsCode() {
+  if (state.activeMode === 'temporal') {
+    return `import { EventScatterAdapter } from '@web-sonifier/core'
+
+// 1. Configure Temporal De-Quantizer Adapter
+const scatterAdapter = new EventScatterAdapter({
+  windowSeconds: ${state.temporal.windowSeconds},
+  strategy: '${state.temporal.strategy}',
+  onTrigger: (event) => {
+    // Fires as each scattered event triggers across the window
+    sonifier.strike({
+      velocity: 0.75,
+      pitch: 587.33 // D5 chime
+    })
+  }
+})
+
+// 2. Feed Batch Event Counts (e.g. ${state.temporal.eventCount} signups)
+scatterAdapter.feed(${state.temporal.eventCount})`
+  }
+
+  // Tuning Mode
   const { adapter, target } = state.mapping
-  const decPipes = adapter.decorators.map(dec => {
-    if (dec.startsWith('ema')) {
-      const alpha = dec.includes(':') ? dec.split(':')[1] : '0.25'
-      return `  .pipe(Transforms.ema(${alpha}))`
-    }
-    if (dec.startsWith('sma')) {
-      const win = dec.includes(':') ? dec.split(':')[1] : '5'
-      return `  .pipe(Transforms.sma(${win}))`
-    }
-    if (dec.startsWith('quantize:')) {
-      const scaleName = dec.split(':')[1]
-      return `  .pipe(Quantize.scale(Scales.${scaleName}))`
-    }
-    if (dec === 'delta') {
-      return `  .pipe(Transforms.delta())`
-    }
-    if (dec === 'accumulate') {
-      return `  .pipe(Transforms.accumulate())`
-    }
-    if (dec.startsWith('threshold:')) {
-      const thresh = dec.split(':')[1]
-      return `  .pipe(Transforms.threshold({ threshold: ${thresh} }))`
-    }
-    if (dec === 'round') {
-      return `  .pipe(Math.round)`
-    }
-    return `  .pipe(/* ${dec} */)`
-  }).join('\n')
+  const pipes = []
+
+  // Advanced SP filters
+  if (Array.isArray(adapter.decorators)) {
+    adapter.decorators.forEach(dec => {
+      if (dec.startsWith('ema')) {
+        const alpha = dec.includes(':') ? dec.split(':')[1] : '0.25'
+        pipes.push(`  .pipe(Transforms.ema(${alpha}))`)
+      } else if (dec.startsWith('sma')) {
+        const win = dec.includes(':') ? dec.split(':')[1] : '5'
+        pipes.push(`  .pipe(Transforms.sma(${win}))`)
+      } else if (dec === 'delta') {
+        pipes.push(`  .pipe(Transforms.delta())`)
+      } else if (dec === 'accumulate') {
+        pipes.push(`  .pipe(Transforms.accumulate())`)
+      } else if (dec.startsWith('threshold:')) {
+        const thresh = dec.split(':')[1]
+        pipes.push(`  .pipe(Transforms.threshold({ threshold: ${thresh} }))`)
+      } else if (dec === 'round') {
+        pipes.push(`  .pipe(Math.round)`)
+      }
+    })
+  }
+
+  // Musical Tuning
+  if (adapter.tuningMode === 'scale') {
+    pipes.push(`  .pipe(Quantize.scale(Scales.${adapter.scale || 'pentatonic'}, { rootFreq: ${adapter.rootFreq || 220} }))`)
+  } else if (adapter.tuningMode === 'harmonics') {
+    pipes.push(`  .pipe(Quantize.harmonics(${adapter.fundamental || 110}))`)
+  }
+
+  const decPipes = pipes.length ? pipes.join('\n') + '\n' : ''
 
   return `import { Adapter, Transforms, Quantize, Scales } from '@web-sonifier/core'
 
-// 1. Configure Adapter with Range & Curve
+// 1. Configure Adapter with Range, Curve & Musical Tuning
 const ${target.param}Adapter = new Adapter({
   param: '${target.param}',
   inputRange: [${adapter.inputRange.join(', ')}],
@@ -399,7 +665,7 @@ const ${target.param}Adapter = new Adapter({
   curve: '${adapter.curve}',
   invert: ${adapter.invert}
 })
-${decPipes ? decPipes + '\n' : ''}
+${decPipes}
 // 2. Feed Live Values
 function onFeedTick(rawTelemetry) {
   const audioVal = ${target.param}Adapter.map(rawTelemetry)
@@ -414,16 +680,31 @@ export function applyMappingsJson(jsonStr) {
     throw new Error('Invalid mappings document: expected mappings array with adapter')
   }
 
-  const { adapter, target, feedId } = mapEntry
-  if (feedId) state.feed.id = feedId
-  if (target && target.param) state.mapping.target.param = target.param
-  if (target && target.objectId) state.mapping.target.objectId = target.objectId
+  const { adapter, target, feedId, type } = mapEntry
 
-  if (Array.isArray(adapter.inputRange)) state.mapping.adapter.inputRange = [...adapter.inputRange]
-  if (Array.isArray(adapter.outputRange)) state.mapping.adapter.outputRange = [...adapter.outputRange]
-  if (adapter.curve) state.mapping.adapter.curve = adapter.curve
-  if (typeof adapter.invert === 'boolean') state.mapping.adapter.invert = adapter.invert
-  if (Array.isArray(adapter.decorators)) state.mapping.adapter.decorators = [...adapter.decorators]
+  if (type === 'event-scatter') {
+    state.activeMode = 'temporal'
+    if (adapter.windowSeconds) state.temporal.windowSeconds = adapter.windowSeconds
+    if (adapter.strategy) state.temporal.strategy = adapter.strategy
+  } else {
+    state.activeMode = 'tuning'
+    if (feedId) state.feed.id = feedId
+    if (target && target.param) state.mapping.target.param = target.param
+    if (target && target.objectId) state.mapping.target.objectId = target.objectId
+
+    if (Array.isArray(adapter.inputRange)) state.mapping.adapter.inputRange = [...adapter.inputRange]
+    if (Array.isArray(adapter.outputRange)) state.mapping.adapter.outputRange = [...adapter.outputRange]
+    if (adapter.curve) state.mapping.adapter.curve = adapter.curve
+    if (typeof adapter.invert === 'boolean') state.mapping.adapter.invert = adapter.invert
+
+    if (adapter.tuning) {
+      if (adapter.tuning.mode) state.mapping.adapter.tuningMode = adapter.tuning.mode
+      if (adapter.tuning.scale) state.mapping.adapter.scale = adapter.tuning.scale
+      if (adapter.tuning.rootFreq) state.mapping.adapter.rootFreq = adapter.tuning.rootFreq
+      if (adapter.tuning.fundamental) state.mapping.adapter.fundamental = adapter.tuning.fundamental
+    }
+    if (Array.isArray(adapter.decorators)) state.mapping.adapter.decorators = [...adapter.decorators]
+  }
 
   rebuildPipelineAdapters()
   syncUiFromState()
@@ -439,7 +720,10 @@ export const PRESETS = {
     outputRange: [220, 880],
     curve: 'exponential',
     invert: false,
-    decorators: ['ema:0.25', 'quantize:pentatonic'],
+    tuningMode: 'scale',
+    scale: 'pentatonic',
+    rootFreq: 220,
+    decorators: ['ema:0.25'],
     profile: 'brownian',
     voice: 'sine'
   },
@@ -448,7 +732,10 @@ export const PRESETS = {
     outputRange: [180, 720],
     curve: 'exponential',
     invert: false,
-    decorators: ['ema:0.18', 'quantize:hirajoshi'],
+    tuningMode: 'scale',
+    scale: 'hirajoshi',
+    rootFreq: 180,
+    decorators: ['ema:0.18'],
     profile: 'sine',
     voice: 'triangle'
   },
@@ -457,6 +744,7 @@ export const PRESETS = {
     outputRange: [100, 1500],
     curve: 'linear',
     invert: false,
+    tuningMode: 'none',
     decorators: ['delta', 'ema:0.35'],
     profile: 'step',
     voice: 'sine'
@@ -466,6 +754,7 @@ export const PRESETS = {
     outputRange: [80, 600],
     curve: 'logarithmic',
     invert: false,
+    tuningMode: 'none',
     decorators: ['accumulate'],
     profile: 'brownian',
     voice: 'sine'
@@ -475,6 +764,7 @@ export const PRESETS = {
     outputRange: [200, 800],
     curve: 'linear',
     invert: false,
+    tuningMode: 'none',
     decorators: ['sma:5'],
     profile: 'brownian',
     voice: 'sine'
@@ -484,7 +774,10 @@ export const PRESETS = {
     outputRange: [300, 1200],
     curve: 'exponential',
     invert: false,
-    decorators: ['threshold:65', 'quantize:pentatonic'],
+    tuningMode: 'scale',
+    scale: 'pentatonic',
+    rootFreq: 300,
+    decorators: ['threshold:65'],
     profile: 'spikes',
     voice: 'sine'
   }
@@ -548,7 +841,7 @@ export function renderDecoratorChips(container, onUpdate) {
       label = 'Scale'
       const select = document.createElement('select')
       select.className = 'chip-arg-select'
-      const scales = ['pentatonic', 'minorPentatonic', 'hirajoshi', 'dorian']
+      const scales = ['pentatonic', 'minorPentatonic', 'hirajoshi', 'dorian', 'wholeTone', 'major', 'minor']
       scales.forEach(s => {
         const opt = document.createElement('option')
         opt.value = s
@@ -632,7 +925,7 @@ export function renderDecoratorChips(container, onUpdate) {
     btnRemove.type = 'button'
     btnRemove.className = 'btn-chip-remove'
     btnRemove.textContent = '✖'
-    btnRemove.title = 'Remove Decorator'
+    btnRemove.title = 'Remove Filter'
     btnRemove.addEventListener('click', () => {
       state.mapping.adapter.decorators.splice(index, 1)
       onUpdate()
@@ -646,6 +939,24 @@ export function renderDecoratorChips(container, onUpdate) {
 
 export function syncUiFromState() {
   if (typeof document === 'undefined') return
+
+  // 0. Active Mode Tab Switcher
+  const tabTuning = document.getElementById('tab-mode-tuning')
+  const tabTemporal = document.getElementById('tab-mode-temporal')
+  const panelTuning = document.getElementById('mode-panel-tuning')
+  const panelTemporal = document.getElementById('mode-panel-temporal')
+
+  if (state.activeMode === 'tuning') {
+    if (tabTuning) tabTuning.classList.add('active')
+    if (tabTemporal) tabTemporal.classList.remove('active')
+    if (panelTuning) panelTuning.style.display = 'block'
+    if (panelTemporal) panelTemporal.style.display = 'none'
+  } else {
+    if (tabTemporal) tabTemporal.classList.add('active')
+    if (tabTuning) tabTuning.classList.remove('active')
+    if (panelTemporal) panelTemporal.style.display = 'block'
+    if (panelTuning) panelTuning.style.display = 'none'
+  }
 
   // 1. Adapter inputs
   const inMin = document.getElementById('adapter-in-min')
@@ -662,14 +973,51 @@ export function syncUiFromState() {
   if (curve) curve.value = state.mapping.adapter.curve
   if (invert) invert.checked = state.mapping.adapter.invert
 
-  // 2. Decorator Chips
+  // 2. Musical Tuning Controls
+  const tuningModeSelect = document.getElementById('tuning-mode-select')
+  const scaleSelect = document.getElementById('tuning-scale-select')
+  const rootFreqInput = document.getElementById('tuning-root-freq')
+  const fundInput = document.getElementById('tuning-fundamental')
+
+  const rowScale = document.getElementById('row-scale-select')
+  const rowRoot = document.getElementById('row-root-freq')
+  const rowFund = document.getElementById('row-harmonic-fund')
+
+  if (tuningModeSelect) tuningModeSelect.value = state.mapping.adapter.tuningMode || 'scale'
+  if (scaleSelect) scaleSelect.value = state.mapping.adapter.scale || 'pentatonic'
+  if (rootFreqInput) rootFreqInput.value = state.mapping.adapter.rootFreq || 220
+  if (fundInput) fundInput.value = state.mapping.adapter.fundamental || 110
+
+  const mode = state.mapping.adapter.tuningMode || 'scale'
+  if (rowScale) rowScale.style.display = mode === 'scale' ? 'flex' : 'none'
+  if (rowRoot) rowRoot.style.display = mode === 'scale' ? 'flex' : 'none'
+  if (rowFund) rowFund.style.display = mode === 'harmonics' ? 'flex' : 'none'
+
+  // 3. Advanced Signal Processing Chips
   const chipsContainer = document.getElementById('decorator-chips-container')
   renderDecoratorChips(chipsContainer, () => {
     rebuildPipelineAdapters()
     syncUiFromState()
   })
 
-  // 3. Code Drawer
+  // 4. Temporal Event Scatter Controls
+  const tempCount = document.getElementById('temporal-count')
+  const dispTempCount = document.getElementById('disp-temporal-count')
+  const tempWindow = document.getElementById('temporal-window')
+  const dispTempWindow = document.getElementById('disp-temporal-window')
+  const tempStrategy = document.getElementById('temporal-strategy')
+  const tempAutoRepeat = document.getElementById('temporal-auto-repeat')
+
+  if (tempCount) tempCount.value = state.temporal.eventCount
+  if (dispTempCount) dispTempCount.textContent = `${state.temporal.eventCount} events`
+  if (tempWindow) tempWindow.value = state.temporal.windowSeconds
+  if (dispTempWindow) dispTempWindow.textContent = `${state.temporal.windowSeconds}s`
+  if (tempStrategy) tempStrategy.value = state.temporal.strategy
+  if (tempAutoRepeat) tempAutoRepeat.checked = state.temporal.autoRepeat
+
+  updateTemporalStats()
+
+  // 5. Code Drawer
   syncCodeDrawer()
 }
 
@@ -688,16 +1036,40 @@ export function initDecoratorLab() {
   if (typeof window === 'undefined') return
 
   rebuildPipelineAdapters()
+  feedTemporalBatch()
   syncUiFromState()
 
-  const canvas = document.getElementById('scope-canvas')
-  if (canvas) {
-    const rect = canvas.parentElement.getBoundingClientRect()
-    canvas.width = rect.width * (window.devicePixelRatio || 1)
-    canvas.height = rect.height * (window.devicePixelRatio || 1)
+  const scopeCanvas = document.getElementById('scope-canvas')
+  if (scopeCanvas && scopeCanvas.parentElement) {
+    const rect = scopeCanvas.parentElement.getBoundingClientRect()
+    scopeCanvas.width = rect.width * (window.devicePixelRatio || 1)
+    scopeCanvas.height = rect.height * (window.devicePixelRatio || 1)
   }
 
-  // Adapter inputs listeners
+  const temporalCanvas = document.getElementById('temporal-canvas')
+  if (temporalCanvas && temporalCanvas.parentElement) {
+    const rect = temporalCanvas.parentElement.getBoundingClientRect()
+    temporalCanvas.width = rect.width * (window.devicePixelRatio || 1)
+    temporalCanvas.height = rect.height * (window.devicePixelRatio || 1)
+  }
+
+  // 0. Mode Navigation Buttons
+  const tabTuning = document.getElementById('tab-mode-tuning')
+  const tabTemporal = document.getElementById('tab-mode-temporal')
+  if (tabTuning) {
+    tabTuning.addEventListener('click', () => {
+      state.activeMode = 'tuning'
+      syncUiFromState()
+    })
+  }
+  if (tabTemporal) {
+    tabTemporal.addEventListener('click', () => {
+      state.activeMode = 'temporal'
+      syncUiFromState()
+    })
+  }
+
+  // 1. Adapter inputs listeners
   const inMin = document.getElementById('adapter-in-min')
   const inMax = document.getElementById('adapter-in-max')
   const outMin = document.getElementById('adapter-out-min')
@@ -726,7 +1098,42 @@ export function initDecoratorLab() {
   if (curve) curve.addEventListener('change', onAdapterChange)
   if (invert) invert.addEventListener('change', onAdapterChange)
 
-  // Add decorator select
+  // 2. Musical Tuning Listeners
+  const tuningModeSelect = document.getElementById('tuning-mode-select')
+  const scaleSelect = document.getElementById('tuning-scale-select')
+  const rootFreqInput = document.getElementById('tuning-root-freq')
+  const fundInput = document.getElementById('tuning-fundamental')
+
+  if (tuningModeSelect) {
+    tuningModeSelect.addEventListener('change', () => {
+      state.mapping.adapter.tuningMode = tuningModeSelect.value
+      rebuildPipelineAdapters()
+      syncUiFromState()
+    })
+  }
+  if (scaleSelect) {
+    scaleSelect.addEventListener('change', () => {
+      state.mapping.adapter.scale = scaleSelect.value
+      rebuildPipelineAdapters()
+      syncCodeDrawer()
+    })
+  }
+  if (rootFreqInput) {
+    rootFreqInput.addEventListener('input', () => {
+      state.mapping.adapter.rootFreq = parseFloat(rootFreqInput.value) || 220
+      rebuildPipelineAdapters()
+      syncCodeDrawer()
+    })
+  }
+  if (fundInput) {
+    fundInput.addEventListener('input', () => {
+      state.mapping.adapter.fundamental = parseFloat(fundInput.value) || 110
+      rebuildPipelineAdapters()
+      syncCodeDrawer()
+    })
+  }
+
+  // 3. Add decorator select (Advanced SP Drawer)
   const addSelect = document.getElementById('select-add-decorator')
   if (addSelect) {
     addSelect.addEventListener('change', () => {
@@ -746,7 +1153,7 @@ export function initDecoratorLab() {
     })
   }
 
-  // Feed profile & scrub listeners
+  // 4. Feed profile & scrub listeners
   const profileSelect = document.getElementById('feed-profile')
   if (profileSelect) {
     profileSelect.addEventListener('change', () => {
@@ -782,12 +1189,11 @@ export function initDecoratorLab() {
       if (dispScrub) dispScrub.textContent = state.feed.value.toFixed(1)
     })
     scrubSlider.addEventListener('change', () => {
-      // Resume autonomous walk after scrub release
       setTimeout(() => { state.feed.scrubOverride = false }, 1000)
     })
   }
 
-  // Scope tools
+  // 5. Scope tools
   const btnPause = document.getElementById('btn-scope-pause')
   if (btnPause) {
     btnPause.addEventListener('click', () => {
@@ -802,7 +1208,47 @@ export function initDecoratorLab() {
     })
   }
 
-  // Audio audition button
+  // 6. Temporal Event Scatter Listeners
+  const tempCount = document.getElementById('temporal-count')
+  const dispTempCount = document.getElementById('disp-temporal-count')
+  const tempWindow = document.getElementById('temporal-window')
+  const dispTempWindow = document.getElementById('disp-temporal-window')
+  const tempStrategy = document.getElementById('temporal-strategy')
+  const tempAutoRepeat = document.getElementById('temporal-auto-repeat')
+  const btnFeedBatch = document.getElementById('btn-feed-batch')
+
+  if (tempCount) {
+    tempCount.addEventListener('input', () => {
+      state.temporal.eventCount = parseInt(tempCount.value, 10) || 5
+      if (dispTempCount) dispTempCount.textContent = `${state.temporal.eventCount} events`
+      syncCodeDrawer()
+    })
+  }
+  if (tempWindow) {
+    tempWindow.addEventListener('input', () => {
+      state.temporal.windowSeconds = parseInt(tempWindow.value, 10) || 10
+      if (dispTempWindow) dispTempWindow.textContent = `${state.temporal.windowSeconds}s`
+      syncCodeDrawer()
+    })
+  }
+  if (tempStrategy) {
+    tempStrategy.addEventListener('change', () => {
+      state.temporal.strategy = tempStrategy.value
+      syncCodeDrawer()
+    })
+  }
+  if (tempAutoRepeat) {
+    tempAutoRepeat.addEventListener('change', () => {
+      state.temporal.autoRepeat = tempAutoRepeat.checked
+    })
+  }
+  if (btnFeedBatch) {
+    btnFeedBatch.addEventListener('click', () => {
+      feedTemporalBatch()
+    })
+  }
+
+  // 7. Master Audio Transport
   const btnAudio = document.getElementById('btn-audio-toggle')
   const audioStatus = document.getElementById('audio-status')
   if (btnAudio) {
@@ -878,7 +1324,12 @@ export function initDecoratorLab() {
         state.mapping.adapter.outputRange = [...p.outputRange]
         state.mapping.adapter.curve = p.curve
         state.mapping.adapter.invert = p.invert
+        state.mapping.adapter.tuningMode = p.tuningMode || 'scale'
+        if (p.scale) state.mapping.adapter.scale = p.scale
+        if (p.rootFreq) state.mapping.adapter.rootFreq = p.rootFreq
+        if (p.fundamental) state.mapping.adapter.fundamental = p.fundamental
         state.mapping.adapter.decorators = [...p.decorators]
+
         if (p.profile) {
           state.feed.profile = p.profile
           if (profileSelect) profileSelect.value = p.profile
@@ -952,32 +1403,39 @@ export function initDecoratorLab() {
     })
   }
 
-  // Start simulation loop
+  // Start continuous simulation loops
   restartSimTimer()
 
-  // Start animation loop for scope
-  function renderLoop() {
-    drawScopeCanvas(canvas)
-    requestAnimationFrame(renderLoop)
+  // Start Animation loop for both canvases
+  function loop() {
+    if (state.activeMode === 'tuning') {
+      const c = document.getElementById('scope-canvas')
+      if (c) drawScopeCanvas(c)
+    } else {
+      const tc = document.getElementById('temporal-canvas')
+      if (tc) renderTemporalTimeline(tc)
+    }
+    requestAnimationFrame(loop)
   }
-  requestAnimationFrame(renderLoop)
+  requestAnimationFrame(loop)
 }
 
-function restartSimTimer() {
+export function restartSimTimer() {
   if (simTimer) clearInterval(simTimer)
-  const intervalMs = Math.max(16, Math.round(1000 / state.feed.rate))
+  const intervalMs = Math.round(1000 / Math.max(1, state.feed.rate))
   simTimer = setInterval(() => {
     const rawVal = tickFeedSimulator()
-    if (!activeRawAdapter || !activeDecoratedAdapter) return
 
-    const rawScaledVal = activeRawAdapter.map(rawVal)
-    const decoratedVal = activeDecoratedAdapter.map(rawVal)
+    // Map through pipeline
+    const rawScaledVal = activeRawAdapter ? activeRawAdapter.map(rawVal) : rawVal
+    const decoratedVal = activeDecoratedAdapter ? activeDecoratedAdapter.map(rawVal) : rawVal
 
-    // Update block values in DOM
-    const dispFeed = document.getElementById('disp-feed-val')
+    // Update DOM indicators
+    const dispFeedVal = document.getElementById('disp-feed-val')
+    if (dispFeedVal) dispFeedVal.textContent = rawVal.toFixed(2)
+
     const blockFeedVal = document.getElementById('block-feed-val')
     const meterFeedBar = document.getElementById('meter-feed-bar')
-    if (dispFeed) dispFeed.textContent = rawVal.toFixed(2)
     if (blockFeedVal) blockFeedVal.textContent = rawVal.toFixed(1)
     if (meterFeedBar) meterFeedBar.style.width = `${Math.max(0, Math.min(100, rawVal))}%`
 
