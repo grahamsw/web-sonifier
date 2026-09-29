@@ -95,11 +95,32 @@
       </div>
     </section>
 
+    <!-- Mode Navigation Switcher -->
+    <nav class="mode-navigation-bar" aria-label="Lab Paradigms">
+      <button type="button" class="mode-tab-btn active" id="tab-mode-tuning">
+        <span class="tab-icon">🎵</span>
+        <span class="tab-text">
+          <strong>Continuous Musical Tuning</strong>
+          <small>Adapter Scaling & Pitch Quantization</small>
+        </span>
+      </button>
+      <button type="button" class="mode-tab-btn" id="tab-mode-temporal">
+        <span class="tab-icon">⏱️</span>
+        <span class="tab-text">
+          <strong>Temporal Event Scatter</strong>
+          <small>Batch De-Quantization & Jitter</small>
+        </span>
+      </button>
+    </nav>
+
     <!-- Main Workspace: Left Column (Pipeline & Scope) / Right Column (JSON & Code) -->
     <main class="lab-main-grid">
 
       <!-- Left Column: Signal Flow & Visualization -->
       <div class="pipeline-column">
+
+        <!-- MODE PANEL 1: Continuous Tuning & Scaling -->
+        <div id="mode-panel-tuning">
 
         <!-- 1. Feed Generator Bar -->
         <section class="panel feed-panel">
@@ -194,28 +215,40 @@
 
             <div class="pipeline-arrow">➔</div>
 
-            <!-- Step 3: Decorators Chain Block -->
-            <div class="pipeline-block decorators-block">
-              <div class="block-tag">3. Decorator Chain (Piped in Order)</div>
-              
-              <div class="chips-container" id="decorator-chips-container">
-                <!-- Dynamically populated decorator chips -->
-              </div>
-
-              <div class="add-decorator-wrapper">
-                <select id="select-add-decorator" class="select-add-dec">
-                  <option value="" disabled selected>+ Add Decorator...</option>
-                  <option value="ema">📈 EMA Smoothing (Alpha)</option>
-                  <option value="quantize:pentatonic">🪜 Scale Quantize (Pentatonic)</option>
-                  <option value="quantize:minorPentatonic">🪜 Scale Quantize (Minor Pentatonic)</option>
-                  <option value="quantize:hirajoshi">🪜 Scale Quantize (Hirajoshi)</option>
-                  <option value="quantize:dorian">🪜 Scale Quantize (Dorian)</option>
-                  <option value="delta">⚡ Delta (Rate of Change)</option>
-                  <option value="sma">📊 SMA Moving Average (Window)</option>
-                  <option value="accumulate">🌊 Accumulate (Cumulative Sum)</option>
-                  <option value="threshold">🚧 Threshold Gate</option>
-                  <option value="round">🔢 Round to Integer</option>
-                </select>
+            <!-- Step 3: Musical Tuning Block -->
+            <div class="pipeline-block tuning-block">
+              <div class="block-tag">3. Musical Tuning</div>
+              <div class="tuning-params">
+                <div class="param-row">
+                  <label for="tuning-mode-select">Mode:</label>
+                  <select id="tuning-mode-select" class="select-mini">
+                    <option value="scale" selected>Scale Quantize</option>
+                    <option value="harmonics">Harmonic Series</option>
+                    <option value="none">None (Continuous)</option>
+                  </select>
+                </div>
+                <div class="param-row" id="row-scale-select">
+                  <label for="tuning-scale-select">Scale:</label>
+                  <select id="tuning-scale-select" class="select-mini">
+                    <option value="pentatonic" selected>Pentatonic</option>
+                    <option value="minorPentatonic">Minor Pentatonic</option>
+                    <option value="hirajoshi">Japanese Hirajoshi</option>
+                    <option value="dorian">Dorian Mode</option>
+                    <option value="wholeTone">Whole Tone</option>
+                    <option value="major">Natural Major</option>
+                    <option value="minor">Natural Minor</option>
+                  </select>
+                </div>
+                <div class="param-row" id="row-root-freq">
+                  <label for="tuning-root-freq">Root:</label>
+                  <input type="number" id="tuning-root-freq" value="220" min="40" max="1000" step="1" class="input-mini">
+                  <span class="unit-label">Hz</span>
+                </div>
+                <div class="param-row" id="row-harmonic-fund" style="display: none;">
+                  <label for="tuning-fundamental">f₀ Fund:</label>
+                  <input type="number" id="tuning-fundamental" value="110" min="20" max="880" step="1" class="input-mini">
+                  <span class="unit-label">Hz</span>
+                </div>
               </div>
             </div>
 
@@ -233,6 +266,31 @@
             </div>
 
           </div>
+
+          <!-- Advanced Signal Processing Collapsible Drawer -->
+          <details class="advanced-sp-drawer" id="advanced-sp-drawer">
+            <summary class="advanced-sp-summary">
+              <span class="summary-title">⚙️ Advanced Signal Conditioning</span>
+              <span class="summary-tags">EMA • SMA • Delta • Accumulate • Threshold</span>
+            </summary>
+            <div class="advanced-sp-body">
+              <p class="advanced-sp-hint">Optional pre-audio telemetry filtering & calculus transforms. When active, these smooth or derive data inside the Adapter pipeline prior to musical quantization.</p>
+              <div class="chips-container" id="decorator-chips-container">
+                <!-- Dynamically populated decorator chips -->
+              </div>
+              <div class="add-decorator-wrapper">
+                <select id="select-add-decorator" class="select-add-dec">
+                  <option value="" disabled selected>+ Add Signal Filter...</option>
+                  <option value="ema">📈 EMA Smoothing (Alpha)</option>
+                  <option value="sma">📊 SMA Moving Average (Window)</option>
+                  <option value="delta">⚡ Delta (Rate of Change)</option>
+                  <option value="accumulate">🌊 Accumulate (Cumulative Sum)</option>
+                  <option value="threshold">🚧 Threshold Gate</option>
+                  <option value="round">🔢 Round to Integer</option>
+                </select>
+              </div>
+            </div>
+          </details>
         </section>
 
         <!-- 3. Real-Time 3-Trace Oscilloscope / Sparkline Canvas -->
@@ -256,6 +314,74 @@
             <canvas id="scope-canvas"></canvas>
           </div>
         </section>
+
+        </div>
+        <!-- END MODE PANEL 1: Continuous Tuning & Scaling -->
+
+        <!-- MODE PANEL 2: Temporal Event Scatter -->
+        <div id="mode-panel-temporal" style="display: none;">
+          <!-- 1. Temporal Batch Controls -->
+          <section class="panel temporal-control-panel">
+            <div class="panel-header">
+              <div class="header-titles">
+                <h3>⏱️ Temporal De-Quantizer (Event Scatter)</h3>
+                <span class="hint">Distribute batch arrivals (e.g. "5 signups") across a time window using EventScatterAdapter</span>
+              </div>
+              <div class="badge-status" id="temporal-status-badge">Ready</div>
+            </div>
+
+            <div class="temporal-controls-grid">
+              <div class="control-item">
+                <label for="temporal-count">Batch Event Count (N): <span id="disp-temporal-count">5 events</span></label>
+                <input type="range" id="temporal-count" min="1" max="30" step="1" value="5">
+              </div>
+
+              <div class="control-item">
+                <label for="temporal-window">Window Duration (T): <span id="disp-temporal-window">10s</span></label>
+                <input type="range" id="temporal-window" min="2" max="30" step="1" value="10">
+              </div>
+
+              <div class="control-item">
+                <label for="temporal-strategy">Distribution Strategy:</label>
+                <select id="temporal-strategy">
+                  <option value="poisson" selected>Poisson Arrivals (Organic Clustered Bursts)</option>
+                  <option value="random">Random Uniform (Dispersed Jitter)</option>
+                  <option value="uniform">Uniform Grid (Metronomic Pulses)</option>
+                </select>
+              </div>
+
+              <div class="control-item action-buttons">
+                <button type="button" class="btn-transport" id="btn-feed-batch">🚀 Feed Batch Now</button>
+                <label class="checkbox-inline auto-repeat-label">
+                  <input type="checkbox" id="temporal-auto-repeat" checked>
+                  <span>Auto-feed every window</span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. Live Timeline Strip & Playhead Canvas -->
+          <section class="panel temporal-timeline-panel">
+            <div class="panel-header">
+              <h3>⏳ Live Scheduled Window Timeline</h3>
+              <div class="timeline-stats">
+                <span class="stat-pill" id="stat-pending-events">Pending: 5</span>
+                <span class="stat-pill" id="stat-fired-events">Fired: 0</span>
+              </div>
+            </div>
+
+            <div class="timeline-canvas-container">
+              <canvas id="temporal-canvas"></canvas>
+            </div>
+
+            <div class="timeline-footer">
+              <span class="timeline-legend-item"><span class="legend-dot bead"></span> Scheduled Event Bead</span>
+              <span class="timeline-legend-item"><span class="legend-dot fired"></span> Fired Trigger Strike</span>
+              <span class="timeline-legend-item"><span class="legend-dot playhead"></span> Current Time Playhead</span>
+            </div>
+          </section>
+        </div>
+        <!-- END MODE PANEL 2: Temporal Event Scatter -->
 
       </div>
 
