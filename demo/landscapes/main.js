@@ -2178,7 +2178,7 @@ export function openMappingInspector(objectId, param = 'speed') {
   if (param && container) {
     setTimeout(() => {
       const targetCard = container.querySelector(`#inspector-param-card-${param}`)
-      if (targetCard) {
+      if (targetCard && typeof targetCard.scrollIntoView === 'function') {
         targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       }
     }, 50)
