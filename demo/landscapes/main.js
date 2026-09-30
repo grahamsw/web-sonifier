@@ -1436,8 +1436,10 @@ const btnCloseMapping = document.getElementById('btn-close-mapping')
 const btnMappingSave = document.getElementById('btn-mapping-save')
 const btnMappingRemove = document.getElementById('btn-mapping-remove')
 const mappingTargetObject = document.getElementById('mapping-target-object')
+const mappingTargetName = document.getElementById('mapping-target-name')
 const mappingTargetParam = document.getElementById('mapping-target-param')
 const mappingTargetLayer = document.getElementById('mapping-target-layer')
+const mappingParamsContainer = document.getElementById('mapping-params-container')
 const mappingFeedSelect = document.getElementById('mapping-feed-select')
 const mappingCurveSelect = document.getElementById('mapping-curve-select')
 const mappingInMin = document.getElementById('mapping-in-min')
@@ -1695,23 +1697,467 @@ export function handleObjectRemove(objectId) {
   updatePlayerLayerPills()
 }
 
+export function renderSonifierParameterEditor(objectId, container) {
+  if (!container) return
+  container.innerHTML = ''
+
+  const card = document.getElementById(`card-${objectId}`) ||
+               (objectId === 'chimes' ? document.getElementById('card-chime') : null) ||
+               (objectId === 'chime' ? document.getElementById('card-chimes') : null) ||
+               document.querySelector(`article[data-object-id="${objectId}"]`)
+  const type = card?.dataset?.type || (objectId === 'chimes' ? 'chime' : objectId)
+  const meta = SONIFIER_CATALOG[type] || { name: objectId, icon: '🔊', defaultLayer: 'bed' }
+  const objEntry = landscape._objects.get(objectId)
+
+  let schema = []
+  if (objEntry?.sonifier && typeof objEntry.sonifier.getParamSchema === 'function') {
+    schema = objEntry.sonifier.getParamSchema()
+  } else if (SONIFIER_CATALOG[type]?.factory) {
+    try {
+      const temp = new SONIFIER_CATALOG[type].factory()
+      schema = temp.getParamSchema()
+    } catch {}
+  }
+
+  if (!schema || schema.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem; text-align: center;">No configurable parameters exposed for this sonifier.</div>'
+    return
+  }
+
+  const availableFeeds = [
+    { id: 'traffic_rps', label: 'HTTP Request Rate (0–5000 req/s)', range: [0, 5000] },
+    { id: 'active_users', label: 'Active WebSocket Sessions (0–1000 conns)', range: [0, 1000] },
+    { id: 'cpu_load', label: 'Cluster CPU Load (0–100 %)', range: [0, 100] },
+    { id: 'error_spikes', label: 'HTTP 5xx Error Bursts (1–20 errors)', range: [1, 20] }
+  ]
+
+  // Group parameters by param.group
+  const groupsMap = new Map()
+  for (const param of schema) {
+    const groupName = param.group || 'Acoustic Parameters'
+    if (!groupsMap.has(groupName)) {
+      groupsMap.set(groupName, [])
+    }
+    groupsMap.get(groupName).push(param)
+  }
+
+  for (const [groupName, paramList] of groupsMap.entries()) {
+    const groupEl = document.createElement('div')
+    groupEl.className = 'param-group'
+
+    const groupHeader = document.createElement('div')
+    groupHeader.className = 'param-group-header'
+    groupHeader.textContent = groupName
+    groupEl.appendChild(groupHeader)
+
+    for (const param of paramList) {
+      const pName = param.name
+      let existingMapping = landscape._mappings.find(m =>
+        m.target && (m.target.objectId === objectId || (objectId === 'chimes' && m.target.objectId === 'chime') || (objectId === 'chime' && m.target.objectId === 'chimes')) &&
+        (m.target.param === pName || m.target.event === pName)
+      )
+
+      const cardEl = document.createElement('div')
+      cardEl.className = 'param-card'
+      cardEl.id = `inspector-param-card-${pName}`
+
+      // Check current static value
+      let currentVal = param.default !== undefined ? param.default : (param.range ? param.range[0] : 0)
+      const cardInput = card?.querySelector(`[id$="-${pName}"]`) || card?.querySelector(`[data-param="${pName}"]`) || card?.querySelector(`#${objectId}-${pName}`)
+      if (cardInput && cardInput.value !== undefined) {
+        currentVal = param.type === 'number' ? parseFloat(cardInput.value) : cardInput.value
+      } else if (objEntry?.sonifier?.getParam) {
+        try {
+          const liveVal = objEntry.sonifier.getParam(pName)
+          if (liveVal !== undefined) currentVal = liveVal
+        } catch {}
+      }
+
+      const isDiscrete = param.type === 'enum' || Array.isArray(param.options) || Array.isArray(param.values)
+      const isBool = param.type === 'boolean'
+
+      if (isDiscrete) {
+        cardEl.classList.add('discrete-param-card')
+        cardEl.innerHTML = `
+          <div class="param-card-header">
+            <div class="param-title-group">
+              <span class="param-toggle-label" style="cursor: default;">${param.label || pName}</span>
+              ${param.unit ? `<span class="param-unit-tag">(${param.unit})</span>` : ''}
+            </div>
+            <span class="param-readout-badge badge-static" id="disp-inspector-${pName}">${currentVal}</span>
+          </div>
+          ${param.description ? `<div class="param-desc">${param.description}</div>` : ''}
+          <div class="control-row">
+            <select class="control-select" id="select-inspector-${pName}">
+              ${(param.options || param.values || []).map(opt => {
+                const val = typeof opt === 'object' ? opt.value : opt
+                const lbl = typeof opt === 'object' ? opt.label : opt
+                return `<option value="${val}" ${String(val) === String(currentVal) ? 'selected' : ''}>${lbl}</option>`
+              }).join('')}
+            </select>
+          </div>
+        `
+        const sel = cardEl.querySelector(`#select-inspector-${pName}`)
+        sel?.addEventListener('change', () => {
+          const newVal = sel.value
+          landscape.setParam(objectId, pName, newVal)
+          if (cardInput) cardInput.value = newVal
+          const disp = cardEl.querySelector(`#disp-inspector-${pName}`)
+          if (disp) disp.textContent = newVal
+        })
+
+      } else if (isBool) {
+        cardEl.classList.add('boolean-param-card')
+        cardEl.innerHTML = `
+          <div class="param-card-header">
+            <label class="param-toggle-label">
+              <input type="checkbox" id="check-inspector-${pName}" ${Boolean(currentVal) ? 'checked' : ''}>
+              <span>${param.label || pName}</span>
+            </label>
+            ${param.unit ? `<span class="param-unit-tag">(${param.unit})</span>` : ''}
+          </div>
+          ${param.description ? `<div class="param-desc">${param.description}</div>` : ''}
+        `
+        const chk = cardEl.querySelector(`#check-inspector-${pName}`)
+        chk?.addEventListener('change', () => {
+          const checked = chk.checked
+          landscape.setParam(objectId, pName, checked)
+          if (cardInput) cardInput.checked = checked
+        })
+
+      } else {
+        // Continuous Parameter
+        cardEl.classList.add('continuous-param-card')
+        const isMapped = Boolean(existingMapping)
+        if (isMapped) cardEl.classList.add('sonified')
+
+        const boundsMin = param.range ? param.range[0] : 0
+        const boundsMax = param.range ? param.range[1] : 100
+        const boundsStep = param.step || ((boundsMax - boundsMin) <= 1.5 ? 0.01 : ((boundsMax - boundsMin) <= 10 ? 0.1 : 1))
+
+        const renderParamCardBody = (mapped) => {
+          cardEl.classList.toggle('sonified', mapped)
+          let bodyHtml = `
+            <div class="param-card-header">
+              <div class="param-title-group">
+                <label class="param-toggle-label">
+                  <input type="checkbox" class="check-map-to-feed" id="map-toggle-${pName}" ${mapped ? 'checked' : ''}>
+                  <span>${param.label || pName}</span>
+                </label>
+                ${param.unit ? `<span class="param-unit-tag">(${param.unit})</span>` : ''}
+              </div>
+              <span class="param-readout-badge ${mapped ? 'badge-mapped' : 'badge-static'}" id="readout-${pName}">
+                ${mapped ? `${existingMapping?.feedId || 'traffic_rps'} ➔ Mapped` : `${currentVal} ${param.unit || ''}`}
+              </span>
+            </div>
+            ${param.description ? `<div class="param-desc">${param.description}</div>` : ''}
+          `
+
+          if (!mapped) {
+            bodyHtml += `
+              <div class="param-unmapped-row">
+                <input type="range" class="control-slider slider-manual" id="slider-manual-${pName}" min="${boundsMin}" max="${boundsMax}" step="${boundsStep}" value="${currentVal}">
+                <input type="number" class="control-input input-manual" id="input-manual-${pName}" min="${boundsMin}" max="${boundsMax}" step="${boundsStep}" value="${currentVal}">
+              </div>
+            `
+          } else {
+            const currentFeedId = existingMapping?.feedId || 'traffic_rps'
+            const currentCurve = existingMapping?.adapterConfig?.curve || param.curve || 'linear'
+            const currentInMin = existingMapping?.adapterConfig?.inputRange?.[0] ?? 0
+            const currentInMax = existingMapping?.adapterConfig?.inputRange?.[1] ?? 5000
+            const currentOutMin = existingMapping?.adapterConfig?.outputRange?.[0] ?? boundsMin
+            const currentOutMax = existingMapping?.adapterConfig?.outputRange?.[1] ?? boundsMax
+            const isTuningOn = Boolean(existingMapping?.adapterConfig?.tuning)
+            const tuningScale = existingMapping?.adapterConfig?.tuning?.scale || 'pentatonic'
+            const tuningRoot = existingMapping?.adapterConfig?.tuning?.root || 261.63
+            const isScatterOn = Boolean(existingMapping?.adapterConfig?.scatter)
+            const scatterStrat = existingMapping?.adapterConfig?.scatter?.strategy || 'poisson'
+            const scatterWin = existingMapping?.adapterConfig?.scatter?.windowSeconds || 5.0
+
+            bodyHtml += `
+              <div class="param-mapped-controls">
+                <div class="mapping-config-grid">
+                  <div>
+                    <label style="font-size: 0.76rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Mapped Data Feed:</label>
+                    <select class="control-select select-feed" id="feed-sel-${pName}">
+                      ${availableFeeds.map(f => `<option value="${f.id}" ${f.id === currentFeedId ? 'selected' : ''}>${f.label}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.76rem; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Transfer Curve & Polarity:</label>
+                    <div style="display: flex; gap: 0.4rem; align-items: center;">
+                      <select class="control-select select-curve" id="curve-sel-${pName}" style="flex: 1;">
+                        <option value="linear" ${currentCurve === 'linear' ? 'selected' : ''}>Linear</option>
+                        <option value="exponential" ${currentCurve === 'exponential' ? 'selected' : ''}>Exponential (Perceptual)</option>
+                        <option value="logarithmic" ${currentCurve === 'logarithmic' ? 'selected' : ''}>Logarithmic</option>
+                      </select>
+                      <button type="button" class="btn-invert ${existingMapping?.adapterConfig?.invert ? 'inverted' : ''}" id="btn-invert-${pName}" title="Invert polarity">⇄</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="inspector-range-grid" style="margin-top: 0.4rem;">
+                  <div>
+                    <label style="font-size: 0.74rem; color: var(--text-muted);">Input Range (Data Feed)</label>
+                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
+                      <input type="number" class="control-input in-min" id="in-min-${pName}" value="${currentInMin}" style="width: 50%;">
+                      <input type="number" class="control-input in-max" id="in-max-${pName}" value="${currentInMax}" style="width: 50%;">
+                    </div>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.74rem; color: var(--text-muted);">Output Range (${param.unit || 'units'})</label>
+                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
+                      <input type="number" class="control-input out-min" id="out-min-${pName}" value="${currentOutMin}" style="width: 50%;">
+                      <input type="number" class="control-input out-max" id="out-max-${pName}" value="${currentOutMax}" style="width: 50%;">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Decorator Accordions -->
+                <div class="param-decorator-accordion">
+                  <div class="toggle-row" style="margin-bottom: 0.3rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                      <input type="checkbox" id="check-tuning-${pName}" ${isTuningOn ? 'checked' : ''}>
+                      <span>🎵 Continuous Musical Tuning</span>
+                    </label>
+                  </div>
+                  <div id="drawer-tuning-${pName}" style="display: ${isTuningOn ? 'block' : 'none'}; padding-top: 0.4rem;">
+                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                      <select class="control-select" id="scale-sel-${pName}" style="flex: 1; min-width: 140px;">
+                        <option value="pentatonic" ${tuningScale === 'pentatonic' ? 'selected' : ''}>Minor Pentatonic</option>
+                        <option value="major" ${tuningScale === 'major' ? 'selected' : ''}>Major Diatonic</option>
+                        <option value="minor" ${tuningScale === 'minor' ? 'selected' : ''}>Natural Minor</option>
+                        <option value="dorian" ${tuningScale === 'dorian' ? 'selected' : ''}>Dorian</option>
+                        <option value="lydian" ${tuningScale === 'lydian' ? 'selected' : ''}>Lydian</option>
+                        <option value="wholetone" ${tuningScale === 'wholetone' ? 'selected' : ''}>Whole Tone</option>
+                        <option value="harmonics" ${tuningScale === 'harmonics' ? 'selected' : ''}>Harmonic Series (1-16)</option>
+                      </select>
+                      <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Root:</span>
+                        <input type="number" class="control-input" id="root-input-${pName}" value="${tuningRoot}" style="width: 75px;" step="0.01">
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">Hz</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="param-decorator-accordion">
+                  <div class="toggle-row" style="margin-bottom: 0.3rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--accent-emerald); display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                      <input type="checkbox" id="check-scatter-${pName}" ${isScatterOn ? 'checked' : ''}>
+                      <span>⏳ Temporal Event Scatter</span>
+                    </label>
+                  </div>
+                  <div id="drawer-scatter-${pName}" style="display: ${isScatterOn ? 'block' : 'none'}; padding-top: 0.4rem;">
+                    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+                      <select class="control-select" id="strat-sel-${pName}" style="flex: 1; min-width: 140px;">
+                        <option value="poisson" ${scatterStrat === 'poisson' ? 'selected' : ''}>Poisson Process</option>
+                        <option value="uniform-jitter" ${scatterStrat === 'uniform-jitter' ? 'selected' : ''}>Uniform Jitter (±35%)</option>
+                        <option value="fixed" ${scatterStrat === 'fixed' ? 'selected' : ''}>Fixed Rate</option>
+                      </select>
+                      <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Window:</span>
+                        <input type="number" class="control-input" id="win-input-${pName}" value="${scatterWin}" style="width: 65px;" step="0.5" min="0.5" max="60">
+                        <span style="font-size: 0.72rem; color: var(--text-muted);">s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `
+          }
+
+          cardEl.innerHTML = bodyHtml
+
+          // Attach listeners for this continuous param
+          const mapToggle = cardEl.querySelector(`#map-toggle-${pName}`)
+          mapToggle?.addEventListener('change', () => {
+            const willMap = mapToggle.checked
+            if (willMap) {
+              const defFeed = 'traffic_rps'
+              landscape.addMapping({
+                feedId: defFeed,
+                target: { objectId, param: pName },
+                adapter: {
+                  inputRange: [0, 5000],
+                  outputRange: [boundsMin, boundsMax],
+                  curve: param.curve || 'linear'
+                }
+              })
+              existingMapping = landscape._mappings.find(m =>
+                m.target && (m.target.objectId === objectId || (objectId === 'chimes' && m.target.objectId === 'chime') || (objectId === 'chime' && m.target.objectId === 'chimes')) &&
+                m.target.param === pName
+              )
+              renderParamCardBody(true)
+            } else {
+              if (existingMapping) {
+                landscape.removeMapping(existingMapping.feedId, objectId, pName)
+                existingMapping = null
+              }
+              renderParamCardBody(false)
+            }
+          })
+
+          if (!mapped) {
+            const sld = cardEl.querySelector(`#slider-manual-${pName}`)
+            const inp = cardEl.querySelector(`#input-manual-${pName}`)
+            const rBadge = cardEl.querySelector(`#readout-${pName}`)
+
+            const updateManual = (val) => {
+              const num = parseFloat(val)
+              if (isNaN(num)) return
+              sld.value = num
+              inp.value = num
+              currentVal = num
+              if (rBadge) rBadge.textContent = `${num} ${param.unit || ''}`
+              landscape.setParam(objectId, pName, num)
+              if (cardInput) {
+                cardInput.value = num
+                const disp = card?.querySelector(`#disp-${pName}`) || card?.querySelector(`#disp-${objectId}-${pName}`)
+                if (disp) disp.textContent = `${num} ${param.unit || ''}`
+              }
+            }
+
+            sld?.addEventListener('input', () => updateManual(sld.value))
+            inp?.addEventListener('input', () => updateManual(inp.value))
+
+          } else {
+            // Mapped controls listeners
+            const feedSel = cardEl.querySelector(`#feed-sel-${pName}`)
+            const curveSel = cardEl.querySelector(`#curve-sel-${pName}`)
+            const btnInv = cardEl.querySelector(`#btn-invert-${pName}`)
+            const inMinEl = cardEl.querySelector(`#in-min-${pName}`)
+            const inMaxEl = cardEl.querySelector(`#in-max-${pName}`)
+            const outMinEl = cardEl.querySelector(`#out-min-${pName}`)
+            const outMaxEl = cardEl.querySelector(`#out-max-${pName}`)
+            const chkTuning = cardEl.querySelector(`#check-tuning-${pName}`)
+            const scaleSel = cardEl.querySelector(`#scale-sel-${pName}`)
+            const rootInp = cardEl.querySelector(`#root-input-${pName}`)
+            const drawerTuning = cardEl.querySelector(`#drawer-tuning-${pName}`)
+            const chkScatter = cardEl.querySelector(`#check-scatter-${pName}`)
+            const stratSel = cardEl.querySelector(`#strat-sel-${pName}`)
+            const winInp = cardEl.querySelector(`#win-input-${pName}`)
+            const drawerScatter = cardEl.querySelector(`#drawer-scatter-${pName}`)
+
+            let isInverted = existingMapping?.adapterConfig?.invert || false
+
+            const applyMappingUpdate = () => {
+              const feedId = feedSel?.value || 'traffic_rps'
+              const curve = curveSel?.value || 'linear'
+              const inMin = parseFloat(inMinEl?.value || 0)
+              const inMax = parseFloat(inMaxEl?.value || 5000)
+              const outMin = parseFloat(outMinEl?.value || boundsMin)
+              const outMax = parseFloat(outMaxEl?.value || boundsMax)
+              const tuningOn = Boolean(chkTuning?.checked)
+              const scatterOn = Boolean(chkScatter?.checked)
+
+              const mappingDef = {
+                feedId,
+                target: { objectId, param: pName },
+                adapter: {
+                  inputRange: [inMin, inMax],
+                  outputRange: [outMin, outMax],
+                  curve,
+                  invert: isInverted,
+                  ...(tuningOn ? { tuning: { enabled: true, scale: scaleSel?.value || 'pentatonic', root: parseFloat(rootInp?.value || 261.63) } } : {}),
+                  ...(scatterOn ? { scatter: { enabled: true, strategy: stratSel?.value || 'poisson', windowSeconds: parseFloat(winInp?.value || 5.0) } } : {})
+                }
+              }
+
+              landscape.addMapping(mappingDef)
+              existingMapping = landscape._mappings.find(m =>
+                m.target && (m.target.objectId === objectId || (objectId === 'chimes' && m.target.objectId === 'chime') || (objectId === 'chime' && m.target.objectId === 'chimes')) &&
+                m.target.param === pName
+              )
+              const rBadge = cardEl.querySelector(`#readout-${pName}`)
+              if (rBadge) rBadge.textContent = `${feedId} ➔ Mapped`
+
+              // Keep legacy test elements synced
+              if (pName === currentMappingTarget.param) {
+                if (mappingFeedSelect) mappingFeedSelect.value = feedId
+                if (mappingCurveSelect) mappingCurveSelect.value = curve
+                if (mappingInMin) mappingInMin.value = inMin
+                if (mappingInMax) mappingInMax.value = inMax
+                if (mappingOutMin) mappingOutMin.value = outMin
+                if (mappingOutMax) mappingOutMax.value = outMax
+                if (mappingTuningEnable) mappingTuningEnable.checked = tuningOn
+                if (mappingScatterEnable) mappingScatterEnable.checked = scatterOn
+              }
+            }
+
+            feedSel?.addEventListener('change', () => {
+              const f = availableFeeds.find(x => x.id === feedSel.value)
+              if (f && inMinEl && inMaxEl) {
+                inMinEl.value = f.range[0]
+                inMaxEl.value = f.range[1]
+              }
+              applyMappingUpdate()
+            })
+            curveSel?.addEventListener('change', applyMappingUpdate)
+            btnInv?.addEventListener('click', () => {
+              isInverted = !isInverted
+              btnInv.classList.toggle('inverted', isInverted)
+              applyMappingUpdate()
+            })
+            inMinEl?.addEventListener('change', applyMappingUpdate)
+            inMaxEl?.addEventListener('change', applyMappingUpdate)
+            outMinEl?.addEventListener('change', applyMappingUpdate)
+            outMaxEl?.addEventListener('change', applyMappingUpdate)
+
+            chkTuning?.addEventListener('change', () => {
+              if (drawerTuning) drawerTuning.style.display = chkTuning.checked ? 'block' : 'none'
+              applyMappingUpdate()
+            })
+            scaleSel?.addEventListener('change', applyMappingUpdate)
+            rootInp?.addEventListener('change', applyMappingUpdate)
+
+            chkScatter?.addEventListener('change', () => {
+              if (drawerScatter) drawerScatter.style.display = chkScatter.checked ? 'block' : 'none'
+              applyMappingUpdate()
+            })
+            stratSel?.addEventListener('change', applyMappingUpdate)
+            winInp?.addEventListener('change', applyMappingUpdate)
+          }
+        }
+
+        renderParamCardBody(isMapped)
+      }
+
+      groupEl.appendChild(cardEl)
+    }
+
+    container.appendChild(groupEl)
+  }
+}
+
 export function openMappingInspector(objectId, param = 'speed') {
   currentMappingTarget.objectId = objectId
   currentMappingTarget.param = param
 
   const objEntry = landscape._objects.get(objectId)
-  const card = document.getElementById(`card-${objectId}`) || document.querySelector(`article[data-object-id="${objectId}"]`)
+  const card = document.getElementById(`card-${objectId}`) ||
+               (objectId === 'chimes' ? document.getElementById('card-chime') : null) ||
+               (objectId === 'chime' ? document.getElementById('card-chimes') : null) ||
+               document.querySelector(`article[data-object-id="${objectId}"]`)
+  const type = card?.dataset?.type || (objectId === 'chimes' ? 'chime' : objectId)
+  const meta = SONIFIER_CATALOG[type] || { name: objectId, icon: '🔊', defaultLayer: 'bed' }
   const layerSelect = card?.querySelector('.select-change-layer')
-  currentMappingTarget.layer = objEntry?.layer || layerSelect?.value || 'bed'
+  currentMappingTarget.layer = objEntry?.layer || layerSelect?.value || meta.defaultLayer || 'bed'
 
   if (mappingTargetObject) mappingTargetObject.textContent = objectId
+  const mappingTargetNameEl = document.getElementById('mapping-target-name') || mappingTargetName
+  if (mappingTargetNameEl) mappingTargetNameEl.textContent = meta.name
   if (mappingTargetParam) mappingTargetParam.textContent = param
   if (mappingTargetLayer) {
-    mappingTargetLayer.textContent = `${currentMappingTarget.layer.toUpperCase()} Layer`
+    mappingTargetLayer.textContent = `${currentMappingTarget.layer.toUpperCase()} LAYER`
     mappingTargetLayer.className = `badge ${currentMappingTarget.layer}`
   }
 
-  const existing = landscape._mappings.find(m => m.target.objectId === objectId && (m.target.param === param || m.target.event === param))
+  // Populate legacy compatibility controls from first existing mapping or defaults
+  const existing = landscape._mappings.find(m =>
+    m.target && (m.target.objectId === objectId || (objectId === 'chimes' && m.target.objectId === 'chime') || (objectId === 'chime' && m.target.objectId === 'chimes')) &&
+    (m.target.param === param || m.target.event === param)
+  )
 
   if (existing) {
     if (mappingFeedSelect) mappingFeedSelect.value = existing.feedId || 'traffic_rps'
@@ -1720,37 +2166,22 @@ export function openMappingInspector(objectId, param = 'speed') {
     if (mappingInMax) mappingInMax.value = existing.adapterConfig?.inputRange?.[1] ?? 5000
     if (mappingOutMin) mappingOutMin.value = existing.adapterConfig?.outputRange?.[0] ?? 15
     if (mappingOutMax) mappingOutMax.value = existing.adapterConfig?.outputRange?.[1] ?? 75
+    if (mappingTuningEnable) mappingTuningEnable.checked = Boolean(existing.adapterConfig?.tuning)
+    if (mappingScatterEnable) mappingScatterEnable.checked = Boolean(existing.adapterConfig?.scatter)
+  }
 
-    if (existing.adapterConfig?.tuning) {
-      if (mappingTuningEnable) mappingTuningEnable.checked = true
-      if (tuningControlsSection) tuningControlsSection.style.display = 'block'
-      if (mappingTuningScale) mappingTuningScale.value = existing.adapterConfig.tuning.scale || 'pentatonic'
-      if (mappingTuningRoot) mappingTuningRoot.value = existing.adapterConfig.tuning.root || 261.63
-    } else {
-      if (mappingTuningEnable) mappingTuningEnable.checked = false
-      if (tuningControlsSection) tuningControlsSection.style.display = 'none'
-    }
+  const container = document.getElementById('mapping-params-container') || mappingParamsContainer
+  if (container) {
+    renderSonifierParameterEditor(objectId, container)
+  }
 
-    if (existing.adapterConfig?.scatter) {
-      if (mappingScatterEnable) mappingScatterEnable.checked = true
-      if (scatterControlsSection) scatterControlsSection.style.display = 'block'
-      if (mappingScatterStrategy) mappingScatterStrategy.value = existing.adapterConfig.scatter.strategy || 'poisson'
-      if (mappingScatterWindow) mappingScatterWindow.value = existing.adapterConfig.scatter.windowSeconds || 5.0
-    } else {
-      if (mappingScatterEnable) mappingScatterEnable.checked = false
-      if (scatterControlsSection) scatterControlsSection.style.display = 'none'
-    }
-  } else {
-    if (mappingFeedSelect) mappingFeedSelect.value = 'traffic_rps'
-    if (mappingCurveSelect) mappingCurveSelect.value = 'linear'
-    if (mappingInMin) mappingInMin.value = 0
-    if (mappingInMax) mappingInMax.value = 5000
-    if (mappingOutMin) mappingOutMin.value = 0
-    if (mappingOutMax) mappingOutMax.value = 100
-    if (mappingTuningEnable) mappingTuningEnable.checked = false
-    if (tuningControlsSection) tuningControlsSection.style.display = 'none'
-    if (mappingScatterEnable) mappingScatterEnable.checked = false
-    if (scatterControlsSection) scatterControlsSection.style.display = 'none'
+  if (param && container) {
+    setTimeout(() => {
+      const targetCard = container.querySelector(`#inspector-param-card-${param}`)
+      if (targetCard && typeof targetCard.scrollIntoView === 'function') {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 50)
   }
 
   if (modalMappingInspector) {
@@ -1759,50 +2190,24 @@ export function openMappingInspector(objectId, param = 'speed') {
 }
 
 export function saveCurrentMapping() {
-  const feedId = mappingFeedSelect?.value || 'traffic_rps'
-  const curve = mappingCurveSelect?.value || 'linear'
-  const inMin = parseFloat(mappingInMin?.value || 0)
-  const inMax = parseFloat(mappingInMax?.value || 100)
-  const outMin = parseFloat(mappingOutMin?.value || 0)
-  const outMax = parseFloat(mappingOutMax?.value || 1)
-
-  const mappingDef = {
-    feedId,
-    target: {
-      objectId: currentMappingTarget.objectId,
-      param: currentMappingTarget.param
-    },
-    adapter: {
-      inputRange: [inMin, inMax],
-      outputRange: [outMin, outMax],
-      curve
-    }
-  }
-
-  if (mappingTuningEnable && mappingTuningEnable.checked) {
-    mappingDef.adapter.tuning = {
-      enabled: true,
-      scale: mappingTuningScale?.value || 'pentatonic',
-      root: parseFloat(mappingTuningRoot?.value || 261.63)
-    }
-  }
-
-  if (mappingScatterEnable && mappingScatterEnable.checked) {
-    mappingDef.adapter.scatter = {
-      enabled: true,
-      strategy: mappingScatterStrategy?.value || 'poisson',
-      windowSeconds: parseFloat(mappingScatterWindow?.value || 5.0)
-    }
-  }
-
-  landscape.addMapping(mappingDef)
   if (modalMappingInspector) modalMappingInspector.style.display = 'none'
 }
 
 export function removeCurrentMapping() {
-  const feedId = mappingFeedSelect?.value || 'traffic_rps'
-  landscape.removeMapping(feedId, currentMappingTarget.objectId, currentMappingTarget.param)
-  if (modalMappingInspector) modalMappingInspector.style.display = 'none'
+  const objectId = currentMappingTarget.objectId
+  landscape._mappings = landscape._mappings.filter(m => {
+    const match = m.target && (
+      m.target.objectId === objectId ||
+      (objectId === 'chimes' && m.target.objectId === 'chime') ||
+      (objectId === 'chime' && m.target.objectId === 'chimes')
+    )
+    if (match && m.scatterAdapter) m.scatterAdapter.cancel()
+    return !match
+  })
+  const container = document.getElementById('mapping-params-container') || mappingParamsContainer
+  if (container) {
+    renderSonifierParameterEditor(objectId, container)
+  }
 }
 
 // Catalog modal event listeners
@@ -1948,7 +2353,7 @@ function getObjectCoordinates(id, w, h) {
   return { x: centerX + pan * (w * 0.38), y, pan, spread, label }
 }
 
-function getActiveSoundObjects() {
+export function getActiveSoundObjects() {
   const cards = document.querySelectorAll('.object-card')
   const list = []
   cards.forEach(card => {
@@ -1959,14 +2364,6 @@ function getActiveSoundObjects() {
     list.push({ id, layer, color })
   })
 
-  if (list.length === 0) {
-    return [
-      { id: 'wind', layer: 'bed', color: '#38bdf8' },
-      { id: 'ocean', layer: 'bed', color: '#38bdf8' },
-      { id: 'rain', layer: 'texture', color: '#34d399' },
-      { id: 'chimes', layer: 'figure', color: '#fbbf24' }
-    ]
-  }
   return list
 }
 
@@ -2011,6 +2408,13 @@ function renderSoundstage() {
   ctx2d.stroke()
 
   const objects = getActiveSoundObjects()
+
+  if (objects.length === 0) {
+    ctx2d.fillStyle = 'rgba(148, 163, 184, 0.45)'
+    ctx2d.font = `${12 * dpr}px sans-serif`
+    ctx2d.textAlign = 'center'
+    ctx2d.fillText('Soundstage Empty • Add sonifiers from catalog below', centerX, h * 0.45)
+  }
 
   // Draw Spatial Spread Arcs for each object
   for (const obj of objects) {
@@ -2087,13 +2491,13 @@ function renderSoundstage() {
 
   // Micro-pulses for active sound components
   if (isPlaying) {
-    if (Math.random() < 0.03 && parseFloat(windVolSlider?.value || 0) > 0.05) {
+    if (landscape._objects.has('wind') && Math.random() < 0.03 && parseFloat(windVolSlider?.value || 0) > 0.05) {
       emitPulse('wind', '#38bdf8', 35)
     }
-    if (Math.random() < 0.06 && parseFloat(rainVolSlider?.value || 0) > 0.05) {
+    if (landscape._objects.has('rain') && Math.random() < 0.06 && parseFloat(rainVolSlider?.value || 0) > 0.05) {
       emitPulse('rain', '#34d399', 26)
     }
-    if (Math.random() < 0.02 && parseFloat(oceanVolSlider?.value || 0) > 0.05) {
+    if (landscape._objects.has('ocean') && Math.random() < 0.02 && parseFloat(oceanVolSlider?.value || 0) > 0.05) {
       emitPulse('ocean', '#38bdf8', 40)
     }
   }
