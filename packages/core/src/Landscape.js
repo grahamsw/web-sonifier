@@ -1097,6 +1097,7 @@ export class Landscape {
         outputRange,
         curve: adapterConfig.curve || 'linear',
         invert: Boolean(adapterConfig.invert),
+        autoRange: adapterConfig.autoRange ? { ...adapterConfig.autoRange } : undefined,
         decorators: adapterConfig.decorators ? [...adapterConfig.decorators] : [],
         tuning: adapterConfig.tuning ? { ...adapterConfig.tuning } : undefined,
         scatter: adapterConfig.scatter ? { ...adapterConfig.scatter } : undefined

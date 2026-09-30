@@ -12,6 +12,7 @@ import { PurrSonifier } from '@web-sonifier/purr'
 import { VoscSonifier } from '@web-sonifier/vosc'
 import { EngineSonifier } from '@web-sonifier/engine'
 import { PRESET_SCENES } from './presets.js'
+import { createDualRangeSlider, getOutputRangeBounds, formatRangeValue } from '../AutomatedParameterEditor.js'
 
 // ---------------------------------------------------------------------------
 // State & Instances
@@ -1697,6 +1698,23 @@ export function handleObjectRemove(objectId) {
   updatePlayerLayerPills()
 }
 
+export function getParamSliderBounds(schemaParam) {
+  if (schemaParam && schemaParam.range) {
+    const [min, max] = schemaParam.range
+    const span = max - min
+    let step = schemaParam.step
+    if (!step) {
+      if (span <= 1.5) step = 0.01
+      else if (span <= 10) step = 0.1
+      else if (span <= 100) step = 0.5
+      else if (span <= 500) step = 1
+      else step = 5
+    }
+    return { min, max, step }
+  }
+  return getOutputRangeBounds(schemaParam)
+}
+
 export function renderSonifierParameterEditor(objectId, container) {
   if (!container) return
   container.innerHTML = ''
@@ -1725,10 +1743,10 @@ export function renderSonifierParameterEditor(objectId, container) {
   }
 
   const availableFeeds = [
-    { id: 'traffic_rps', label: 'HTTP Request Rate (0–5000 req/s)', range: [0, 5000] },
-    { id: 'active_users', label: 'Active WebSocket Sessions (0–1000 conns)', range: [0, 1000] },
-    { id: 'cpu_load', label: 'Cluster CPU Load (0–100 %)', range: [0, 100] },
-    { id: 'error_spikes', label: 'HTTP 5xx Error Bursts (1–20 errors)', range: [1, 20] }
+    { id: 'traffic_rps', label: 'HTTP Request Rate (0–5000 req/s)', range: [0, 5000], unit: 'req/s', step: 25 },
+    { id: 'active_users', label: 'Active WebSocket Sessions (0–1000 conns)', range: [0, 1000], unit: 'conns', step: 10 },
+    { id: 'cpu_load', label: 'Cluster CPU Load (0–100 %)', range: [0, 100], unit: '%', step: 1 },
+    { id: 'error_spikes', label: 'HTTP 5xx Error Bursts (1–20 errors)', range: [1, 20], unit: 'errors', step: 1 }
   ]
 
   // Group parameters by param.group
@@ -1831,12 +1849,54 @@ export function renderSonifierParameterEditor(objectId, container) {
         const isMapped = Boolean(existingMapping)
         if (isMapped) cardEl.classList.add('sonified')
 
-        const boundsMin = param.range ? param.range[0] : 0
-        const boundsMax = param.range ? param.range[1] : 100
-        const boundsStep = param.step || ((boundsMax - boundsMin) <= 1.5 ? 0.01 : ((boundsMax - boundsMin) <= 10 ? 0.1 : 1))
+        const outBounds = getParamSliderBounds(param)
+        const boundsMin = outBounds.min
+        const boundsMax = outBounds.max
+        const boundsStep = outBounds.step
 
         const renderParamCardBody = (mapped) => {
           cardEl.classList.toggle('sonified', mapped)
+
+          let currentFeedId = existingMapping?.feedId || 'traffic_rps'
+          let feedObj = availableFeeds.find(f => f.id === currentFeedId) || availableFeeds[0]
+          let currentCurve = existingMapping?.adapterConfig?.curve || param.curve || 'linear'
+          let isInverted = Boolean(existingMapping?.adapterConfig?.invert)
+
+          let currentInMode = 'auto'
+          if (existingMapping?.adapterConfig?.autoRange) {
+            currentInMode = 'adaptive'
+          } else if (existingMapping?.adapterConfig?.inputRange) {
+            const r = existingMapping.adapterConfig.inputRange
+            if (r[0] === feedObj.range[0] && r[1] === feedObj.range[1]) {
+              currentInMode = 'auto'
+            } else {
+              currentInMode = 'custom'
+            }
+          }
+
+          let currentInMin = existingMapping?.adapterConfig?.inputRange?.[0] ?? feedObj.range[0]
+          let currentInMax = existingMapping?.adapterConfig?.inputRange?.[1] ?? feedObj.range[1]
+          let currentOutMin = existingMapping?.adapterConfig?.outputRange?.[0] ?? boundsMin
+          let currentOutMax = existingMapping?.adapterConfig?.outputRange?.[1] ?? boundsMax
+
+          const getOutputBadgeText = () => {
+            const u = param.unit ? ` ${param.unit}` : ''
+            return isInverted
+              ? `${formatRangeValue(currentOutMax)} ➔ ${formatRangeValue(currentOutMin)}${u}`
+              : `${formatRangeValue(currentOutMin)} – ${formatRangeValue(currentOutMax)}${u}`
+          }
+
+          const getInputBadgeText = () => {
+            const u = feedObj.unit ? ` ${feedObj.unit}` : ''
+            if (currentInMode === 'adaptive') {
+              return 'Dynamic Window (Auto-Range)'
+            }
+            if (currentInMode === 'auto') {
+              return `${feedObj.range[0]} – ${feedObj.range[1]}${u} (Feed Extents)`
+            }
+            return `${formatRangeValue(currentInMin)} – ${formatRangeValue(currentInMax)}${u} (Custom)`
+          }
+
           let bodyHtml = `
             <div class="param-card-header">
               <div class="param-title-group">
@@ -1861,12 +1921,6 @@ export function renderSonifierParameterEditor(objectId, container) {
               </div>
             `
           } else {
-            const currentFeedId = existingMapping?.feedId || 'traffic_rps'
-            const currentCurve = existingMapping?.adapterConfig?.curve || param.curve || 'linear'
-            const currentInMin = existingMapping?.adapterConfig?.inputRange?.[0] ?? 0
-            const currentInMax = existingMapping?.adapterConfig?.inputRange?.[1] ?? 5000
-            const currentOutMin = existingMapping?.adapterConfig?.outputRange?.[0] ?? boundsMin
-            const currentOutMax = existingMapping?.adapterConfig?.outputRange?.[1] ?? boundsMax
             const isTuningOn = Boolean(existingMapping?.adapterConfig?.tuning)
             const tuningScale = existingMapping?.adapterConfig?.tuning?.scale || 'pentatonic'
             const tuningRoot = existingMapping?.adapterConfig?.tuning?.root || 261.63
@@ -1891,26 +1945,34 @@ export function renderSonifierParameterEditor(objectId, container) {
                         <option value="exponential" ${currentCurve === 'exponential' ? 'selected' : ''}>Exponential (Perceptual)</option>
                         <option value="logarithmic" ${currentCurve === 'logarithmic' ? 'selected' : ''}>Logarithmic</option>
                       </select>
-                      <button type="button" class="btn-invert ${existingMapping?.adapterConfig?.invert ? 'inverted' : ''}" id="btn-invert-${pName}" title="Invert polarity">⇄</button>
+                      <button type="button" class="btn-invert ${isInverted ? 'inverted' : ''}" id="btn-invert-${pName}" title="Invert polarity">⇄</button>
                     </div>
                   </div>
                 </div>
 
-                <div class="inspector-range-grid" style="margin-top: 0.4rem;">
-                  <div>
-                    <label style="font-size: 0.74rem; color: var(--text-muted);">Input Range (Data Feed)</label>
-                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                      <input type="number" class="control-input in-min" id="in-min-${pName}" value="${currentInMin}" style="width: 50%;">
-                      <input type="number" class="control-input in-max" id="in-max-${pName}" value="${currentInMax}" style="width: 50%;">
-                    </div>
+                <!-- Output Range Box with Dual Range Slider -->
+                <div class="range-section-box" style="margin-top: 0.5rem;">
+                  <div class="range-section-header">
+                    <span class="range-section-title">Output Range (${param.unit || 'units'})</span>
+                    <span class="badge-range" id="output-range-badge-${pName}">${getOutputBadgeText()}</span>
                   </div>
-                  <div>
-                    <label style="font-size: 0.74rem; color: var(--text-muted);">Output Range (${param.unit || 'units'})</label>
-                    <div style="display: flex; gap: 0.4rem; margin-top: 0.2rem;">
-                      <input type="number" class="control-input out-min" id="out-min-${pName}" value="${currentOutMin}" style="width: 50%;">
-                      <input type="number" class="control-input out-max" id="out-max-${pName}" value="${currentOutMax}" style="width: 50%;">
+                  <div id="output-slider-container-${pName}"></div>
+                </div>
+
+                <!-- Input Range Box (Feed Extents / Adaptive / Custom Range Slider) -->
+                <div class="range-section-box">
+                  <div class="range-section-header">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                      <span class="range-section-title">Input Range (Data Feed)</span>
+                      <div class="range-mode-segmented" id="input-mode-group-${pName}">
+                        <button type="button" class="range-mode-btn ${currentInMode === 'auto' ? 'active' : ''}" data-mode="auto" id="btn-mode-auto-${pName}">Feed Extents</button>
+                        <button type="button" class="range-mode-btn ${currentInMode === 'adaptive' ? 'active' : ''}" data-mode="adaptive" id="btn-mode-adaptive-${pName}">Adaptive</button>
+                        <button type="button" class="range-mode-btn ${currentInMode === 'custom' ? 'active' : ''}" data-mode="custom" id="btn-mode-custom-${pName}">Custom Range</button>
+                      </div>
                     </div>
+                    <span class="badge-range badge-feed" id="input-range-badge-${pName}">${getInputBadgeText()}</span>
                   </div>
+                  <div id="input-slider-container-${pName}" style="display: ${currentInMode === 'custom' ? 'block' : 'none'}; margin-top: 0.25rem;"></div>
                 </div>
 
                 <!-- Decorator Accordions -->
@@ -1975,11 +2037,12 @@ export function renderSonifierParameterEditor(objectId, container) {
             const willMap = mapToggle.checked
             if (willMap) {
               const defFeed = 'traffic_rps'
+              const fObj = availableFeeds.find(f => f.id === defFeed) || availableFeeds[0]
               landscape.addMapping({
                 feedId: defFeed,
                 target: { objectId, param: pName },
                 adapter: {
-                  inputRange: [0, 5000],
+                  inputRange: [...fObj.range],
                   outputRange: [boundsMin, boundsMax],
                   curve: param.curve || 'linear'
                 }
@@ -2026,10 +2089,11 @@ export function renderSonifierParameterEditor(objectId, container) {
             const feedSel = cardEl.querySelector(`#feed-sel-${pName}`)
             const curveSel = cardEl.querySelector(`#curve-sel-${pName}`)
             const btnInv = cardEl.querySelector(`#btn-invert-${pName}`)
-            const inMinEl = cardEl.querySelector(`#in-min-${pName}`)
-            const inMaxEl = cardEl.querySelector(`#in-max-${pName}`)
-            const outMinEl = cardEl.querySelector(`#out-min-${pName}`)
-            const outMaxEl = cardEl.querySelector(`#out-max-${pName}`)
+            const outputContainer = cardEl.querySelector(`#output-slider-container-${pName}`)
+            const outBadge = cardEl.querySelector(`#output-range-badge-${pName}`)
+            const inputContainer = cardEl.querySelector(`#input-slider-container-${pName}`)
+            const inBadge = cardEl.querySelector(`#input-range-badge-${pName}`)
+            const modeBtns = cardEl.querySelectorAll(`#input-mode-group-${pName} .range-mode-btn`)
             const chkTuning = cardEl.querySelector(`#check-tuning-${pName}`)
             const scaleSel = cardEl.querySelector(`#scale-sel-${pName}`)
             const rootInp = cardEl.querySelector(`#root-input-${pName}`)
@@ -2039,29 +2103,30 @@ export function renderSonifierParameterEditor(objectId, container) {
             const winInp = cardEl.querySelector(`#win-input-${pName}`)
             const drawerScatter = cardEl.querySelector(`#drawer-scatter-${pName}`)
 
-            let isInverted = existingMapping?.adapterConfig?.invert || false
-
             const applyMappingUpdate = () => {
-              const feedId = feedSel?.value || 'traffic_rps'
-              const curve = curveSel?.value || 'linear'
-              const inMin = parseFloat(inMinEl?.value || 0)
-              const inMax = parseFloat(inMaxEl?.value || 5000)
-              const outMin = parseFloat(outMinEl?.value || boundsMin)
-              const outMax = parseFloat(outMaxEl?.value || boundsMax)
+              const feedId = currentFeedId
+              const curve = currentCurve
               const tuningOn = Boolean(chkTuning?.checked)
               const scatterOn = Boolean(chkScatter?.checked)
+
+              const adapterConf = {
+                outputRange: [currentOutMin, currentOutMax],
+                curve,
+                invert: isInverted,
+                ...(tuningOn ? { tuning: { enabled: true, scale: scaleSel?.value || 'pentatonic', root: parseFloat(rootInp?.value || 261.63) } } : {}),
+                ...(scatterOn ? { scatter: { enabled: true, strategy: stratSel?.value || 'poisson', windowSeconds: parseFloat(winInp?.value || 5.0) } } : {})
+              }
+
+              if (currentInMode === 'adaptive') {
+                adapterConf.autoRange = { windowSize: 100, padding: 0.05 }
+              } else {
+                adapterConf.inputRange = [currentInMin, currentInMax]
+              }
 
               const mappingDef = {
                 feedId,
                 target: { objectId, param: pName },
-                adapter: {
-                  inputRange: [inMin, inMax],
-                  outputRange: [outMin, outMax],
-                  curve,
-                  invert: isInverted,
-                  ...(tuningOn ? { tuning: { enabled: true, scale: scaleSel?.value || 'pentatonic', root: parseFloat(rootInp?.value || 261.63) } } : {}),
-                  ...(scatterOn ? { scatter: { enabled: true, strategy: stratSel?.value || 'poisson', windowSeconds: parseFloat(winInp?.value || 5.0) } } : {})
-                }
+                adapter: adapterConf
               }
 
               landscape.addMapping(mappingDef)
@@ -2076,33 +2141,109 @@ export function renderSonifierParameterEditor(objectId, container) {
               if (pName === currentMappingTarget.param) {
                 if (mappingFeedSelect) mappingFeedSelect.value = feedId
                 if (mappingCurveSelect) mappingCurveSelect.value = curve
-                if (mappingInMin) mappingInMin.value = inMin
-                if (mappingInMax) mappingInMax.value = inMax
-                if (mappingOutMin) mappingOutMin.value = outMin
-                if (mappingOutMax) mappingOutMax.value = outMax
+                if (mappingInMin) mappingInMin.value = currentInMin
+                if (mappingInMax) mappingInMax.value = currentInMax
+                if (mappingOutMin) mappingOutMin.value = currentOutMin
+                if (mappingOutMax) mappingOutMax.value = currentOutMax
                 if (mappingTuningEnable) mappingTuningEnable.checked = tuningOn
                 if (mappingScatterEnable) mappingScatterEnable.checked = scatterOn
               }
             }
 
-            feedSel?.addEventListener('change', () => {
-              const f = availableFeeds.find(x => x.id === feedSel.value)
-              if (f && inMinEl && inMaxEl) {
-                inMinEl.value = f.range[0]
-                inMaxEl.value = f.range[1]
+            // 1. Output Dual Range Slider
+            if (outputContainer) {
+              const outDualSlider = createDualRangeSlider(
+                param,
+                outBounds,
+                [currentOutMin, currentOutMax],
+                (newRange) => {
+                  currentOutMin = newRange[0]
+                  currentOutMax = newRange[1]
+                  if (outBadge) outBadge.textContent = getOutputBadgeText()
+                  applyMappingUpdate()
+                }
+              )
+              outputContainer.appendChild(outDualSlider)
+            }
+
+            // 2. Custom Input Dual Range Slider
+            const renderCustomInputSlider = () => {
+              if (!inputContainer) return
+              inputContainer.innerHTML = ''
+              const inBounds = {
+                min: feedObj.range[0],
+                max: feedObj.range[1],
+                step: feedObj.step || ((feedObj.range[1] - feedObj.range[0]) > 500 ? 10 : 1)
               }
+              const inDualSlider = createDualRangeSlider(
+                { name: `input-${pName}` },
+                inBounds,
+                [currentInMin, currentInMax],
+                (newRange) => {
+                  currentInMin = newRange[0]
+                  currentInMax = newRange[1]
+                  if (inBadge) inBadge.textContent = getInputBadgeText()
+                  applyMappingUpdate()
+                }
+              )
+              inDualSlider.querySelectorAll('.dual-range-input').forEach(inp => inp.classList.add('feed-input'))
+              const prog = inDualSlider.querySelector('.dual-range-progress')
+              if (prog) prog.classList.add('feed-progress')
+              inputContainer.appendChild(inDualSlider)
+            }
+
+            if (currentInMode === 'custom') {
+              renderCustomInputSlider()
+            }
+
+            // 3. Input Mode Buttons
+            modeBtns.forEach(btn => {
+              btn.addEventListener('click', () => {
+                modeBtns.forEach(b => b.classList.remove('active'))
+                btn.classList.add('active')
+                currentInMode = btn.dataset.mode
+                if (currentInMode === 'auto') {
+                  if (inputContainer) inputContainer.style.display = 'none'
+                  currentInMin = feedObj.range[0]
+                  currentInMax = feedObj.range[1]
+                } else if (currentInMode === 'adaptive') {
+                  if (inputContainer) inputContainer.style.display = 'none'
+                } else if (currentInMode === 'custom') {
+                  if (inputContainer) inputContainer.style.display = 'block'
+                  renderCustomInputSlider()
+                }
+                if (inBadge) inBadge.textContent = getInputBadgeText()
+                applyMappingUpdate()
+              })
+            })
+
+            // 4. Feed & Curve & Invert Listeners
+            feedSel?.addEventListener('change', () => {
+              currentFeedId = feedSel.value
+              feedObj = availableFeeds.find(x => x.id === currentFeedId) || availableFeeds[0]
+              if (currentInMode === 'auto') {
+                currentInMin = feedObj.range[0]
+                currentInMax = feedObj.range[1]
+              } else if (currentInMode === 'custom') {
+                currentInMin = feedObj.range[0]
+                currentInMax = feedObj.range[1]
+                renderCustomInputSlider()
+              }
+              if (inBadge) inBadge.textContent = getInputBadgeText()
               applyMappingUpdate()
             })
-            curveSel?.addEventListener('change', applyMappingUpdate)
+
+            curveSel?.addEventListener('change', () => {
+              currentCurve = curveSel.value
+              applyMappingUpdate()
+            })
+
             btnInv?.addEventListener('click', () => {
               isInverted = !isInverted
               btnInv.classList.toggle('inverted', isInverted)
+              if (outBadge) outBadge.textContent = getOutputBadgeText()
               applyMappingUpdate()
             })
-            inMinEl?.addEventListener('change', applyMappingUpdate)
-            inMaxEl?.addEventListener('change', applyMappingUpdate)
-            outMinEl?.addEventListener('change', applyMappingUpdate)
-            outMaxEl?.addEventListener('change', applyMappingUpdate)
 
             chkTuning?.addEventListener('change', () => {
               if (drawerTuning) drawerTuning.style.display = chkTuning.checked ? 'block' : 'none'
