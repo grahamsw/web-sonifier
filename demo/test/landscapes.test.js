@@ -515,6 +515,70 @@ describe('Landscapes Studio UI & Integration', () => {
     const speedScatterCheck = speedCard.querySelector('#check-scatter-speed')
     expect(speedScatterCheck).not.toBeNull()
 
+    // Verify dual range slider on mapped speed parameter
+    const dualSlider = speedCard.querySelector('#dual-slider-speed')
+    expect(dualSlider).not.toBeNull()
+    const minThumb = speedCard.querySelector('#range-slider-min-speed')
+    const maxThumb = speedCard.querySelector('#range-slider-max-speed')
+    expect(minThumb).not.toBeNull()
+    expect(maxThumb).not.toBeNull()
+    const outBadge = speedCard.querySelector('#output-range-badge-speed')
+    expect(outBadge.textContent).toContain('15')
+    expect(outBadge.textContent).toContain('75')
+
+    // Adjust dual range slider thumbs
+    maxThumb.value = '80'
+    maxThumb.dispatchEvent(new Event('input'))
+    minThumb.value = '20'
+    minThumb.dispatchEvent(new Event('input'))
+    expect(outBadge.textContent).toContain('20')
+    expect(outBadge.textContent).toContain('80')
+
+    const windMapping = landscape._mappings.find(m => m.target?.objectId === 'wind' && m.target?.param === 'speed')
+    expect(windMapping.adapterConfig.outputRange).toEqual([20, 80])
+
+    // Verify Invert Polarity button toggles range badge
+    const btnInvert = speedCard.querySelector('#btn-invert-speed')
+    btnInvert.click()
+    expect(outBadge.textContent).toContain('80 ➔ 20')
+    const windMappingInverted = landscape._mappings.find(m => m.target?.objectId === 'wind' && m.target?.param === 'speed')
+    expect(windMappingInverted.adapterConfig.invert).toBe(true)
+
+    // Verify Input Range Modes: Feed Extents, Adaptive, Custom
+    const btnModeAdaptive = speedCard.querySelector('#btn-mode-adaptive-speed')
+    const btnModeCustom = speedCard.querySelector('#btn-mode-custom-speed')
+    const btnModeAuto = speedCard.querySelector('#btn-mode-auto-speed')
+    const inBadge = speedCard.querySelector('#input-range-badge-speed')
+    const customInContainer = speedCard.querySelector('#input-slider-container-speed')
+
+    expect(btnModeAuto.classList.contains('active')).toBe(true)
+    expect(inBadge.textContent).toContain('Feed Extents')
+    expect(customInContainer.style.display).toBe('none')
+
+    // Switch to Adaptive mode
+    btnModeAdaptive.click()
+    expect(btnModeAdaptive.classList.contains('active')).toBe(true)
+    expect(inBadge.textContent).toContain('Auto-Range')
+    const windMappingAdaptive = landscape._mappings.find(m => m.target?.objectId === 'wind' && m.target?.param === 'speed')
+    expect(windMappingAdaptive.adapterConfig.autoRange).toBeDefined()
+
+    // Switch to Custom Range mode
+    btnModeCustom.click()
+    expect(btnModeCustom.classList.contains('active')).toBe(true)
+    expect(customInContainer.style.display).toBe('block')
+    const inDualSlider = customInContainer.querySelector('#dual-slider-input-speed')
+    expect(inDualSlider).not.toBeNull()
+    const inMinThumb = customInContainer.querySelector('#range-slider-min-input-speed')
+    const inMaxThumb = customInContainer.querySelector('#range-slider-max-input-speed')
+    expect(inMinThumb).not.toBeNull()
+    expect(inMaxThumb).not.toBeNull()
+
+    inMinThumb.value = '500'
+    inMinThumb.dispatchEvent(new Event('input'))
+    const windMappingCustom = landscape._mappings.find(m => m.target?.objectId === 'wind' && m.target?.param === 'speed')
+    expect(windMappingCustom.adapterConfig.inputRange[0]).toBe(500)
+    expect(inBadge.textContent).toContain('Custom')
+
     // Turbulence is unmapped: verify manual slider is available
     const turbToggle = turbCard.querySelector('#map-toggle-turbulence')
     expect(turbToggle).not.toBeNull()
