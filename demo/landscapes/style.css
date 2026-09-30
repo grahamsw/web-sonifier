@@ -408,6 +408,12 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.object-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .object-title {
   font-size: 1.05rem;
   font-weight: 600;
@@ -1182,24 +1188,41 @@ select.control-select option {
 }
 
 .btn-remove-object {
-  background: rgba(244, 63, 94, 0.1);
+  background: rgba(244, 63, 94, 0.12);
   color: #f43f5e;
-  border: 1px solid rgba(244, 63, 94, 0.2);
-  width: 22px;
-  height: 22px;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  padding: 0.2rem 0.55rem;
   border-radius: 4px;
-  font-size: 1rem;
-  display: flex;
+  font-size: 0.78rem;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.3rem;
   cursor: pointer;
-  line-height: 1;
+  line-height: 1.2;
+  font-weight: 500;
   transition: all 0.15s ease;
 }
 
 .btn-remove-object:hover {
   background: rgba(244, 63, 94, 0.25);
   border-color: #f43f5e;
+  color: #fff;
+}
+
+.btn-remove-header {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+}
+
+.btn-remove-header:hover {
+  opacity: 1;
 }
 
 /* Catalog Modal */

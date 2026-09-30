@@ -416,4 +416,66 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(pills.textContent).toContain('Texture')
     expect(pills.textContent).toContain('Figure')
   })
+
+  it('renders prominent removal UI affordances (header ✕ and toolbar 🗑️ Remove) on cards', async () => {
+    const { createSonifierCard } = await import('../landscapes/main.js')
+
+    const cardIds = ['card-wind', 'card-ocean', 'card-rain', 'card-chime']
+    for (const cid of cardIds) {
+      const card = document.getElementById(cid)
+      expect(card).not.toBeNull()
+
+      const headerBtn = card.querySelector('.btn-remove-header')
+      expect(headerBtn).not.toBeNull()
+      expect(headerBtn.textContent).toContain('✕')
+
+      const toolbarBtn = card.querySelector('.card-actions-wrap .btn-remove-object')
+      expect(toolbarBtn).not.toBeNull()
+      expect(toolbarBtn.textContent).toContain('Remove')
+    }
+
+    // Dynamic card
+    const dynamicCard = createSonifierCard('dyn-1', 'bubble', 'texture')
+    const dynHeaderBtn = dynamicCard.querySelector('.btn-remove-header')
+    expect(dynHeaderBtn).not.toBeNull()
+    const dynToolbarBtn = dynamicCard.querySelector('.card-actions-wrap .btn-remove-object')
+    expect(dynToolbarBtn).not.toBeNull()
+    expect(dynToolbarBtn.textContent).toContain('Remove')
+  })
+
+  it('removes default sonifiers and reflects removals in getCurrentSceneDescriptor', async () => {
+    const { handleObjectRemove, getCurrentSceneDescriptor, addSonifierFromCatalog } = await import('../landscapes/main.js')
+
+    // Initial descriptor has all 4 default objects
+    const initDesc = getCurrentSceneDescriptor()
+    expect(initDesc.objects.wind).toBeDefined()
+    expect(initDesc.objects.chimes).toBeDefined()
+    expect(initDesc.objects.rain).toBeDefined()
+    expect(initDesc.objects.ocean).toBeDefined()
+
+    // Remove chimes
+    handleObjectRemove('chimes')
+    expect(document.getElementById('card-chime')).toBeNull()
+
+    const descAfterChimes = getCurrentSceneDescriptor()
+    expect(descAfterChimes.objects.chimes).toBeUndefined()
+    expect(descAfterChimes.objects.wind).toBeDefined()
+
+    // Remove wind
+    handleObjectRemove('wind')
+    expect(document.getElementById('card-wind')).toBeNull()
+
+    const descAfterWind = getCurrentSceneDescriptor()
+    expect(descAfterWind.objects.wind).toBeUndefined()
+    expect(descAfterWind.objects.chimes).toBeUndefined()
+    expect(descAfterWind.objects.rain).toBeDefined()
+    expect(descAfterWind.objects.ocean).toBeDefined()
+
+    // Add dynamic sonifier from catalog and verify it appears in descriptor
+    await addSonifierFromCatalog('bubble', 'stream-bubbles', 'texture')
+    const descWithDynamic = getCurrentSceneDescriptor()
+    expect(descWithDynamic.objects['stream-bubbles']).toBeDefined()
+    expect(descWithDynamic.objects['stream-bubbles'].type).toBe('bubble')
+    expect(descWithDynamic.objects['stream-bubbles'].layer).toBe('texture')
+  })
 })
