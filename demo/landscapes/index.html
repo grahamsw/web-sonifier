@@ -795,106 +795,47 @@
 
   <!-- Parameter Mapping & Decorator Inspector Modal -->
   <div class="modal-backdrop" id="modal-mapping-inspector" style="display: none;">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-wide modal-params-inspector">
       <div class="modal-header">
-        <h3 id="mapping-modal-title">🎛️ Mapping Inspector</h3>
+        <div>
+          <h3 id="mapping-modal-title">🎛️ Parameters & Feed Mappings</h3>
+          <p class="modal-subtitle" id="mapping-modal-subtitle">Configure static values, map telemetry feeds, and attach decorators.</p>
+        </div>
         <button type="button" class="btn-close-modal" id="btn-close-mapping" aria-label="Close">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="max-height: 72vh; overflow-y: auto;">
         <div class="mapping-meta-banner">
-          <div><strong id="mapping-target-object">wind</strong> &rarr; <span id="mapping-target-param">speed</span></div>
+          <div><strong id="mapping-target-object">wind</strong> &bull; <span id="mapping-target-name">Aeolian Wind</span></div>
           <span class="badge cyan" id="mapping-target-layer">Bed Layer</span>
         </div>
 
-        <div class="control-row" style="margin-top: 1rem;">
-          <label for="mapping-feed-select">Telemetry / Data Feed:</label>
-          <select id="mapping-feed-select" class="control-select">
-            <option value="traffic_rps">traffic_rps (HTTP Request Rate)</option>
-            <option value="active_users">active_users (Active WebSocket Sessions)</option>
-            <option value="cpu_load">cpu_load (Cluster CPU Load)</option>
-            <option value="error_spikes">error_spikes (HTTP 5xx Error Bursts)</option>
-          </select>
+        <!-- Dynamic Parameter Editor Container -->
+        <div id="mapping-params-container" class="mapping-params-container">
+          <!-- Dynamically populated per-parameter by renderSonifierParameterEditor() -->
         </div>
 
-        <div class="control-row" style="margin-top: 0.8rem;">
-          <label for="mapping-curve-select">Transfer Curve:</label>
-          <select id="mapping-curve-select" class="control-select">
-            <option value="linear">Linear</option>
-            <option value="exponential">Exponential (Perceptual)</option>
-            <option value="logarithmic">Logarithmic</option>
-          </select>
+        <!-- Legacy compatibility container for existing test selectors -->
+        <div id="mapping-legacy-compat" style="display: none;" aria-hidden="true">
+          <span id="mapping-target-param">speed</span>
+          <select id="mapping-feed-select"><option value="traffic_rps">traffic_rps</option></select>
+          <select id="mapping-curve-select"><option value="linear">linear</option></select>
+          <input type="number" id="mapping-in-min" value="0">
+          <input type="number" id="mapping-in-max" value="5000">
+          <input type="number" id="mapping-out-min" value="15">
+          <input type="number" id="mapping-out-max" value="75">
+          <input type="checkbox" id="mapping-tuning-enable">
+          <select id="mapping-tuning-scale"><option value="pentatonic">pentatonic</option></select>
+          <input type="number" id="mapping-tuning-root" value="261.63">
+          <input type="checkbox" id="mapping-scatter-enable">
+          <select id="mapping-scatter-strategy"><option value="poisson">poisson</option></select>
+          <input type="number" id="mapping-scatter-window" value="5.0">
+          <div id="tuning-controls-section"></div>
+          <div id="scatter-controls-section"></div>
         </div>
-
-        <div class="inspector-range-grid">
-          <div>
-            <label style="font-size: 0.78rem; color: var(--text-muted);">Input Range (Min / Max)</label>
-            <div style="display: flex; gap: 0.4rem; margin-top: 0.3rem;">
-              <input type="number" id="mapping-in-min" class="control-input" value="0" style="width: 50%;">
-              <input type="number" id="mapping-in-max" class="control-input" value="5000" style="width: 50%;">
-            </div>
-          </div>
-          <div>
-            <label style="font-size: 0.78rem; color: var(--text-muted);">Output Range (Min / Max)</label>
-            <div style="display: flex; gap: 0.4rem; margin-top: 0.3rem;">
-              <input type="number" id="mapping-out-min" class="control-input" value="15" style="width: 50%;">
-              <input type="number" id="mapping-out-max" class="control-input" value="75" style="width: 50%;">
-            </div>
-          </div>
-        </div>
-
-        <!-- Section: Continuous Musical Tuning Decorator -->
-        <fieldset class="decorator-fieldset">
-          <legend>🎵 Continuous Musical Tuning</legend>
-          <div class="toggle-row">
-            <label for="mapping-tuning-enable">Enable Scale / Harmonic Snapping</label>
-            <input type="checkbox" id="mapping-tuning-enable">
-          </div>
-          <div id="tuning-controls-section" style="margin-top: 0.6rem; display: none;">
-            <div class="control-row">
-              <label for="mapping-tuning-scale">Musical Scale:</label>
-              <select id="mapping-tuning-scale" class="control-select">
-                <option value="pentatonic">Minor Pentatonic (Ambient Harmony)</option>
-                <option value="major">Major Diatonic</option>
-                <option value="minor">Natural Minor (Aeolian)</option>
-                <option value="dorian">Dorian (Modal Mysticism)</option>
-                <option value="lydian">Lydian (Bright Ethereal)</option>
-                <option value="wholetone">Whole Tone (Dreamlike Float)</option>
-                <option value="harmonics">Harmonic Series (Overtones 1-16)</option>
-              </select>
-            </div>
-            <div class="control-row" style="margin-top: 0.5rem;">
-              <label for="mapping-tuning-root">Root Pitch (Hz):</label>
-              <input type="number" id="mapping-tuning-root" class="control-input" value="261.63" step="0.01">
-            </div>
-          </div>
-        </fieldset>
-
-        <!-- Section: Temporal Event Scatter Decorator -->
-        <fieldset class="decorator-fieldset scatter-fieldset">
-          <legend>⏳ Temporal Event Scatter</legend>
-          <div class="toggle-row">
-            <label for="mapping-scatter-enable">Enable Stochastic Poisson / Jitter Timing</label>
-            <input type="checkbox" id="mapping-scatter-enable">
-          </div>
-          <div id="scatter-controls-section" style="margin-top: 0.6rem; display: none;">
-            <div class="control-row">
-              <label for="mapping-scatter-strategy">Scatter Strategy:</label>
-              <select id="mapping-scatter-strategy" class="control-select">
-                <option value="poisson">Poisson Process (Natural Arrival)</option>
-                <option value="uniform-jitter">Uniform Jitter (&plusmn;35%)</option>
-                <option value="fixed">Fixed Rate</option>
-              </select>
-            </div>
-            <div class="control-row" style="margin-top: 0.5rem;">
-              <label for="mapping-scatter-window">Window Duration (seconds):</label>
-              <input type="number" id="mapping-scatter-window" class="control-input" value="5.0" step="0.5" min="0.5" max="60.0">
-            </div>
-          </div>
-        </fieldset>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: space-between;">
-        <button type="button" class="btn-action secondary" id="btn-mapping-remove" style="color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3);">🗑️ Remove Mapping</button>
-        <button type="button" class="btn-action" id="btn-mapping-save">Save & Apply Mapping</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button type="button" class="btn-action secondary" id="btn-mapping-remove" style="color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3);">🗑️ Clear Mappings</button>
+        <button type="button" class="btn-action" id="btn-mapping-save">Done & Close</button>
       </div>
     </div>
   </div>

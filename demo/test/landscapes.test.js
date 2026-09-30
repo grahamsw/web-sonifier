@@ -478,4 +478,76 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(descWithDynamic.objects['stream-bubbles'].type).toBe('bubble')
     expect(descWithDynamic.objects['stream-bubbles'].layer).toBe('texture')
   })
+
+  it('renders all schema parameters in mapping inspector with feed toggles, manual sliders, and decorators', async () => {
+    const { openMappingInspector, renderSonifierParameterEditor, landscape } = await import('../landscapes/main.js')
+
+    if (!landscape._mappings.some(m => m.target?.objectId === 'wind' && m.target?.param === 'speed')) {
+      landscape.addMapping({
+        feedId: 'traffic_rps',
+        target: { objectId: 'wind', param: 'speed' },
+        adapter: { inputRange: [0, 5000], outputRange: [15, 75], curve: 'exponential' }
+      })
+    }
+
+    openMappingInspector('wind', 'speed')
+
+    const container = document.getElementById('mapping-params-container')
+    expect(container).not.toBeNull()
+
+    // Wind has speed, turbulence, cavity, volume in its schema
+    const speedCard = container.querySelector('#inspector-param-card-speed')
+    const turbCard = container.querySelector('#inspector-param-card-turbulence')
+    const cavityCard = container.querySelector('#inspector-param-card-cavity')
+    expect(speedCard).not.toBeNull()
+    expect(turbCard).not.toBeNull()
+    expect(cavityCard).not.toBeNull()
+
+    // Speed was mapped initially in default landscape mappings
+    const speedToggle = speedCard.querySelector('#map-toggle-speed')
+    expect(speedToggle).not.toBeNull()
+    expect(speedToggle.checked).toBe(true)
+    expect(speedCard.classList.contains('sonified')).toBe(true)
+
+    // Verify decorator controls on mapped parameter
+    const speedTuningCheck = speedCard.querySelector('#check-tuning-speed')
+    expect(speedTuningCheck).not.toBeNull()
+    const speedScatterCheck = speedCard.querySelector('#check-scatter-speed')
+    expect(speedScatterCheck).not.toBeNull()
+
+    // Turbulence is unmapped: verify manual slider is available
+    const turbToggle = turbCard.querySelector('#map-toggle-turbulence')
+    expect(turbToggle).not.toBeNull()
+    expect(turbToggle.checked).toBe(false)
+    const turbSlider = turbCard.querySelector('#slider-manual-turbulence')
+    expect(turbSlider).not.toBeNull()
+
+    // Adjusting manual slider
+    turbSlider.value = '0.85'
+    turbSlider.dispatchEvent(new Event('input'))
+    const readout = turbCard.querySelector('#readout-turbulence')
+    expect(readout.textContent).toContain('0.85')
+
+    // Test with Chimes (has discrete material and continuous pitch)
+    openMappingInspector('chimes', 'pitch')
+    const matCard = container.querySelector('#inspector-param-card-material')
+    expect(matCard).not.toBeNull()
+    expect(matCard.classList.contains('discrete-param-card')).toBe(true)
+    const matSelect = matCard.querySelector('#select-inspector-material')
+    expect(matSelect).not.toBeNull()
+  })
+
+  it('returns empty array in getActiveSoundObjects when all sonifiers are removed and does not resurrect default objects', async () => {
+    const { handleObjectRemove, getActiveSoundObjects } = await import('../landscapes/main.js')
+
+    // Remove all 4 initial cards
+    handleObjectRemove('wind')
+    handleObjectRemove('rain')
+    handleObjectRemove('ocean')
+    handleObjectRemove('chimes')
+
+    const active = getActiveSoundObjects()
+    expect(active).toEqual([])
+    expect(document.querySelectorAll('.object-card').length).toBe(0)
+  })
 })
