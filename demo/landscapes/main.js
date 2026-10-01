@@ -165,6 +165,8 @@ const windVolSlider = document.getElementById('wind-volume')
 const windVolDisp = document.getElementById('disp-wind-volume')
 const windPanSlider = document.getElementById('wind-pan')
 const windPanDisp = document.getElementById('disp-wind-pan')
+const windDistanceSlider = document.getElementById('wind-distance')
+const windDistanceDisp = document.getElementById('disp-wind-distance')
 const windSpreadSlider = document.getElementById('wind-spread')
 const windSpreadDisp = document.getElementById('disp-wind-spread')
 const windSpeedSlider = document.getElementById('wind-speed')
@@ -179,6 +181,8 @@ const rainVolSlider = document.getElementById('rain-volume')
 const rainVolDisp = document.getElementById('disp-rain-volume')
 const rainPanSlider = document.getElementById('rain-pan')
 const rainPanDisp = document.getElementById('disp-rain-pan')
+const rainDistanceSlider = document.getElementById('rain-distance')
+const rainDistanceDisp = document.getElementById('disp-rain-distance')
 const rainSpreadSlider = document.getElementById('rain-spread')
 const rainSpreadDisp = document.getElementById('disp-rain-spread')
 const rainIntensitySlider = document.getElementById('rain-intensity')
@@ -194,6 +198,8 @@ const oceanVolSlider = document.getElementById('ocean-volume')
 const oceanVolDisp = document.getElementById('disp-ocean-volume')
 const oceanPanSlider = document.getElementById('ocean-pan')
 const oceanPanDisp = document.getElementById('disp-ocean-pan')
+const oceanDistanceSlider = document.getElementById('ocean-distance')
+const oceanDistanceDisp = document.getElementById('disp-ocean-distance')
 const oceanSpreadSlider = document.getElementById('ocean-spread')
 const oceanSpreadDisp = document.getElementById('disp-ocean-spread')
 const oceanIntensitySlider = document.getElementById('ocean-intensity')
@@ -210,6 +216,8 @@ const chimeVolSlider = document.getElementById('chime-volume')
 const chimeVolDisp = document.getElementById('disp-chime-volume')
 const chimePanSlider = document.getElementById('chime-pan')
 const chimePanDisp = document.getElementById('disp-chime-pan')
+const chimeDistanceSlider = document.getElementById('chime-distance')
+const chimeDistanceDisp = document.getElementById('disp-chime-distance')
 const chimeSpreadSlider = document.getElementById('chime-spread')
 const chimeSpreadDisp = document.getElementById('disp-chime-spread')
 const chimeCoupledCheck = document.getElementById('chime-wind-coupled')
@@ -233,6 +241,99 @@ const ctx2d = canvas ? canvas.getContext('2d') : null
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+export function formatDistance(distanceMeters) {
+  const dist = Math.max(0, distanceMeters)
+  const attenLinear = 1 / Math.sqrt(1 + 0.1 * dist)
+  const attenDb = 20 * Math.log10(attenLinear)
+  const wetReverb = Math.round(Math.min(100, (0.3 + 0.04 * dist) * 100))
+  return `${dist.toFixed(1)}m (${attenDb.toFixed(1)} dB, ${wetReverb}% wet)`
+}
+
+export function hexToRgba(hex, alpha) {
+  if (!hex || typeof hex !== 'string') return `rgba(56, 189, 248, ${alpha})`
+  let c = hex.replace('#', '')
+  if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2]
+  const num = parseInt(c.slice(0, 6), 16)
+  if (isNaN(num)) return `rgba(56, 189, 248, ${alpha})`
+  const r = (num >> 16) & 255
+  const g = (num >> 8) & 255
+  const b = num & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+export function updateCardSpatialControls(objectId, pan, distance) {
+  const targetId = objectId === 'chimes' ? 'chime' : objectId
+
+  // Pan slider & readout
+  const panSlider = document.getElementById(`${targetId}-pan`) ||
+                    document.querySelector(`article[data-object-id="${objectId}"] input[data-param="pan"]`)
+  const panDisp = document.getElementById(`disp-${targetId}-pan`) ||
+                  document.querySelector(`article[data-object-id="${objectId}"] #disp-${targetId}-pan`)
+  if (panSlider && pan !== undefined) {
+    panSlider.value = pan
+    if (panDisp) panDisp.textContent = formatPan(pan)
+  }
+
+  // Distance slider & readout
+  const distSlider = document.getElementById(`${targetId}-distance`) ||
+                     document.querySelector(`article[data-object-id="${objectId}"] input[data-param="distance"]`)
+  const distDisp = document.getElementById(`disp-${targetId}-distance`) ||
+                   document.querySelector(`article[data-object-id="${objectId}"] #disp-${targetId}-distance`)
+  if (distSlider && distance !== undefined) {
+    distSlider.value = distance
+    if (distDisp) distDisp.textContent = formatDistance(distance)
+  }
+}
+
+export function setupCardTabs(container = document) {
+  const tabBtns = container.querySelectorAll('.card-tab-btn')
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.dataset.tab
+      const objectId = btn.dataset.objectId
+      const card = btn.closest('.object-card')
+      if (!card) return
+
+      card.querySelectorAll('.card-tab-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+
+      const spatialPane = card.querySelector('.tab-spatial-pane')
+      const paramsPane = card.querySelector('.tab-params-pane')
+
+      if (targetTab === 'spatial') {
+        if (spatialPane) spatialPane.classList.add('active')
+        if (paramsPane) paramsPane.classList.remove('active')
+      } else {
+        if (spatialPane) spatialPane.classList.remove('active')
+        if (paramsPane) {
+          paramsPane.classList.add('active')
+          if (paramsPane.dataset.rendered !== 'true' &&
+              objectId !== 'wind' && objectId !== 'rain' && objectId !== 'ocean' && objectId !== 'chimes' && objectId !== 'chime') {
+            renderSonifierParameterEditor(objectId, paramsPane)
+            paramsPane.dataset.rendered = 'true'
+          }
+        }
+      }
+    })
+  })
+}
+
+export function updateTabMappingBadges() {
+  const cards = document.querySelectorAll('.object-card')
+  cards.forEach(card => {
+    const objectId = card.dataset.objectId || card.id.replace('card-', '')
+    const targetId = objectId === 'chime' ? 'chimes' : objectId
+    const badge = card.querySelector('.card-tab-badge')
+    if (badge) {
+      const count = landscape._mappings.filter(m =>
+        m.target && (m.target.objectId === targetId || m.target.objectId === objectId)
+      ).length
+      badge.textContent = count
+      badge.classList.toggle('has-mappings', count > 0)
+    }
+  })
+}
 
 function formatPan(val) {
   const deg = Math.round((val + 1) * 90) // 0° left, 90° center, 180° right
@@ -478,6 +579,14 @@ if (windPanSlider) {
   })
 }
 
+if (windDistanceSlider) {
+  windDistanceSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (windDistanceDisp) windDistanceDisp.textContent = formatDistance(val)
+    landscape.setParam('wind', 'distance', val)
+  })
+}
+
 if (windSpreadSlider) {
   windSpreadSlider.addEventListener('input', e => {
     const val = parseFloat(e.target.value)
@@ -525,6 +634,14 @@ if (rainPanSlider) {
     const val = parseFloat(e.target.value)
     if (rainPanDisp) rainPanDisp.textContent = formatPan(val)
     landscape.setParam('rain', 'pan', val)
+  })
+}
+
+if (rainDistanceSlider) {
+  rainDistanceSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (rainDistanceDisp) rainDistanceDisp.textContent = formatDistance(val)
+    landscape.setParam('rain', 'distance', val)
   })
 }
 
@@ -585,6 +702,14 @@ if (oceanPanSlider) {
   })
 }
 
+if (oceanDistanceSlider) {
+  oceanDistanceSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (oceanDistanceDisp) oceanDistanceDisp.textContent = formatDistance(val)
+    landscape.setParam('ocean', 'distance', val)
+  })
+}
+
 if (oceanSpreadSlider) {
   oceanSpreadSlider.addEventListener('input', e => {
     const val = parseFloat(e.target.value)
@@ -640,6 +765,14 @@ if (chimePanSlider) {
     const val = parseFloat(e.target.value)
     if (chimePanDisp) chimePanDisp.textContent = formatPan(val)
     landscape.setParam('chimes', 'pan', val)
+  })
+}
+
+if (chimeDistanceSlider) {
+  chimeDistanceSlider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value)
+    if (chimeDistanceDisp) chimeDistanceDisp.textContent = formatDistance(val)
+    landscape.setParam('chimes', 'distance', val)
   })
 }
 
@@ -834,7 +967,7 @@ export function getCurrentSceneDescriptor() {
       layer: document.getElementById('layer-select-wind')?.value || 'bed',
       gain: parseFloat(windVolSlider?.value || 0.70),
       pan: parseFloat(windPanSlider?.value || 0.0),
-      distance: 10,
+      distance: parseFloat(windDistanceSlider?.value || 12),
       spread: parseFloat(windSpreadSlider?.value || 0.80),
       reverbSend: 0.20,
       params: {
@@ -852,7 +985,7 @@ export function getCurrentSceneDescriptor() {
       layer: document.getElementById('layer-select-rain')?.value || 'texture',
       gain: parseFloat(rainVolSlider?.value || 0.65),
       pan: parseFloat(rainPanSlider?.value || 0.0),
-      distance: 5,
+      distance: parseFloat(rainDistanceSlider?.value || 4),
       spread: parseFloat(rainSpreadSlider?.value || 0.95),
       reverbSend: 0.25,
       params: {
@@ -871,7 +1004,7 @@ export function getCurrentSceneDescriptor() {
       layer: document.getElementById('layer-select-ocean')?.value || 'bed',
       gain: parseFloat(oceanVolSlider?.value || 0.55),
       pan: parseFloat(oceanPanSlider?.value || 0.25),
-      distance: 16,
+      distance: parseFloat(oceanDistanceSlider?.value || 8),
       spread: parseFloat(oceanSpreadSlider?.value || 0.50),
       reverbSend: 0.35,
       params: {
@@ -890,7 +1023,7 @@ export function getCurrentSceneDescriptor() {
       layer: document.getElementById('layer-select-chime')?.value || 'figure',
       gain: parseFloat(chimeVolSlider?.value || 0.75),
       pan: parseFloat(chimePanSlider?.value || 0.45),
-      distance: 2,
+      distance: parseFloat(chimeDistanceSlider?.value || 3),
       spread: parseFloat(chimeSpreadSlider?.value || 0.08),
       reverbSend: 0.45,
       params: {
@@ -911,6 +1044,7 @@ export function getCurrentSceneDescriptor() {
     const vol = parseFloat(card.querySelector(`[data-param="gain"]`)?.value || 0.70)
     const pan = parseFloat(card.querySelector(`[data-param="pan"]`)?.value || 0.0)
     const spread = parseFloat(card.querySelector(`[data-param="spread"]`)?.value || 0.50)
+    const distance = parseFloat(card.querySelector(`[data-param="distance"]`)?.value || (layer === 'figure' ? 3 : (layer === 'texture' ? 6 : 12)))
 
     objects[id] = {
       type,
@@ -918,7 +1052,7 @@ export function getCurrentSceneDescriptor() {
       gain: vol,
       pan,
       spread,
-      distance: layer === 'figure' ? 3 : (layer === 'texture' ? 6 : 12),
+      distance,
       reverbSend: layer === 'figure' ? 0.35 : (layer === 'texture' ? 0.25 : 0.20),
       params: {}
     }
@@ -1507,7 +1641,8 @@ export function createSonifierCard(id, type, layer = 'bed') {
   article.dataset.objectId = id
   article.dataset.type = type
 
-  const badgeClass = layer === 'bed' ? 'cyan' : (layer === 'texture' ? 'cyan' : 'cyan')
+  const badgeClass = 'cyan'
+  const defaultDist = layer === 'figure' ? 3 : (layer === 'texture' ? 6 : 12)
 
   article.innerHTML = `
     <div class="object-header">
@@ -1521,54 +1656,73 @@ export function createSonifierCard(id, type, layer = 'bed') {
       </div>
     </div>
 
-    <!-- Layer & Mapping Control Bar -->
-    <div class="card-layer-toolbar">
-      <div class="layer-selector-wrap">
-        <label for="layer-select-${id}">Layer:</label>
-        <select class="select-change-layer" id="layer-select-${id}" data-object-id="${id}">
-          <option value="bed" ${layer === 'bed' ? 'selected' : ''}>Bed</option>
-          <option value="texture" ${layer === 'texture' ? 'selected' : ''}>Texture</option>
-          <option value="figure" ${layer === 'figure' ? 'selected' : ''}>Figure</option>
-        </select>
+    <!-- Card Tab Bar -->
+    <div class="card-tabs-bar">
+      <button type="button" class="card-tab-btn active" data-tab="spatial" data-object-id="${id}">🧭 Spatial</button>
+      <button type="button" class="card-tab-btn" data-tab="params" data-object-id="${id}">🎛️ Parameters & Feeds <span class="card-tab-badge" id="tab-badge-${id}">0</span></button>
+    </div>
+
+    <!-- Tab 1: Spatial Placement & Depth -->
+    <div class="card-tab-pane tab-spatial-pane active" id="tab-spatial-${id}">
+      <div class="card-layer-toolbar" style="margin-top: 0;">
+        <div class="layer-selector-wrap">
+          <label for="layer-select-${id}">Layer:</label>
+          <select class="select-change-layer" id="layer-select-${id}" data-object-id="${id}">
+            <option value="bed" ${layer === 'bed' ? 'selected' : ''}>Bed</option>
+            <option value="texture" ${layer === 'texture' ? 'selected' : ''}>Texture</option>
+            <option value="figure" ${layer === 'figure' ? 'selected' : ''}>Figure</option>
+          </select>
+        </div>
+        <div class="card-actions-wrap">
+          <button type="button" class="btn-remove-object" data-object-id="${id}" title="Remove sonifier from landscape">🗑️ Remove</button>
+        </div>
       </div>
-      <div class="card-actions-wrap">
-        <button type="button" class="btn-param-map" data-object-id="${id}" data-param="gain" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-        <button type="button" class="btn-remove-object" data-object-id="${id}" title="Remove sonifier from landscape">🗑️ Remove</button>
+
+      <div class="spatial-strip">
+        <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+        <div class="control-row">
+          <div class="control-label">
+            <span>Component Volume</span>
+            <span class="control-val" id="disp-${id}-volume">70%</span>
+          </div>
+          <input type="range" id="${id}-volume" class="dynamic-slider" data-param="gain" min="0" max="1" step="0.01" value="0.70">
+        </div>
+        <div class="control-row" style="margin-top: 0.4rem;">
+          <div class="control-label">
+            <span>Stereo Pan</span>
+            <span class="control-val" id="disp-${id}-pan">Center (0.0)</span>
+          </div>
+          <input type="range" id="${id}-pan" class="dynamic-slider" data-param="pan" min="-1" max="1" step="0.05" value="0.0">
+        </div>
+        <div class="control-row" style="margin-top: 0.4rem;">
+          <div class="control-label">
+            <span>Distance / Depth</span>
+            <span class="control-val" id="disp-${id}-distance">${formatDistance(defaultDist)}</span>
+          </div>
+          <input type="range" id="${id}-distance" class="dynamic-slider" data-param="distance" min="0" max="50" step="0.5" value="${defaultDist}">
+        </div>
+        <div class="control-row" style="margin-top: 0.4rem;">
+          <div class="control-label">
+            <span>Field Spread (Width)</span>
+            <span class="control-val" id="disp-${id}-spread">0.50 (Spatial Arc)</span>
+          </div>
+          <input type="range" id="${id}-spread" class="dynamic-slider" data-param="spread" min="0.02" max="1.0" step="0.02" value="0.50">
+        </div>
       </div>
     </div>
 
-    <!-- Spatial Channel Strip -->
-    <div class="spatial-strip">
-      <div class="section-label">🔊 Channel Volume & Spatial Field</div>
-      <div class="control-row">
-        <div class="control-label">
-          <span>Component Volume</span>
-          <span class="control-val" id="disp-${id}-volume">70%</span>
-        </div>
-        <input type="range" id="${id}-volume" class="dynamic-slider" data-param="gain" min="0" max="1" step="0.01" value="0.70">
-      </div>
-      <div class="control-row" style="margin-top: 0.4rem;">
-        <div class="control-label">
-          <span>Stereo Pan</span>
-          <span class="control-val" id="disp-${id}-pan">Center (0.0)</span>
-        </div>
-        <input type="range" id="${id}-pan" class="dynamic-slider" data-param="pan" min="-1" max="1" step="0.05" value="0.0">
-      </div>
-      <div class="control-row" style="margin-top: 0.4rem;">
-        <div class="control-label">
-          <span>Field Spread (Width)</span>
-          <span class="control-val" id="disp-${id}-spread">0.50 (Spatial Arc)</span>
-        </div>
-        <input type="range" id="${id}-spread" class="dynamic-slider" data-param="spread" min="0.02" max="1.0" step="0.02" value="0.50">
-      </div>
+    <!-- Tab 2: Parameters & Feed Mappings -->
+    <div class="card-tab-pane tab-params-pane" id="tab-params-${id}">
     </div>
   `
 
   const volSlider = article.querySelector(`#${id}-volume`)
   const panSlider = article.querySelector(`#${id}-pan`)
+  const distSlider = article.querySelector(`#${id}-distance`)
   const spreadSlider = article.querySelector(`#${id}-spread`)
   const volDisp = article.querySelector(`#disp-${id}-volume`)
   const panDisp = article.querySelector(`#disp-${id}-pan`)
+  const distDisp = article.querySelector(`#disp-${id}-distance`)
   const spreadDisp = article.querySelector(`#disp-${id}-spread`)
 
   if (volSlider) {
@@ -1582,8 +1736,16 @@ export function createSonifierCard(id, type, layer = 'bed') {
   if (panSlider) {
     panSlider.addEventListener('input', e => {
       const val = parseFloat(e.target.value)
-      if (panDisp) panDisp.textContent = val === 0 ? 'Center (0.0)' : (val < 0 ? `Left (${val.toFixed(2)})` : `Right (+${val.toFixed(2)})`)
+      if (panDisp) panDisp.textContent = formatPan(val)
       landscape.setParam(id, 'pan', val)
+    })
+  }
+
+  if (distSlider) {
+    distSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (distDisp) distDisp.textContent = formatDistance(val)
+      landscape.setParam(id, 'distance', val)
     })
   }
 
@@ -1594,6 +1756,15 @@ export function createSonifierCard(id, type, layer = 'bed') {
       landscape.setParam(id, 'spread', val)
     })
   }
+
+  const paramsPane = article.querySelector(`#tab-params-${id}`)
+  if (paramsPane) {
+    renderSonifierParameterEditor(id, paramsPane)
+    paramsPane.dataset.rendered = 'true'
+  }
+
+  setupCardTabs(article)
+  updateTabMappingBadges()
 
   return article
 }
@@ -2436,8 +2607,8 @@ function emitPulse(objectId, color, maxRadius = 45) {
   const h = canvas.height
   const pos = getObjectCoordinates(objectId, w, h)
 
-  const panOffset = (Math.random() * 2 - 1) * pos.spread
-  const pulseX = (w / 2) + Math.max(-1, Math.min(1, pos.pan + panOffset)) * (w * 0.38)
+  const panOffset = (Math.random() * 2 - 1) * pos.spread * 24
+  const pulseX = pos.x + panOffset
   const pulseY = pos.y + (Math.random() * 2 - 1) * 8
 
   pulses.push({
@@ -2450,48 +2621,57 @@ function emitPulse(objectId, color, maxRadius = 45) {
   })
 }
 
-function getObjectCoordinates(id, w, h) {
+export function getObjectCoordinates(id, w, h) {
+  const dpr = window.devicePixelRatio || 1
   const centerX = w / 2
+  const listenerY = h - 28 * dpr
 
-  if (id === 'wind') {
-    const pan = parseFloat(windPanSlider?.value || 0.0)
-    const spread = parseFloat(windSpreadSlider?.value || 0.80)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.28, pan, spread, label: '🌬️ Wind' }
-  }
-  if (id === 'rain') {
-    const pan = parseFloat(rainPanSlider?.value || 0.0)
-    const spread = parseFloat(rainSpreadSlider?.value || 0.95)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.42, pan, spread, label: '🌧️ Rain' }
-  }
-  if (id === 'ocean') {
-    const pan = parseFloat(oceanPanSlider?.value || 0.25)
-    const spread = parseFloat(oceanSpreadSlider?.value || 0.50)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.32, pan, spread, label: '🌊 Ocean' }
-  }
-  if (id === 'chime' || id === 'chimes') {
-    const pan = parseFloat(chimePanSlider?.value || 0.45)
-    const spread = parseFloat(chimeSpreadSlider?.value || 0.08)
-    return { x: centerX + pan * (w * 0.38), y: h * 0.58, pan, spread, label: '🎐 Chimes' }
+  const card = document.getElementById(`card-${id}`) ||
+               (id === 'chimes' ? document.getElementById('card-chime') : null) ||
+               (id === 'chime' ? document.getElementById('card-chimes') : null) ||
+               document.querySelector(`article[data-object-id="${id}"]`)
+
+  const entry = landscape._objects.get(id) || (id === 'chime' ? landscape._objects.get('chimes') : (id === 'chimes' ? landscape._objects.get('chime') : null))
+
+  let pan = entry?.options?.pan
+  if (pan === undefined) {
+    const panInput = card?.querySelector(`input[data-param="pan"]`) ||
+                     document.getElementById(`${id}-pan`) ||
+                     (id === 'chimes' ? document.getElementById('chime-pan') : null)
+    pan = panInput ? parseFloat(panInput.value) : 0.0
   }
 
-  // Dynamic objects
-  const card = document.getElementById(`card-${id}`) || document.querySelector(`article[data-object-id="${id}"]`)
-  const panInput = card?.querySelector(`input[data-param="pan"]`) || card?.querySelector(`#${id}-pan`)
-  const spreadInput = card?.querySelector(`input[data-param="spread"]`) || card?.querySelector(`#${id}-spread`)
-  const layerSelect = card?.querySelector('.select-change-layer')
-  const layer = layerSelect?.value || landscape._objects.get(id)?.layer || 'bed'
+  let distance = entry?.options?.distance
+  if (distance === undefined) {
+    const distInput = card?.querySelector(`input[data-param="distance"]`) ||
+                      document.getElementById(`${id}-distance`) ||
+                      (id === 'chimes' ? document.getElementById('chime-distance') : null)
+    distance = distInput ? parseFloat(distInput.value) : (id === 'wind' ? 12 : (id === 'ocean' ? 8 : (id === 'rain' ? 4 : 3)))
+  }
 
-  const pan = parseFloat(panInput?.value || 0.0)
-  const spread = parseFloat(spreadInput?.value || 0.50)
-
-  let y = h * 0.30
-  if (layer === 'texture') y = h * 0.45
-  else if (layer === 'figure') y = h * 0.60
+  let spread = entry?.options?.spread
+  if (spread === undefined) {
+    const spreadInput = card?.querySelector(`input[data-param="spread"]`) ||
+                        document.getElementById(`${id}-spread`) ||
+                        (id === 'chimes' ? document.getElementById('chime-spread') : null)
+    spread = spreadInput ? parseFloat(spreadInput.value) : 0.50
+  }
 
   const titleEl = card?.querySelector('.object-title')
-  const label = titleEl ? titleEl.textContent.trim().split(' (')[0] : id
+  let label = titleEl ? titleEl.textContent.trim().split(' (')[0] : id
+  if (id === 'wind' && !label.includes('Wind')) label = '🌬️ Wind'
+  if (id === 'rain' && !label.includes('Rain')) label = '🌧️ Rain'
+  if (id === 'ocean' && !label.includes('Ocean')) label = '🌊 Ocean'
+  if ((id === 'chime' || id === 'chimes') && !label.includes('Chime')) label = '🎐 Chimes'
 
-  return { x: centerX + pan * (w * 0.38), y, pan, spread, label }
+  const panRangePx = w * 0.40
+  const maxDepthPx = (listenerY - 20 * dpr) - 40 * dpr
+  const depthNorm = Math.min(1.0, Math.max(0.0, distance / 50.0))
+
+  const x = centerX + pan * panRangePx
+  const y = (listenerY - 20 * dpr) - depthNorm * maxDepthPx
+
+  return { x, y, pan, distance, spread, label }
 }
 
 export function getActiveSoundObjects() {
@@ -2508,7 +2688,10 @@ export function getActiveSoundObjects() {
   return list
 }
 
-function renderSoundstage() {
+export let draggedObjectId = null
+export let hoveredObjectId = null
+
+export function renderSoundstage() {
   if (!canvas || !ctx2d) return
 
   const dpr = window.devicePixelRatio || 1
@@ -2522,31 +2705,62 @@ function renderSoundstage() {
   const h = canvas.height
   ctx2d.clearRect(0, 0, w, h)
 
-  // Background radar distance rings
-  ctx2d.strokeStyle = 'rgba(56, 189, 248, 0.07)'
-  ctx2d.lineWidth = 1
   const centerX = w / 2
-  const listenerY = h - 25 * dpr
+  const listenerY = h - 28 * dpr
+  const panRangePx = w * 0.40
+  const maxDepthPx = (listenerY - 20 * dpr) - 40 * dpr
 
-  for (let r = 50 * dpr; r <= Math.max(w, h); r += 50 * dpr) {
+  // 1. Concentric Metric Distance Rings (10m, 20m, 30m, 40m, 50m)
+  const distanceMarkers = [10, 20, 30, 40, 50]
+  for (const d of distanceMarkers) {
+    const depthNorm = d / 50.0
+    const ringY = (listenerY - 20 * dpr) - depthNorm * maxDepthPx
+    const radius = listenerY - ringY
+
     ctx2d.beginPath()
-    ctx2d.arc(centerX, listenerY, r, Math.PI, 2 * Math.PI)
+    ctx2d.arc(centerX, listenerY, radius, Math.PI, 2 * Math.PI)
+    ctx2d.strokeStyle = d === 50 ? 'rgba(56, 189, 248, 0.32)' : 'rgba(56, 189, 248, 0.16)'
+    ctx2d.lineWidth = d === 50 ? 1.5 * dpr : 1.0 * dpr
+    ctx2d.setLineDash(d === 50 ? [] : [4 * dpr, 4 * dpr])
     ctx2d.stroke()
+    ctx2d.setLineDash([])
+
+    // Distance Label along the radar edge
+    ctx2d.fillStyle = 'rgba(148, 163, 184, 0.70)'
+    ctx2d.font = `600 ${9.5 * dpr}px sans-serif`
+    ctx2d.textAlign = 'right'
+    ctx2d.fillText(`${d}m`, centerX - radius + 22 * dpr, listenerY - 4 * dpr)
+    ctx2d.textAlign = 'left'
+    ctx2d.fillText(`${d}m`, centerX + radius - 22 * dpr, listenerY - 4 * dpr)
   }
 
-  // Radial azimuth spokes
+  // 2. Azimuthal Direction Spokes (Center, ±30°, ±60°, ±90°)
+  ctx2d.strokeStyle = 'rgba(56, 189, 248, 0.15)'
+  ctx2d.lineWidth = 1 * dpr
   ctx2d.beginPath()
+  // 0° center
   ctx2d.moveTo(centerX, listenerY)
-  ctx2d.lineTo(20 * dpr, listenerY)
+  ctx2d.lineTo(centerX, 20 * dpr)
+  // Left 90°
   ctx2d.moveTo(centerX, listenerY)
-  ctx2d.lineTo(centerX - 130 * dpr, 25 * dpr)
+  ctx2d.lineTo(centerX - panRangePx - 10 * dpr, listenerY)
+  // Right 90°
   ctx2d.moveTo(centerX, listenerY)
-  ctx2d.lineTo(centerX, 15 * dpr)
+  ctx2d.lineTo(centerX + panRangePx + 10 * dpr, listenerY)
+  // 45° diagonals
   ctx2d.moveTo(centerX, listenerY)
-  ctx2d.lineTo(centerX + 130 * dpr, 25 * dpr)
+  ctx2d.lineTo(centerX - (maxDepthPx * 0.75), listenerY - (maxDepthPx * 0.75))
   ctx2d.moveTo(centerX, listenerY)
-  ctx2d.lineTo(w - 20 * dpr, listenerY)
+  ctx2d.lineTo(centerX + (maxDepthPx * 0.75), listenerY - (maxDepthPx * 0.75))
   ctx2d.stroke()
+
+  // 3. Stage Azimuth Labels
+  ctx2d.fillStyle = 'rgba(148, 163, 184, 0.55)'
+  ctx2d.font = `500 ${9 * dpr}px sans-serif`
+  ctx2d.textAlign = 'center'
+  ctx2d.fillText('◀ LEFT', centerX - panRangePx, listenerY + 16 * dpr)
+  ctx2d.fillText('CENTER (0°)', centerX, 16 * dpr)
+  ctx2d.fillText('RIGHT ▶', centerX + panRangePx, listenerY + 16 * dpr)
 
   const objects = getActiveSoundObjects()
 
@@ -2557,51 +2771,74 @@ function renderSoundstage() {
     ctx2d.fillText('Soundstage Empty • Add sonifiers from catalog below', centerX, h * 0.45)
   }
 
-  // Draw Spatial Spread Arcs for each object
+  // 4. Draw High-Contrast Spatial Spread Cones
   for (const obj of objects) {
     const pos = getObjectCoordinates(obj.id, w, h)
     const dx = pos.x - centerX
     const dy = pos.y - listenerY
     const dist = Math.hypot(dx, dy)
     const baseAngle = Math.atan2(dy, dx)
-    const halfSpreadAngle = Math.max(0.04, pos.spread * (Math.PI * 0.44))
+    const halfSpreadAngle = Math.max(0.06, pos.spread * (Math.PI * 0.44))
+    const isDragged = draggedObjectId === obj.id
+    const isHovered = hoveredObjectId === obj.id
 
     ctx2d.save()
+
+    // Conical Gradient Fill
+    const grad = ctx2d.createRadialGradient(centerX, listenerY, 8 * dpr, centerX, listenerY, dist + 20 * dpr)
+    grad.addColorStop(0, 'rgba(15, 23, 42, 0.0)')
+    grad.addColorStop(0.2, hexToRgba(obj.color, isPlaying ? 0.12 : 0.06))
+    grad.addColorStop(0.7, hexToRgba(obj.color, isPlaying ? 0.35 : 0.22))
+    grad.addColorStop(1.0, hexToRgba(obj.color, isPlaying ? 0.50 : 0.35))
+
     ctx2d.beginPath()
     ctx2d.moveTo(centerX, listenerY)
     ctx2d.arc(centerX, listenerY, dist + 16 * dpr, baseAngle - halfSpreadAngle, baseAngle + halfSpreadAngle)
     ctx2d.closePath()
-
-    ctx2d.fillStyle = obj.color + (isPlaying ? '18' : '09')
+    ctx2d.fillStyle = grad
     ctx2d.fill()
 
-    ctx2d.strokeStyle = obj.color + (isPlaying ? '66' : '22')
-    ctx2d.lineWidth = 1.2 * dpr
+    // High contrast boundary rays (listener to outer arc)
+    ctx2d.strokeStyle = hexToRgba(obj.color, isDragged ? 0.95 : 0.75)
+    ctx2d.lineWidth = (isDragged ? 2.2 : 1.6) * dpr
+    ctx2d.beginPath()
+    ctx2d.moveTo(centerX, listenerY)
+    ctx2d.lineTo(centerX + (dist + 16 * dpr) * Math.cos(baseAngle - halfSpreadAngle),
+                 listenerY + (dist + 16 * dpr) * Math.sin(baseAngle - halfSpreadAngle))
+    ctx2d.arc(centerX, listenerY, dist + 16 * dpr, baseAngle - halfSpreadAngle, baseAngle + halfSpreadAngle)
+    ctx2d.lineTo(centerX, listenerY)
+    ctx2d.stroke()
+
+    // Glowing outer arc perimeter
+    ctx2d.strokeStyle = hexToRgba(obj.color, 0.95)
+    ctx2d.lineWidth = 2.4 * dpr
+    ctx2d.shadowColor = obj.color
+    ctx2d.shadowBlur = (isPlaying || isDragged ? 10 : 4) * dpr
     ctx2d.beginPath()
     ctx2d.arc(centerX, listenerY, dist + 16 * dpr, baseAngle - halfSpreadAngle, baseAngle + halfSpreadAngle)
     ctx2d.stroke()
     ctx2d.restore()
   }
 
-  // Listener icon
+  // 5. Listener icon
   ctx2d.fillStyle = '#38bdf8'
   ctx2d.beginPath()
-  ctx2d.arc(centerX, listenerY, 6 * dpr, 0, 2 * Math.PI)
+  ctx2d.arc(centerX, listenerY, 6.5 * dpr, 0, 2 * Math.PI)
   ctx2d.fill()
   ctx2d.fillStyle = '#94a3b8'
-  ctx2d.font = `${11 * dpr}px sans-serif`
+  ctx2d.font = `600 ${11 * dpr}px sans-serif`
   ctx2d.textAlign = 'center'
   ctx2d.fillText('👤 Listener', centerX, listenerY + 18 * dpr)
 
-  // Draw acoustic emission pulses
+  // 6. Draw acoustic emission pulses
   for (let i = pulses.length - 1; i >= 0; i--) {
     const p = pulses[i]
-    p.radius += 1.3 * dpr
+    p.radius += 1.4 * dpr
     p.alpha *= 0.93
 
     ctx2d.strokeStyle = p.color
     ctx2d.globalAlpha = p.alpha
-    ctx2d.lineWidth = 1.5 * dpr
+    ctx2d.lineWidth = 1.6 * dpr
     ctx2d.beginPath()
     ctx2d.arc(p.x, p.y, p.radius, 0, 2 * Math.PI)
     ctx2d.stroke()
@@ -2612,22 +2849,96 @@ function renderSoundstage() {
     }
   }
 
-  // Draw Sound Object Markers
+  // 7. Draw Sound Object Nodes & Drag Overlays
   for (const obj of objects) {
     const pos = getObjectCoordinates(obj.id, w, h)
+    const isDragged = draggedObjectId === obj.id
+    const isHovered = hoveredObjectId === obj.id
 
+    // Crosshairs & HUD when dragged
+    if (isDragged) {
+      ctx2d.strokeStyle = 'rgba(56, 189, 248, 0.45)'
+      ctx2d.lineWidth = 1 * dpr
+      ctx2d.setLineDash([3 * dpr, 3 * dpr])
+      ctx2d.beginPath()
+      // Vertical line to horizon & listener
+      ctx2d.moveTo(pos.x, 20 * dpr)
+      ctx2d.lineTo(pos.x, listenerY)
+      // Horizontal line across stage
+      ctx2d.moveTo(centerX - panRangePx, pos.y)
+      ctx2d.lineTo(centerX + panRangePx, pos.y)
+      ctx2d.stroke()
+      ctx2d.setLineDash([])
+
+      // Drag HUD Tooltip
+      const hudText = `${pos.label}: Pan ${formatPan(pos.pan)} • Dist ${formatDistance(pos.distance)}`
+      ctx2d.font = `600 ${10.5 * dpr}px sans-serif`
+      const textWidth = ctx2d.measureText(hudText).width
+      const pad = 7 * dpr
+      const hudX = Math.max(pad + textWidth / 2, Math.min(w - pad - textWidth / 2, pos.x))
+      const hudY = Math.max(28 * dpr, pos.y - 24 * dpr)
+
+      ctx2d.fillStyle = 'rgba(15, 23, 42, 0.92)'
+      ctx2d.strokeStyle = obj.color
+      ctx2d.lineWidth = 1.5 * dpr
+      ctx2d.beginPath()
+      if (typeof ctx2d.roundRect === 'function') {
+        ctx2d.roundRect(hudX - textWidth / 2 - pad, hudY - 14 * dpr, textWidth + pad * 2, 22 * dpr, 4 * dpr)
+      } else {
+        ctx2d.rect(hudX - textWidth / 2 - pad, hudY - 14 * dpr, textWidth + pad * 2, 22 * dpr)
+      }
+      ctx2d.fill()
+      ctx2d.stroke()
+
+      ctx2d.fillStyle = '#ffffff'
+      ctx2d.textAlign = 'center'
+      ctx2d.fillText(hudText, hudX, hudY + 1 * dpr)
+    }
+
+    // Outer Halo if hovered or dragged
+    if (isHovered || isDragged) {
+      ctx2d.strokeStyle = hexToRgba(obj.color, 0.6)
+      ctx2d.lineWidth = 2 * dpr
+      ctx2d.beginPath()
+      ctx2d.arc(pos.x, pos.y, (isDragged ? 14 : 12) * dpr, 0, 2 * Math.PI)
+      ctx2d.stroke()
+    }
+
+    // Node Disc
     ctx2d.shadowColor = obj.color
-    ctx2d.shadowBlur = isPlaying ? 10 * dpr : 2 * dpr
+    ctx2d.shadowBlur = (isPlaying || isDragged ? 14 : 4) * dpr
     ctx2d.fillStyle = obj.color
     ctx2d.beginPath()
-    ctx2d.arc(pos.x, pos.y, 7 * dpr, 0, 2 * Math.PI)
+    ctx2d.arc(pos.x, pos.y, (isDragged ? 9 : 7.5) * dpr, 0, 2 * Math.PI)
     ctx2d.fill()
     ctx2d.shadowBlur = 0
 
-    ctx2d.fillStyle = '#f8fafc'
-    ctx2d.font = `600 ${11 * dpr}px sans-serif`
-    ctx2d.textAlign = 'center'
-    ctx2d.fillText(pos.label, pos.x, pos.y - 12 * dpr)
+    // Inner highlight point
+    ctx2d.fillStyle = '#ffffff'
+    ctx2d.beginPath()
+    ctx2d.arc(pos.x, pos.y, 2.5 * dpr, 0, 2 * Math.PI)
+    ctx2d.fill()
+
+    // Node Label with Pill Backdrop for High Contrast
+    if (!isDragged) {
+      ctx2d.font = `600 ${11 * dpr}px sans-serif`
+      const lblWidth = ctx2d.measureText(pos.label).width
+      const pX = pos.x
+      const pY = pos.y - 14 * dpr
+
+      ctx2d.fillStyle = 'rgba(15, 23, 42, 0.78)'
+      ctx2d.beginPath()
+      if (typeof ctx2d.roundRect === 'function') {
+        ctx2d.roundRect(pX - lblWidth / 2 - 4 * dpr, pY - 10 * dpr, lblWidth + 8 * dpr, 14 * dpr, 3 * dpr)
+      } else {
+        ctx2d.rect(pX - lblWidth / 2 - 4 * dpr, pY - 10 * dpr, lblWidth + 8 * dpr, 14 * dpr)
+      }
+      ctx2d.fill()
+
+      ctx2d.fillStyle = '#f8fafc'
+      ctx2d.textAlign = 'center'
+      ctx2d.fillText(pos.label, pX, pY)
+    }
   }
 
   // Micro-pulses for active sound components
@@ -2646,6 +2957,145 @@ function renderSoundstage() {
   animFrameId = requestAnimationFrame(renderSoundstage)
 }
 
+export function initDistanceSliders(root = document) {
+  const windD = root.querySelector('#wind-distance')
+  const windDisp = root.querySelector('#disp-wind-distance')
+  if (windD) {
+    windD.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (windDisp) windDisp.textContent = formatDistance(val)
+      landscape.setParam('wind', 'distance', val)
+    })
+  }
+
+  const oceanD = root.querySelector('#ocean-distance')
+  const oceanDisp = root.querySelector('#disp-ocean-distance')
+  if (oceanD) {
+    oceanD.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (oceanDisp) oceanDisp.textContent = formatDistance(val)
+      landscape.setParam('ocean', 'distance', val)
+    })
+  }
+
+  const rainD = root.querySelector('#rain-distance')
+  const rainDisp = root.querySelector('#disp-rain-distance')
+  if (rainD) {
+    rainD.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (rainDisp) rainDisp.textContent = formatDistance(val)
+      landscape.setParam('rain', 'distance', val)
+    })
+  }
+
+  const chimeD = root.querySelector('#chime-distance')
+  const chimeDisp = root.querySelector('#disp-chime-distance')
+  if (chimeD) {
+    chimeD.addEventListener('input', e => {
+      const val = parseFloat(e.target.value)
+      if (chimeDisp) chimeDisp.textContent = formatDistance(val)
+      landscape.setParam('chimes', 'distance', val)
+    })
+  }
+}
+
+export function initSoundstageCanvas(cvs = canvas) {
+  if (!cvs) return
+
+  cvs.addEventListener('pointerdown', (e) => {
+    const rect = cvs.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    const clickX = (e.clientX - rect.left) * dpr
+    const clickY = (e.clientY - rect.top) * dpr
+
+    const w = cvs.width
+    const h = cvs.height
+    const objects = getActiveSoundObjects()
+
+    for (let i = objects.length - 1; i >= 0; i--) {
+      const obj = objects[i]
+      const pos = getObjectCoordinates(obj.id, w, h)
+      if (Math.hypot(clickX - pos.x, clickY - pos.y) <= 24 * dpr) {
+        draggedObjectId = obj.id
+        if (typeof cvs.setPointerCapture === 'function') {
+          cvs.setPointerCapture(e.pointerId)
+        }
+        cvs.classList.add('cursor-grabbing')
+        cvs.classList.remove('cursor-grab')
+        e.preventDefault()
+        break
+      }
+    }
+  })
+
+  cvs.addEventListener('pointermove', (e) => {
+    const rect = cvs.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    const curX = (e.clientX - rect.left) * dpr
+    const curY = (e.clientY - rect.top) * dpr
+
+    const w = cvs.width
+    const h = cvs.height
+    const centerX = w / 2
+    const listenerY = h - 28 * dpr
+    const panRangePx = w * 0.40
+    const maxDepthPx = (listenerY - 20 * dpr) - 40 * dpr
+
+    if (draggedObjectId) {
+      let pan = (curX - centerX) / panRangePx
+      pan = Math.max(-1.0, Math.min(1.0, Math.round(pan * 20) / 20))
+
+      let normDist = ((listenerY - 20 * dpr) - curY) / maxDepthPx
+      normDist = Math.max(0.0, Math.min(1.0, normDist))
+      const distance = Math.round(normDist * 50 * 10) / 10
+
+      landscape.setParam(draggedObjectId, 'pan', pan)
+      landscape.setParam(draggedObjectId, 'distance', distance)
+      updateCardSpatialControls(draggedObjectId, pan, distance)
+      return
+    }
+
+    // Hover detection
+    const objects = getActiveSoundObjects()
+    let found = null
+    for (let i = objects.length - 1; i >= 0; i--) {
+      const obj = objects[i]
+      const pos = getObjectCoordinates(obj.id, w, h)
+      if (Math.hypot(curX - pos.x, curY - pos.y) <= 22 * dpr) {
+        found = obj.id
+        break
+      }
+    }
+    hoveredObjectId = found
+    if (found) {
+      cvs.classList.add('cursor-grab')
+    } else {
+      cvs.classList.remove('cursor-grab')
+    }
+  })
+
+  const handlePointerUp = (e) => {
+    if (draggedObjectId) {
+      if (typeof cvs.releasePointerCapture === 'function' && cvs.hasPointerCapture && cvs.hasPointerCapture(e.pointerId)) {
+        cvs.releasePointerCapture(e.pointerId)
+      }
+      draggedObjectId = null
+      cvs.classList.remove('cursor-grabbing')
+      if (hoveredObjectId) {
+        cvs.classList.add('cursor-grab')
+      }
+    }
+  }
+
+  cvs.addEventListener('pointerup', handlePointerUp)
+  cvs.addEventListener('pointercancel', handlePointerUp)
+}
+
 if (canvas) {
+  initSoundstageCanvas(canvas)
   animFrameId = requestAnimationFrame(renderSoundstage)
 }
+
+initDistanceSliders(document)
+setupCardTabs(document)
+updateTabMappingBadges()
