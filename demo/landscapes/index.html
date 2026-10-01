@@ -218,50 +218,67 @@
               </div>
             </div>
 
-            <!-- Layer & Mapping Control Bar -->
-            <div class="card-layer-toolbar">
-              <div class="layer-selector-wrap">
-                <label for="layer-select-wind">Layer:</label>
-                <select class="select-change-layer" id="layer-select-wind" data-object-id="wind">
-                  <option value="bed" selected>Bed</option>
-                  <option value="texture">Texture</option>
-                  <option value="figure">Figure</option>
-                </select>
+            <!-- Card Tab Bar -->
+            <div class="card-tabs-bar">
+              <button type="button" class="card-tab-btn active" data-tab="spatial" data-object-id="wind">🧭 Spatial</button>
+              <button type="button" class="card-tab-btn" data-tab="params" data-object-id="wind">🎛️ Parameters & Feeds <span class="card-tab-badge" id="tab-badge-wind">1</span></button>
+            </div>
+
+            <!-- Tab 1: Spatial Placement & Depth -->
+            <div class="card-tab-pane tab-spatial-pane active" id="tab-spatial-wind">
+              <div class="card-layer-toolbar" style="margin-top: 0;">
+                <div class="layer-selector-wrap">
+                  <label for="layer-select-wind">Layer:</label>
+                  <select class="select-change-layer" id="layer-select-wind" data-object-id="wind">
+                    <option value="bed" selected>Bed</option>
+                    <option value="texture">Texture</option>
+                    <option value="figure">Figure</option>
+                  </select>
+                </div>
+                <div class="card-actions-wrap">
+                  <button type="button" class="btn-remove-object" data-object-id="wind" title="Remove sonifier from landscape">🗑️ Remove</button>
+                </div>
               </div>
-              <div class="card-actions-wrap">
-                <button type="button" class="btn-param-map" data-object-id="wind" data-param="speed" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="wind" title="Remove sonifier from landscape">🗑️ Remove</button>
+
+              <div class="spatial-strip">
+                <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+                <div class="control-row">
+                  <div class="control-label">
+                    <span>Component Volume</span>
+                    <span class="control-val" id="disp-wind-volume">70%</span>
+                  </div>
+                  <input type="range" id="wind-volume" min="0" max="1" step="0.01" value="0.70">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Stereo Pan</span>
+                    <span class="control-val" id="disp-wind-pan">Center (0.0)</span>
+                  </div>
+                  <input type="range" id="wind-pan" min="-1" max="1" step="0.05" value="0.0">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Distance / Depth</span>
+                    <span class="control-val" id="disp-wind-distance">12.0m (-3.9 dB, 78% wet)</span>
+                  </div>
+                  <input type="range" id="wind-distance" min="0" max="50" step="0.5" value="12">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Field Spread (Width)</span>
+                    <span class="control-val" id="disp-wind-spread">0.80 (Corridor)</span>
+                  </div>
+                  <input type="range" id="wind-spread" min="0.05" max="1.0" step="0.05" value="0.80">
+                </div>
               </div>
             </div>
 
-            <!-- Prominent Component Volume & Pan -->
-            <div class="spatial-strip">
-              <div class="section-label">🔊 Channel Volume & Spatial Field</div>
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Component Volume</span>
-                  <span class="control-val" id="disp-wind-volume">70%</span>
-                </div>
-                <input type="range" id="wind-volume" min="0" max="1" step="0.01" value="0.70">
+            <!-- Tab 2: Parameters & Feed Mappings -->
+            <div class="card-tab-pane tab-params-pane" id="tab-params-wind">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <div class="section-label" style="margin-bottom: 0;">⚡ Flow Exciter & Physics</div>
+                <button type="button" class="btn-param-map" data-object-id="wind" data-param="speed" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">🎛️ Map Feed</button>
               </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Stereo Pan</span>
-                  <span class="control-val" id="disp-wind-pan">Center (0.0)</span>
-                </div>
-                <input type="range" id="wind-pan" min="-1" max="1" step="0.05" value="0.0">
-              </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Field Spread (Width)</span>
-                  <span class="control-val" id="disp-wind-spread">0.80 (Corridor)</span>
-                </div>
-                <input type="range" id="wind-spread" min="0.05" max="1.0" step="0.05" value="0.80">
-              </div>
-            </div>
-
-            <div>
-              <div class="section-label">⚡ Flow Exciter & Physics</div>
               <div class="control-row">
                 <div class="control-label">
                   <span>Airflow Velocity (Speed)</span>
@@ -299,50 +316,67 @@
               </div>
             </div>
 
-            <!-- Layer & Mapping Control Bar -->
-            <div class="card-layer-toolbar">
-              <div class="layer-selector-wrap">
-                <label for="layer-select-ocean">Layer:</label>
-                <select class="select-change-layer" id="layer-select-ocean" data-object-id="ocean">
-                  <option value="bed" selected>Bed</option>
-                  <option value="texture">Texture</option>
-                  <option value="figure">Figure</option>
-                </select>
+            <!-- Card Tab Bar -->
+            <div class="card-tabs-bar">
+              <button type="button" class="card-tab-btn active" data-tab="spatial" data-object-id="ocean">🧭 Spatial</button>
+              <button type="button" class="card-tab-btn" data-tab="params" data-object-id="ocean">🎛️ Parameters & Feeds <span class="card-tab-badge has-mappings" id="tab-badge-ocean">2</span></button>
+            </div>
+
+            <!-- Tab 1: Spatial Placement & Depth -->
+            <div class="card-tab-pane tab-spatial-pane active" id="tab-spatial-ocean">
+              <div class="card-layer-toolbar" style="margin-top: 0;">
+                <div class="layer-selector-wrap">
+                  <label for="layer-select-ocean">Layer:</label>
+                  <select class="select-change-layer" id="layer-select-ocean" data-object-id="ocean">
+                    <option value="bed" selected>Bed</option>
+                    <option value="texture">Texture</option>
+                    <option value="figure">Figure</option>
+                  </select>
+                </div>
+                <div class="card-actions-wrap">
+                  <button type="button" class="btn-remove-object" data-object-id="ocean" title="Remove sonifier from landscape">🗑️ Remove</button>
+                </div>
               </div>
-              <div class="card-actions-wrap">
-                <button type="button" class="btn-param-map" data-object-id="ocean" data-param="intensity" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="ocean" title="Remove sonifier from landscape">🗑️ Remove</button>
+
+              <div class="spatial-strip">
+                <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+                <div class="control-row">
+                  <div class="control-label">
+                    <span>Component Volume</span>
+                    <span class="control-val" id="disp-ocean-volume">55%</span>
+                  </div>
+                  <input type="range" id="ocean-volume" min="0" max="1" step="0.01" value="0.55">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Stereo Pan</span>
+                    <span class="control-val" id="disp-ocean-pan">Right (+0.25)</span>
+                  </div>
+                  <input type="range" id="ocean-pan" min="-1" max="1" step="0.05" value="0.25">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Distance / Depth</span>
+                    <span class="control-val" id="disp-ocean-distance">8.0m (-2.9 dB, 62% wet)</span>
+                  </div>
+                  <input type="range" id="ocean-distance" min="0" max="50" step="0.5" value="8">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Field Spread (Width)</span>
+                    <span class="control-val" id="disp-ocean-spread">0.50 (Coastal Arc)</span>
+                  </div>
+                  <input type="range" id="ocean-spread" min="0.05" max="1.0" step="0.05" value="0.50">
+                </div>
               </div>
             </div>
 
-            <!-- Prominent Component Volume & Pan -->
-            <div class="spatial-strip">
-              <div class="section-label">🔊 Channel Volume & Spatial Field</div>
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Component Volume</span>
-                  <span class="control-val" id="disp-ocean-volume">55%</span>
-                </div>
-                <input type="range" id="ocean-volume" min="0" max="1" step="0.01" value="0.55">
+            <!-- Tab 2: Parameters & Feed Mappings -->
+            <div class="card-tab-pane tab-params-pane" id="tab-params-ocean">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <div class="section-label" style="margin-bottom: 0;">⚡ Swell Dynamics & Surf</div>
+                <button type="button" class="btn-param-map" data-object-id="ocean" data-param="intensity" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">🎛️ Map Feed</button>
               </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Stereo Pan</span>
-                  <span class="control-val" id="disp-ocean-pan">Right (+0.25)</span>
-                </div>
-                <input type="range" id="ocean-pan" min="-1" max="1" step="0.05" value="0.25">
-              </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Field Spread (Width)</span>
-                  <span class="control-val" id="disp-ocean-spread">0.50 (Coastal Arc)</span>
-                </div>
-                <input type="range" id="ocean-spread" min="0.05" max="1.0" step="0.05" value="0.50">
-              </div>
-            </div>
-
-            <div>
-              <div class="section-label">⚡ Swell Dynamics & Surf</div>
               <div class="control-row">
                 <div class="control-label">
                   <span>Wave Surge Intensity</span>
@@ -405,50 +439,67 @@
               </div>
             </div>
 
-            <!-- Layer & Mapping Control Bar -->
-            <div class="card-layer-toolbar">
-              <div class="layer-selector-wrap">
-                <label for="layer-select-rain">Layer:</label>
-                <select class="select-change-layer" id="layer-select-rain" data-object-id="rain">
-                  <option value="bed">Bed</option>
-                  <option value="texture" selected>Texture</option>
-                  <option value="figure">Figure</option>
-                </select>
+            <!-- Card Tab Bar -->
+            <div class="card-tabs-bar">
+              <button type="button" class="card-tab-btn active" data-tab="spatial" data-object-id="rain">🧭 Spatial</button>
+              <button type="button" class="card-tab-btn" data-tab="params" data-object-id="rain">🎛️ Parameters & Feeds <span class="card-tab-badge" id="tab-badge-rain">0</span></button>
+            </div>
+
+            <!-- Tab 1: Spatial Placement & Depth -->
+            <div class="card-tab-pane tab-spatial-pane active" id="tab-spatial-rain">
+              <div class="card-layer-toolbar" style="margin-top: 0;">
+                <div class="layer-selector-wrap">
+                  <label for="layer-select-rain">Layer:</label>
+                  <select class="select-change-layer" id="layer-select-rain" data-object-id="rain">
+                    <option value="bed">Bed</option>
+                    <option value="texture" selected>Texture</option>
+                    <option value="figure">Figure</option>
+                  </select>
+                </div>
+                <div class="card-actions-wrap">
+                  <button type="button" class="btn-remove-object" data-object-id="rain" title="Remove sonifier from landscape">🗑️ Remove</button>
+                </div>
               </div>
-              <div class="card-actions-wrap">
-                <button type="button" class="btn-param-map" data-object-id="rain" data-param="intensity" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="rain" title="Remove sonifier from landscape">🗑️ Remove</button>
+
+              <div class="spatial-strip">
+                <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+                <div class="control-row">
+                  <div class="control-label">
+                    <span>Component Volume</span>
+                    <span class="control-val" id="disp-rain-volume">65%</span>
+                  </div>
+                  <input type="range" id="rain-volume" min="0" max="1" step="0.01" value="0.65">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Stereo Pan</span>
+                    <span class="control-val" id="disp-rain-pan">Center (0.0)</span>
+                  </div>
+                  <input type="range" id="rain-pan" min="-1" max="1" step="0.05" value="0.0">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Distance / Depth</span>
+                    <span class="control-val" id="disp-rain-distance">4.0m (-1.7 dB, 46% wet)</span>
+                  </div>
+                  <input type="range" id="rain-distance" min="0" max="50" step="0.5" value="4">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Field Spread (Width)</span>
+                    <span class="control-val" id="disp-rain-spread">0.95 (Enveloping)</span>
+                  </div>
+                  <input type="range" id="rain-spread" min="0.05" max="1.0" step="0.05" value="0.95">
+                </div>
               </div>
             </div>
 
-            <!-- Prominent Component Volume & Pan -->
-            <div class="spatial-strip">
-              <div class="section-label">🔊 Channel Volume & Spatial Field</div>
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Component Volume</span>
-                  <span class="control-val" id="disp-rain-volume">65%</span>
-                </div>
-                <input type="range" id="rain-volume" min="0" max="1" step="0.01" value="0.65">
+            <!-- Tab 2: Parameters & Feed Mappings -->
+            <div class="card-tab-pane tab-params-pane" id="tab-params-rain">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <div class="section-label" style="margin-bottom: 0;">⚡ Droplet Exciters & Surface</div>
+                <button type="button" class="btn-param-map" data-object-id="rain" data-param="intensity" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">🎛️ Map Feed</button>
               </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Stereo Pan</span>
-                  <span class="control-val" id="disp-rain-pan">Center (0.0)</span>
-                </div>
-                <input type="range" id="rain-pan" min="-1" max="1" step="0.05" value="0.0">
-              </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Field Spread (Width)</span>
-                  <span class="control-val" id="disp-rain-spread">0.95 (Enveloping)</span>
-                </div>
-                <input type="range" id="rain-spread" min="0.05" max="1.0" step="0.05" value="0.95">
-              </div>
-            </div>
-
-            <div>
-              <div class="section-label">⚡ Droplet Exciters & Surface</div>
               <div class="control-row">
                 <div class="control-label">
                   <span>Rainfall Intensity</span>
@@ -514,50 +565,67 @@
               </div>
             </div>
 
-            <!-- Layer & Mapping Control Bar -->
-            <div class="card-layer-toolbar">
-              <div class="layer-selector-wrap">
-                <label for="layer-select-chime">Layer:</label>
-                <select class="select-change-layer" id="layer-select-chime" data-object-id="chimes">
-                  <option value="bed">Bed</option>
-                  <option value="texture">Texture</option>
-                  <option value="figure" selected>Figure</option>
-                </select>
+            <!-- Card Tab Bar -->
+            <div class="card-tabs-bar">
+              <button type="button" class="card-tab-btn active" data-tab="spatial" data-object-id="chimes">🧭 Spatial</button>
+              <button type="button" class="card-tab-btn" data-tab="params" data-object-id="chimes">🎛️ Parameters & Feeds <span class="card-tab-badge has-mappings" id="tab-badge-chimes">1</span></button>
+            </div>
+
+            <!-- Tab 1: Spatial Placement & Depth -->
+            <div class="card-tab-pane tab-spatial-pane active" id="tab-spatial-chimes">
+              <div class="card-layer-toolbar" style="margin-top: 0;">
+                <div class="layer-selector-wrap">
+                  <label for="layer-select-chime">Layer:</label>
+                  <select class="select-change-layer" id="layer-select-chime" data-object-id="chimes">
+                    <option value="bed">Bed</option>
+                    <option value="texture">Texture</option>
+                    <option value="figure" selected>Figure</option>
+                  </select>
+                </div>
+                <div class="card-actions-wrap">
+                  <button type="button" class="btn-remove-object" data-object-id="chimes" title="Remove sonifier from landscape">🗑️ Remove</button>
+                </div>
               </div>
-              <div class="card-actions-wrap">
-                <button type="button" class="btn-param-map" data-object-id="chimes" data-param="pitch" title="Configure feed mapping & decorators">🎛️ Map Feed</button>
-                <button type="button" class="btn-remove-object" data-object-id="chimes" title="Remove sonifier from landscape">🗑️ Remove</button>
+
+              <div class="spatial-strip">
+                <div class="section-label">🔊 Channel Volume & Spatial Field</div>
+                <div class="control-row">
+                  <div class="control-label">
+                    <span>Component Volume</span>
+                    <span class="control-val" id="disp-chime-volume">75%</span>
+                  </div>
+                  <input type="range" id="chime-volume" min="0" max="1" step="0.01" value="0.75">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Stereo Pan</span>
+                    <span class="control-val" id="disp-chime-pan">Right (+0.45)</span>
+                  </div>
+                  <input type="range" id="chime-pan" min="-1" max="1" step="0.05" value="0.45">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Distance / Depth</span>
+                    <span class="control-val" id="disp-chime-distance">3.0m (-1.3 dB, 42% wet)</span>
+                  </div>
+                  <input type="range" id="chime-distance" min="0" max="50" step="0.5" value="3">
+                </div>
+                <div class="control-row" style="margin-top: 0.4rem;">
+                  <div class="control-label">
+                    <span>Field Spread (Width)</span>
+                    <span class="control-val" id="disp-chime-spread">0.08 (Point Source)</span>
+                  </div>
+                  <input type="range" id="chime-spread" min="0.02" max="1.0" step="0.02" value="0.08">
+                </div>
               </div>
             </div>
 
-            <!-- Prominent Component Volume & Pan -->
-            <div class="spatial-strip">
-              <div class="section-label">🔊 Channel Volume & Spatial Field</div>
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Component Volume</span>
-                  <span class="control-val" id="disp-chime-volume">75%</span>
-                </div>
-                <input type="range" id="chime-volume" min="0" max="1" step="0.01" value="0.75">
+            <!-- Tab 2: Parameters & Feed Mappings -->
+            <div class="card-tab-pane tab-params-pane" id="tab-params-chimes">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <div class="section-label" style="margin-bottom: 0;">⚡ Exciters (Coupled & Discrete)</div>
+                <button type="button" class="btn-param-map" data-object-id="chimes" data-param="pitch" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">🎛️ Map Feed</button>
               </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Stereo Pan</span>
-                  <span class="control-val" id="disp-chime-pan">Right (+0.45)</span>
-                </div>
-                <input type="range" id="chime-pan" min="-1" max="1" step="0.05" value="0.45">
-              </div>
-              <div class="control-row" style="margin-top: 0.4rem;">
-                <div class="control-label">
-                  <span>Field Spread (Width)</span>
-                  <span class="control-val" id="disp-chime-spread">0.08 (Point Source)</span>
-                </div>
-                <input type="range" id="chime-spread" min="0.02" max="1.0" step="0.02" value="0.08">
-              </div>
-            </div>
-
-            <div>
-              <div class="section-label">⚡ Exciters (Coupled & Discrete)</div>
               <div class="toggle-row">
                 <label for="chime-wind-coupled">Wind-Driven Stochastic Strikes</label>
                 <input type="checkbox" id="chime-wind-coupled" checked>
@@ -565,33 +633,33 @@
               <div style="margin-top: 0.5rem;">
                 <button type="button" class="btn-action" id="btn-strike-chime">⚡ Strike Chime Tube</button>
               </div>
-            </div>
 
-            <div style="margin-top: 0.4rem;">
-              <div class="section-label">🔬 Physical Tube Properties</div>
-              <div class="control-row">
-                <div class="control-label">
-                  <span>Metal Alloy</span>
+              <div style="margin-top: 0.8rem;">
+                <div class="section-label">🔬 Physical Tube Properties</div>
+                <div class="control-row">
+                  <div class="control-label">
+                    <span>Metal Alloy</span>
+                  </div>
+                  <select id="chime-material" class="control-select">
+                    <option value="aluminum" selected>Aluminum (Long Singing Sustain)</option>
+                    <option value="bronze">Bronze (Warm Inharmonic Shimmer)</option>
+                    <option value="steel">Steel (Bright Cutting Tap)</option>
+                  </select>
                 </div>
-                <select id="chime-material" class="control-select">
-                  <option value="aluminum" selected>Aluminum (Long Singing Sustain)</option>
-                  <option value="bronze">Bronze (Warm Inharmonic Shimmer)</option>
-                  <option value="steel">Steel (Bright Cutting Tap)</option>
-                </select>
-              </div>
-              <div class="control-row" style="margin-top: 0.6rem;">
-                <div class="control-label">
-                  <span>Fundamental Pitch (D5)</span>
-                  <span class="control-val" id="disp-chime-pitch">587 Hz</span>
+                <div class="control-row" style="margin-top: 0.6rem;">
+                  <div class="control-label">
+                    <span>Fundamental Pitch (D5)</span>
+                    <span class="control-val" id="disp-chime-pitch">587 Hz</span>
+                  </div>
+                  <input type="range" id="chime-pitch" min="200" max="1600" step="1" value="587">
                 </div>
-                <input type="range" id="chime-pitch" min="200" max="1600" step="1" value="587">
-              </div>
-              <div class="control-row" style="margin-top: 0.6rem;">
-                <div class="control-label">
-                  <span>Damping</span>
-                  <span class="control-val" id="disp-chime-damping">0.25</span>
+                <div class="control-row" style="margin-top: 0.6rem;">
+                  <div class="control-label">
+                    <span>Damping</span>
+                    <span class="control-val" id="disp-chime-damping">0.25</span>
+                  </div>
+                  <input type="range" id="chime-damping" min="0.05" max="0.95" step="0.01" value="0.25">
                 </div>
-                <input type="range" id="chime-damping" min="0.05" max="0.95" step="0.01" value="0.25">
               </div>
             </div>
           </article>

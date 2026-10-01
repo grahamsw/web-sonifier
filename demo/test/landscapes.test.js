@@ -614,4 +614,162 @@ describe('Landscapes Studio UI & Integration', () => {
     expect(active).toEqual([])
     expect(document.querySelectorAll('.object-card').length).toBe(0)
   })
+
+  it('renders two-tab navigation on all sonifier cards and allows tab switching between Spatial and Parameters', async () => {
+    const { setupCardTabs } = await import('../landscapes/main.js')
+    setupCardTabs(document)
+
+    const windCard = document.getElementById('card-wind')
+    expect(windCard).not.toBeNull()
+
+    const tabBtns = windCard.querySelectorAll('.card-tab-btn')
+    expect(tabBtns.length).toBe(2)
+    const [btnSpatial, btnParams] = tabBtns
+
+    const spatialPane = windCard.querySelector('.tab-spatial-pane')
+    const paramsPane = windCard.querySelector('.tab-params-pane')
+    expect(spatialPane).not.toBeNull()
+    expect(paramsPane).not.toBeNull()
+
+    // Initially spatial is active
+    expect(spatialPane.classList.contains('active')).toBe(true)
+    expect(paramsPane.classList.contains('active')).toBe(false)
+    expect(btnSpatial.classList.contains('active')).toBe(true)
+
+    // Switch to parameters tab
+    btnParams.click()
+    expect(paramsPane.classList.contains('active')).toBe(true)
+    expect(spatialPane.classList.contains('active')).toBe(false)
+    expect(btnParams.classList.contains('active')).toBe(true)
+
+    // Switch back to spatial tab
+    btnSpatial.click()
+    expect(spatialPane.classList.contains('active')).toBe(true)
+    expect(paramsPane.classList.contains('active')).toBe(false)
+    expect(btnSpatial.classList.contains('active')).toBe(true)
+  })
+
+  it('provides distance / depth sliders with acoustic physics readouts (meters, dB attenuation, reverb send)', async () => {
+    const { formatDistance, initDistanceSliders, landscape } = await import('../landscapes/main.js')
+    initDistanceSliders(document)
+
+    const windDist = document.getElementById('wind-distance')
+    const windDistDisp = document.getElementById('disp-wind-distance')
+    expect(windDist).not.toBeNull()
+    expect(windDistDisp).not.toBeNull()
+
+    // Test formatDistance
+    const formatted = formatDistance(12)
+    expect(formatted).toContain('12.0m')
+    expect(formatted).toContain('dB')
+    expect(formatted).toContain('wet')
+
+    // Modulating distance slider
+    windDist.value = '20'
+    windDist.dispatchEvent(new Event('input'))
+    expect(windDistDisp.textContent).toContain('20.0m')
+
+    const oceanDist = document.getElementById('ocean-distance')
+    const rainDist = document.getElementById('rain-distance')
+    const chimeDist = document.getElementById('chime-distance')
+    expect(oceanDist).not.toBeNull()
+    expect(rainDist).not.toBeNull()
+    expect(chimeDist).not.toBeNull()
+  })
+
+  it('calculates 2D soundstage coordinates from azimuth pan and metric distance', async () => {
+    const { getObjectCoordinates } = await import('../landscapes/main.js')
+
+    const pos = getObjectCoordinates('wind', 800, 320)
+    expect(pos.x).toBeDefined()
+    expect(pos.y).toBeDefined()
+    expect(pos.label).toContain('Wind')
+    expect(pos.pan).toBeDefined()
+    expect(pos.distance).toBeDefined()
+    expect(pos.spread).toBeDefined()
+
+    // Center X should be near 400 when pan is 0
+    expect(Math.abs(pos.x - 400)).toBeLessThan(10)
+    // Distance should place it in upper half of canvas
+    expect(pos.y).toBeLessThan(320)
+  })
+
+  it('interactively drags soundstage nodes via pointer events and synchronizes with card sliders and landscape engine', async () => {
+    const { getObjectCoordinates, updateCardSpatialControls, initSoundstageCanvas, landscape } = await import('../landscapes/main.js')
+
+    const canvas = document.getElementById('soundstage-canvas')
+    expect(canvas).not.toBeNull()
+
+    // Mock canvas methods for jsdom
+    if (!canvas.setPointerCapture) canvas.setPointerCapture = vi.fn()
+    if (!canvas.releasePointerCapture) canvas.releasePointerCapture = vi.fn()
+    if (!canvas.hasPointerCapture) canvas.hasPointerCapture = vi.fn(() => true)
+    canvas.getBoundingClientRect = vi.fn(() => ({ left: 0, top: 0, width: 800, height: 320 }))
+    canvas.width = 800
+    canvas.height = 320
+
+    initSoundstageCanvas(canvas)
+
+    const posBefore = getObjectCoordinates('wind', 800, 320)
+
+    // Simulate pointerdown on wind node
+    const downEvent = new MouseEvent('pointerdown', { clientX: posBefore.x, clientY: posBefore.y, bubbles: true })
+    downEvent.pointerId = 1
+    canvas.dispatchEvent(downEvent)
+
+    // Simulate pointermove dragging to the left and deeper into space
+    const moveEvent = new MouseEvent('pointermove', { clientX: 250, clientY: 80, bubbles: true })
+    moveEvent.pointerId = 1
+    canvas.dispatchEvent(moveEvent)
+
+    // Sliders should update
+    const panSlider = document.getElementById('wind-pan')
+    const distSlider = document.getElementById('wind-distance')
+    expect(parseFloat(panSlider.value)).toBeLessThan(0)
+    expect(parseFloat(distSlider.value)).toBeGreaterThan(20)
+
+    // Simulate pointerup
+    const upEvent = new MouseEvent('pointerup', { clientX: 250, clientY: 80, bubbles: true })
+    upEvent.pointerId = 1
+    canvas.dispatchEvent(upEvent)
+  })
+
+  it('creates two-tab card for dynamically added sonifiers with distance control', async () => {
+    const { createSonifierCard } = await import('../landscapes/main.js')
+
+    const card = createSonifierCard('synth-pad', 'eno-bed', 'bed')
+    expect(card).not.toBeNull()
+
+    const tabBtns = card.querySelectorAll('.card-tab-btn')
+    expect(tabBtns.length).toBe(2)
+
+    const distSlider = card.querySelector('#synth-pad-distance')
+    expect(distSlider).not.toBeNull()
+    expect(card.querySelector('#disp-synth-pad-distance').textContent).toContain('m')
+
+    const spatialPane = card.querySelector('.tab-spatial-pane')
+    const paramsPane = card.querySelector('.tab-params-pane')
+    expect(spatialPane).not.toBeNull()
+    expect(paramsPane).not.toBeNull()
+
+    // Test tab switching on dynamic card
+    tabBtns[1].click()
+    expect(paramsPane.classList.contains('active')).toBe(true)
+    expect(spatialPane.classList.contains('active')).toBe(false)
+  })
+
+  it('updates card tab mapping badge counts accurately when mappings exist', async () => {
+    const { updateTabMappingBadges, landscape } = await import('../landscapes/main.js')
+
+    updateTabMappingBadges()
+
+    const windBadge = document.getElementById('tab-badge-wind')
+    expect(windBadge).not.toBeNull()
+    // Wind has traffic_rps mapped in default mappings
+    const windCount = landscape._mappings.filter(m => m.target?.objectId === 'wind').length
+    expect(windBadge.textContent).toBe(String(windCount))
+    if (windCount > 0) {
+      expect(windBadge.classList.contains('has-mappings')).toBe(true)
+    }
+  })
 })
