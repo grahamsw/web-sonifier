@@ -1,7 +1,8 @@
-node_modules/
+node_modules
 .firebase/
 .DS_Store
 dist/
 *.log
 .antigravitycli/cd35dbd2-6396-4fcb-ba5f-6319de2e5459.json
 .npm-cache/
+.worktrees/

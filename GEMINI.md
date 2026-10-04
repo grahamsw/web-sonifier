@@ -11,16 +11,66 @@ This file contains foundational mandates for all agents and developers working o
 
 ## Workspace Guidelines
 -   Use Antigravity planning mode for all non-trivial features and refactors.
--   **Track Lifecycle & Pull Request Mandate**: 
-    -   **No Direct Push to Main**: NEVER push directly to `main` or merge locally into `main` before pushing.
-    -   **Branching**: Always create a new feature (`feat/...`) or bugfix (`fix/...`) branch when starting a task or track.
-    -   **Pull Request Workflow**:
-        1. Commit changes to the feature/bugfix branch (pre-commit tests run via husky).
-        2. Push the branch to `origin` (`git push -u origin <branch>`).
-        3. Create a Pull Request (via `gh pr create`).
-        4. Verify CI status checks (`test.yml`) pass on the PR.
-        5. Merge the PR into `main` (via `gh pr merge`). Merging into `main` on GitHub triggers the automated deployment pipeline (`deploy.yml`).
-    -   **Sync & Cleanup**: Pull the latest `main` locally (`git checkout main && git pull origin main`) and delete the feature branch locally and remotely (`git branch -d <branch>`).
+-   **No Direct Push to Main**: NEVER push directly to `main` or merge locally into `main` before pushing.
+-   **Issue-Driven Worktree & PR Lifecycle Workflow**:
+    Whenever work on a new issue is started, all agents and developers MUST execute the following lifecycle:
+    1. **Branch & Worktree Provisioning**:
+       - Ensure `main` is fresh: `git checkout main && git pull origin main`.
+       - Create a new branch named after the issue (e.g., `feat/<issue-number>-<slug>` or `fix/<issue-number>-<slug>`).
+       - Create a dedicated worktree inside `.worktrees/<branch-name>`:
+         ```bash
+         git worktree add .worktrees/<branch-name> -b <branch-name> origin/main
+         ln -s ../../node_modules .worktrees/<branch-name>/node_modules
+         ```
+       - **All development, editing, building, and testing for this issue MUST occur inside this worktree directory.**
+    2. **Draft Pull Request Creation**:
+       - Push the initial branch/commit to origin:
+         ```bash
+         git push -u origin <branch-name>
+         ```
+       - Create a Draft Pull Request immediately on GitHub:
+         ```bash
+         gh pr create --draft --title "WIP: #<issue> <short-description>" --body "Closes #<issue>\n\nWork in progress on dedicated worktree..."
+         ```
+       - The draft PR enables real-time tracking of branch drift from `main`, triggers preliminary CI checks, and provides full progress visibility.
+    3. **Drift Tracking & Synchronization**:
+       - While working in the worktree, periodically track how far the branch drifts from `main`.
+       - Fetch and rebase/merge regularly to keep the branch clean and up to date:
+         ```bash
+         git fetch origin main
+         git rebase origin/main # or git merge origin/main
+         ```
+       - Resolve any conflicts early to ensure trivial, clean integration later.
+    4. **Completion & PR Finalization**:
+       - When all work and tests for the issue are complete inside the worktree:
+         - Verify all unit tests pass locally (`npm test` runs automatically via husky pre-commit hook).
+         - Push all final commits to `origin`.
+         - Update the PR description with the final summary of changes, motivation, and verification checklist.
+         - Mark the PR ready for review: `gh pr ready <PR-number>`.
+         - Verify there are zero merge conflicts and that the PR will merge cleanly into `main` (`gh pr view`).
+         - Verify that all CI status checks (e.g., `test.yml`) are 100% green.
+    5. **User Review & Merge Protocol**:
+       - **The USER reviews the PR and executes the merge.**
+       - The agent ensures:
+         - Zero merge conflicts with `main`.
+         - Clean mergeability.
+         - All unit tests and CI checks are passing.
+       - Notify the user that the PR is ready for their final review and merge.
+    6. **Post-Merge Cleanup & Sync**:
+       - After the user merges the PR on GitHub:
+         - Switch back to the root repository and pull latest `main`:
+           ```bash
+           git checkout main && git pull origin main
+           ```
+         - Remove the worktree:
+           ```bash
+           git worktree remove .worktrees/<branch-name>
+           ```
+         - Delete the local and remote branch:
+           ```bash
+           git branch -d <branch-name>
+           git push origin --delete <branch-name>
+           ```
 -   Maintain `implementation_plan.md` and `task.md` in the App Data Directory as the source of truth for tracking active tasks.
 
 ## Sonifier Best Practices
